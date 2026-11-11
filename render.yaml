@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: bbcc-fund-grup
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: FOUNDER_AADHAAR
+        sync: false
+      - key: FOUNDER_PASSWORD
+        sync: false
+      - key: ASTRA_DB_API_ENDPOINT
+        sync: false
+      - key: ASTRA_DB_APPLICATION_TOKEN
+        sync: false
+      - key: ASTRA_DB_KEYSPACE
+        sync: false
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true

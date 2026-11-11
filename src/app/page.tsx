@@ -1,0 +1,166 @@
+import Link from "next/link";
+import {
+  Shield,
+  CreditCard,
+  Percent,
+  Receipt,
+  Vote,
+  CheckCircle2,
+  Lock,
+  ArrowRight,
+  BookOpen,
+  Users,
+} from "lucide-react";
+
+export default function HomePage() {
+  const features = [
+    {
+      title: "आधार व पैन सुरक्षित ऑनबोर्डिंग",
+      desc: "एडमिन व मैनेजर द्वारा सदस्यों का पूरा KYC (मोबाइल, पैन, आधार, बैंक खाता) सुरक्षित रूप से दर्ज किया जाता है।",
+      icon: Users,
+    },
+    {
+      title: "रेज़रपे (Razorpay) गेटवे पेमेंट",
+      desc: "हर महीने की नियत तारीख पर सभी सदस्य UPI, कार्ड या नेटबैंकिंग से सुरक्षित रूप से मासिक अंशदान जमा करते हैं।",
+      icon: CreditCard,
+    },
+    {
+      title: "ज़रूरतमंद के लिए पारदर्शी वोटिंग",
+      desc: "इमर्जेंसी में पैसे की आवश्यकता होने पर सदस्य आवेदन करते हैं और ग्रुप के सभी लोग मिलकर वोट करते हैं।",
+      icon: Vote,
+    },
+    {
+      title: "फाउंडर एवं MD का दोहरा अप्रूवल",
+      desc: "वोटिंग में चयन के बाद फाउंडर और मैनेजिंग डायरेक्टर दोनों के डिजिटल अप्रूवल के बाद ही भुगतान स्वीकृत होता है।",
+      icon: CheckCircle2,
+    },
+    {
+      title: "₹1 सैकड़ा प्रतिमाह ब्याज दर",
+      desc: "पैसे मिलने की तारीख से केवल 1% प्रतिमाह (₹1 प्रति ₹100/माह) साधारण ब्याज दर लागू होती है।",
+      icon: Percent,
+    },
+    {
+      title: "स्क्रीनशॉट प्रमाण व ₹20 कटौती",
+      desc: "फाउंडर ₹20 काटकर सीधे बैंक में पैसा भेजकर पेमेंट का स्क्रीनशॉट पोर्टल पर अपलोड करता है, जो सबको दिखता है।",
+      icon: Receipt,
+    },
+  ];
+
+  return (
+    <div className="space-y-16 py-10 sm:py-16">
+      {/* Hero Section */}
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 text-center space-y-6">
+        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-sky-50 border border-sky-200 text-sky-800 text-xs font-bold tracking-wide">
+          <Shield className="w-4 h-4 text-sky-600" />
+          <span>Astra DB एवं Razorpay द्वारा संचालित 100% पारदर्शी बचत समूह</span>
+        </div>
+
+        <h1 className="text-4xl sm:text-6xl font-black text-slate-900 tracking-tight leading-tight">
+          BBCC FUND GRUP <br />
+          <span className="bg-gradient-to-r from-brand-600 via-sky-600 to-indigo-600 bg-clip-text text-transparent">
+            डिजिटल कमेटी व सहयोग फंड
+          </span>
+        </h1>
+
+        <p className="max-w-2xl mx-auto text-base sm:text-lg text-slate-600 font-medium leading-relaxed">
+          एक ऐसा आधुनिक और निष्पक्ष समूह जहाँ सभी सदस्य मिलकर बचत करते हैं, आवश्यकता पड़ने पर वोटिंग
+          से फंड प्राप्त करते हैं और फाउंडर व MD के अप्रूवल से तुरंत सहयोग पाते हैं।
+        </p>
+
+        <div className="flex flex-wrap items-center justify-center gap-4 pt-2">
+          <Link
+            href="/login"
+            className="px-8 py-3.5 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl font-bold shadow-lg shadow-slate-900/20 text-sm flex items-center gap-2 transition"
+          >
+            <span>पोर्टल पर लॉगिन करें</span>
+            <ArrowRight className="w-4 h-4" />
+          </Link>
+
+          <Link
+            href="/rules"
+            className="px-6 py-3.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 rounded-2xl font-bold text-sm flex items-center gap-2 transition"
+          >
+            <BookOpen className="w-4 h-4 text-amber-700" />
+            <span>नियम व शर्तें पढ़ें (Rules)</span>
+          </Link>
+        </div>
+      </div>
+
+      {/* Feature Grid */}
+      <div className="max-w-6xl mx-auto px-4 sm:px-6">
+        <div className="text-center mb-10">
+          <h2 className="text-2xl sm:text-3xl font-black text-slate-900">
+            ग्रुप की प्रमुख विशेषताएं एवं नियम
+          </h2>
+          <p className="text-sm text-slate-500 font-medium mt-1">
+            हर प्रक्रिया निष्पक्ष, स्वचालित एवं डेटाबेस में पारदर्शी रूप से दर्ज होती है।
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {features.map((f, i) => {
+            const Icon = f.icon;
+            return (
+              <div
+                key={i}
+                className="p-6 rounded-3xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md transition"
+              >
+                <div className="w-12 h-12 rounded-2xl bg-brand-50 text-brand-600 flex items-center justify-center mb-4">
+                  <Icon className="w-6 h-6" />
+                </div>
+                <h3 className="text-base font-bold text-slate-900">{f.title}</h3>
+                <p className="mt-2 text-xs sm:text-sm text-slate-600 font-normal leading-relaxed">
+                  {f.desc}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Quick Test Credentials Box */}
+      <div className="max-w-4xl mx-auto px-4 sm:px-6">
+        <div className="bg-slate-900 text-white rounded-3xl p-6 sm:p-8 shadow-xl">
+          <div className="flex items-center gap-2 text-amber-400 text-xs font-black uppercase tracking-wider mb-2">
+            <Lock className="w-4 h-4" />
+            <span>लॉगिन क्रेडेंशियल्स (Unified Smart Login)</span>
+          </div>
+          <h3 className="text-xl font-black">एक ही लॉगिन पेज से सभी की एंट्री</h3>
+          <p className="text-xs text-slate-300 mt-1">
+            लॉगिन पेज पर आईडी और पासवर्ड/जन्मतिथि डालते ही सिस्टम सही डैशबोर्ड पर स्वतः भेज देता है:
+          </p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
+            <div className="p-4 bg-white/10 rounded-2xl border border-white/10">
+              <span className="text-xs font-bold text-sky-400 block mb-1">👑 मुख्य फाउंडर (Admin)</span>
+              <p className="text-xs text-slate-300 font-medium">आईडी (आधार): <strong>649712349707</strong></p>
+              <p className="text-xs text-slate-300 font-medium">पासवर्ड: <strong>09042001</strong></p>
+            </div>
+
+            <div className="p-4 bg-white/10 rounded-2xl border border-white/10">
+              <span className="text-xs font-bold text-indigo-400 block mb-1">👔 मैनेजिंग डायरेक्टर (MD)</span>
+              <p className="text-xs text-slate-300 font-medium">मोबाइल: <strong>9876543210</strong></p>
+              <p className="text-xs text-slate-300 font-medium">पासवर्ड: <strong>manager_pass_123</strong></p>
+            </div>
+
+            <div className="p-4 bg-white/10 rounded-2xl border border-white/10">
+              <span className="text-xs font-bold text-emerald-400 block mb-1">👤 सदस्य (Client)</span>
+              <p className="text-xs text-slate-300 font-medium">मोबाइल: <strong>9811122233</strong></p>
+              <p className="text-xs text-slate-300 font-medium">जन्मतिथि: <strong>01011995</strong></p>
+            </div>
+          </div>
+
+          <div className="mt-6 text-center">
+            <Link
+              href="/login"
+              className="inline-flex items-center gap-2 px-6 py-2.5 bg-brand-500 hover:bg-brand-600 text-white rounded-xl text-xs font-bold transition"
+            >
+              <span>लॉगिन पेज पर जाएं</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
