@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyToken } from "@/lib/auth";
-import { getLocalStore } from "@/lib/astra";
-import { Vote } from "@/lib/types";
+import { verifyToken } from "../../../lib/auth";
+import { getLocalStore } from "../../../lib/astra";
+import { Vote } from "../../../lib/types";
 
 export async function POST(req: NextRequest) {
   const token = req.cookies.get("bbcc_session")?.value;
