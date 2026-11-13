@@ -232,7 +232,7 @@ export default function MemberDashboard() {
           <h1 className="text-2xl sm:text-3xl font-black">नमस्ते, {currentUser?.name}</h1>
           <p className="text-xs sm:text-sm text-slate-300 mt-1 font-medium">
             मोबाइल: {currentUser?.mobile} • पैन: {currentUser?.pan || "N/A"} • आधार: XXXX-XXXX-
-            {currentUser?.aadhaar ? currentUser.aadhaar.slice(-4) : "N/A"}
+            {currentUser?.aadhaar_last4 || "XXXX"}
           </p>
         </div>
 

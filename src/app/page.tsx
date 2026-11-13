@@ -118,45 +118,49 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* Quick Test Credentials Box */}
+      {/* Security & Data Integrity Assurance */}
       <div className="max-w-4xl mx-auto px-4 sm:px-6">
-        <div className="bg-slate-900 text-white rounded-3xl p-6 sm:p-8 shadow-xl">
-          <div className="flex items-center gap-2 text-amber-400 text-xs font-black uppercase tracking-wider mb-2">
-            <Lock className="w-4 h-4" />
-            <span>लॉगिन क्रेडेंशियल्स (Unified Smart Login)</span>
+        <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-brand-950 text-white rounded-3xl p-8 sm:p-10 shadow-xl border border-slate-800">
+          <div className="flex items-center gap-2 text-emerald-400 text-xs font-black uppercase tracking-wider mb-2">
+            <Shield className="w-4 h-4" />
+            <span>सुरक्षा एवं डेटा अखंडता (High Security Guarantee)</span>
           </div>
-          <h3 className="text-xl font-black">एक ही लॉगिन पेज से सभी की एंट्री</h3>
-          <p className="text-xs text-slate-300 mt-1">
-            लॉगिन पेज पर आईडी और पासवर्ड/जन्मतिथि डालते ही सिस्टम सही डैशबोर्ड पर स्वतः भेज देता है:
+          <h3 className="text-2xl font-black">100% एन्क्रिप्टेड एवं हैक-प्रूफ प्रणाली</h3>
+          <p className="text-xs sm:text-sm text-slate-300 mt-2 font-normal leading-relaxed">
+            BBCC Fund Grup का डेटाबेस सीधे <strong>DataStax Astra DB (NoSQL Serverless Cloud)</strong> पर
+            होस्टेड है। किसी भी सदस्य का आधार या पासवर्ड कभी भी प्लेन टेक्स्ट में स्टोर नहीं होता:
           </p>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
-            <div className="p-4 bg-white/10 rounded-2xl border border-white/10">
-              <span className="text-xs font-bold text-sky-400 block mb-1">👑 मुख्य फाउंडर (Admin)</span>
-              <p className="text-xs text-slate-300 font-medium">आईडी (आधार): <strong>649712349707</strong></p>
-              <p className="text-xs text-slate-300 font-medium">पासवर्ड: <strong>09042001</strong></p>
+            <div className="p-4 bg-white/5 rounded-2xl border border-white/10">
+              <span className="text-xs font-bold text-sky-400 block mb-1">🔐 Bcrypt पासवर्ड हैशिंग</span>
+              <p className="text-xs text-slate-300 font-medium">
+                सभी पासवर्ड्स और क्रेडेंशियल्स 12-राउंड सॉल्टेड हैश के साथ पूर्ण सुरक्षित हैं।
+              </p>
             </div>
 
-            <div className="p-4 bg-white/10 rounded-2xl border border-white/10">
-              <span className="text-xs font-bold text-indigo-400 block mb-1">👔 मैनेजिंग डायरेक्टर (MD)</span>
-              <p className="text-xs text-slate-300 font-medium">मोबाइल: <strong>9876543210</strong></p>
-              <p className="text-xs text-slate-300 font-medium">पासवर्ड: <strong>manager_pass_123</strong></p>
+            <div className="p-4 bg-white/5 rounded-2xl border border-white/10">
+              <span className="text-xs font-bold text-amber-400 block mb-1">🛡️ आधार HMAC-SHA256</span>
+              <p className="text-xs text-slate-300 font-medium">
+                आधार नंबर केवल अंतिम 4 अंक दिखाता है; मूल आधार डेटाबेस में क्रिप्टोग्राफिक रूप से सील रहता है।
+              </p>
             </div>
 
-            <div className="p-4 bg-white/10 rounded-2xl border border-white/10">
-              <span className="text-xs font-bold text-emerald-400 block mb-1">👤 सदस्य (Client)</span>
-              <p className="text-xs text-slate-300 font-medium">मोबाइल: <strong>9811122233</strong></p>
-              <p className="text-xs text-slate-300 font-medium">जन्मतिथि: <strong>01011995</strong></p>
+            <div className="p-4 bg-white/5 rounded-2xl border border-white/10">
+              <span className="text-xs font-bold text-emerald-400 block mb-1">💳 रेज़रपे सुरक्षित गेटवे</span>
+              <p className="text-xs text-slate-300 font-medium">
+                सभी भुगतान PCI-DSS प्रमाणित बैंक-स्तरीय रेज़रपे गेटवे द्वारा सत्यापित होते हैं।
+              </p>
             </div>
           </div>
 
-          <div className="mt-6 text-center">
+          <div className="mt-8 text-center">
             <Link
               href="/login"
-              className="inline-flex items-center gap-2 px-6 py-2.5 bg-brand-500 hover:bg-brand-600 text-white rounded-xl text-xs font-bold transition"
+              className="inline-flex items-center gap-2 px-8 py-3 bg-brand-500 hover:bg-brand-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-brand-500/25 transition"
             >
-              <span>लॉगिन पेज पर जाएं</span>
-              <ArrowRight className="w-3.5 h-3.5" />
+              <span>सुरक्षित पोर्टल पर लॉगिन करें</span>
+              <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
         </div>

@@ -44,7 +44,6 @@ interface Manager {
   mobile: string;
   dob: string;
   role: string;
-  custom_password?: string;
 }
 
 interface GroupData {
@@ -695,8 +694,8 @@ export default function AdminDashboard() {
                       </td>
                       <td className="py-3 px-4 text-slate-600">{m.mobile}</td>
                       <td className="py-3 px-4 text-slate-500">{m.dob}</td>
-                      <td className="py-3 px-4 text-slate-500">
-                        {m.pan} / XXXX-{m.aadhaar_last4}
+                      <td className="py-3 px-4 text-slate-500 font-mono text-xs">
+                        {m.pan} / XXXX-XXXX-{m.aadhaar_last4}
                       </td>
                       <td className="py-3 px-4">
                         {m.payment_status === "paid" ? (
@@ -803,9 +802,9 @@ export default function AdminDashboard() {
                   मैनेजर लॉगिन पासवर्ड
                 </label>
                 <input
-                  type="text"
+                  type="password"
                   required
-                  placeholder="नया पासवर्ड सेट करें"
+                  placeholder="सुरक्षित पासवर्ड दर्ज करें"
                   value={mgrPassword}
                   onChange={(e) => setMgrPassword(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-none"
@@ -839,8 +838,8 @@ export default function AdminDashboard() {
                   <div>
                     <h4 className="font-bold text-slate-900 text-sm">{mgr.name}</h4>
                     <p className="text-xs text-slate-500 font-medium">मोबाइल: {mgr.mobile}</p>
-                    <p className="text-xs text-indigo-700 font-bold mt-0.5">
-                      पासवर्ड: {mgr.custom_password || "******"}
+                    <p className="text-xs text-emerald-700 font-bold mt-0.5">
+                      सुरक्षा: Bcrypt हैश एन्क्रिप्टेड (Password Protected)
                     </p>
                   </div>
                   <span className="px-3 py-1 bg-indigo-100 text-indigo-800 text-xs font-black rounded-full">

@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
       name: user.name,
       role: user.role,
       mobile: user.mobile,
-      aadhaar: user.aadhaar,
+      aadhaar: user.aadhaar_last4,
     });
 
     const response = NextResponse.json({
@@ -36,16 +36,18 @@ export async function POST(req: NextRequest) {
         name: user.name,
         role: user.role,
         mobile: user.mobile,
+        aadhaar_last4: user.aadhaar_last4,
       },
       redirectTo: user.role === "member" ? "/dashboard" : "/admin",
     });
 
-    // Set HTTP-only session cookie
+    // Set secure HTTP-only session cookie (prevents XSS & CSRF attacks)
     response.cookies.set("bbcc_session", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
       path: "/",
-      maxAge: 60 * 60 * 24 * 7, // 7 days
+      maxAge: 60 * 60 * 24, // 24 hours
     });
 
     return response;

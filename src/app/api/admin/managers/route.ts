@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyToken } from "../../../../lib/auth";
-import { getLocalStore } from "../../../../lib/astra";
+import {
+  dbFindUsers,
+  dbFindUser,
+  dbInsertUser,
+  dbUpdateUser,
+  dbGetActiveGroup,
+  dbInsertGroupMember,
+} from "../../../../lib/astra";
+import { hashPassword, hashAadhaar, sanitize } from "../../../../lib/crypto";
 import { User } from "../../../../lib/types";
 
 export async function GET(req: NextRequest) {
@@ -11,10 +19,20 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
-  const store = getLocalStore();
-  const managers = store.users.filter((u) => u.role === "manager");
+  const managers = await dbFindUsers({ role: "manager" });
+  // Exclude password_hash and aadhaar_hash from response
+  const safeManagers = managers.map((m) => ({
+    _id: m._id,
+    name: m.name,
+    mobile: m.mobile,
+    dob: m.dob,
+    role: m.role,
+    aadhaar_last4: m.aadhaar_last4,
+    pan: m.pan,
+    created_at: m.created_at,
+  }));
 
-  return NextResponse.json({ managers });
+  return NextResponse.json({ managers: safeManagers });
 }
 
 export async function POST(req: NextRequest) {
@@ -22,59 +40,76 @@ export async function POST(req: NextRequest) {
   const session = token ? verifyToken(token) : null;
 
   if (!session || session.role !== "founder") {
-    return NextResponse.json({ error: "केवल मुख्य फाउंडर ही मैनेजर बना सकते हैं।" }, { status: 403 });
+    return NextResponse.json({ error: "केवल मुख्य फाउंडर ही मैनेजर (MD) बना सकते हैं।" }, { status: 403 });
   }
 
   try {
     const { name, mobile, password, aadhaar, pan, dob, member_id } = await req.json();
 
-    const store = getLocalStore();
-
     // Option 1: Promote an existing member to Manager (MD)
     if (member_id) {
-      const existingMember = store.users.find((u) => u._id === member_id);
+      const existingMember = await dbFindUser({ _id: member_id });
       if (!existingMember) {
         return NextResponse.json({ error: "सदस्य नहीं मिला।" }, { status: 404 });
       }
-      existingMember.role = "manager";
-      if (password) existingMember.custom_password = password.trim();
+
+      const updates: Partial<User> = { role: "manager" };
+      if (password && password.trim()) {
+        updates.password_hash = await hashPassword(password.trim());
+      }
+
+      await dbUpdateUser(member_id, updates);
 
       return NextResponse.json({
         success: true,
-        manager: existingMember,
-        message: `${existingMember.name} को सफलतापूर्वक ग्रुप का मैनेजिंग डायरेक्टर (MD) बनाया गया!`,
+        manager: {
+          _id: existingMember._id,
+          name: existingMember.name,
+          mobile: existingMember.mobile,
+          role: "manager",
+        },
+        message: `${existingMember.name} को सफलतापूर्वक ग्रुप का MD (मैनेजिंग डायरेक्टर) नियुक्त किया गया!`,
       });
     }
 
-    if (!name || !mobile || !password) {
-      return NextResponse.json({ error: "नाम, मोबाइल और पासवर्ड आवश्यक हैं।" }, { status: 400 });
+    const cleanName = sanitize(name);
+    const cleanMobile = sanitize(mobile).replace(/\D/g, "");
+    const cleanPassword = sanitize(password);
+
+    if (!cleanName || cleanMobile.length < 10 || cleanPassword.length < 4) {
+      return NextResponse.json({ error: "कृपया मान्य नाम, 10-अंकीय मोबाइल एवं सुरक्षित पासवर्ड दर्ज करें।" }, { status: 400 });
     }
 
-    const existing = store.users.find((u) => u.mobile === mobile);
+    const existing = await dbFindUser({ mobile: cleanMobile });
     if (existing) {
       return NextResponse.json({ error: "यह मोबाइल नंबर पहले से पंजीकृत है।" }, { status: 400 });
     }
 
+    const hashedPassword = await hashPassword(cleanPassword);
+    const rawAadhaar = sanitize(aadhaar || "000000000000").replace(/\D/g, "");
+    const hashedAadhaar = hashAadhaar(rawAadhaar);
+
     const newManager: User = {
       _id: `mgr_${Date.now()}`,
-      name: name.trim(),
-      mobile: mobile.trim(),
-      dob: dob || "1990-01-01",
+      name: cleanName,
+      mobile: cleanMobile,
+      dob: sanitize(dob) || "19900101",
       role: "manager",
-      aadhaar: aadhaar || "000000000000",
-      pan: pan || "MANAGER123",
-      custom_password: password.trim(),
+      aadhaar_last4: rawAadhaar.slice(-4),
+      aadhaar_hash: hashedAadhaar,
+      pan: sanitize(pan) || "MANAGER123",
+      password_hash: hashedPassword,
       created_at: new Date().toISOString(),
     };
 
-    store.users.push(newManager);
+    await dbInsertUser(newManager);
 
-    // Also add to group_members so Manager contributes money to pool
-    const targetGroupId = store.groups[0]?._id;
-    if (targetGroupId) {
-      store.group_members.push({
+    // Also add to active group members so Manager participates and contributes
+    const activeGroup = await dbGetActiveGroup();
+    if (activeGroup) {
+      await dbInsertGroupMember({
         _id: `gm_${Date.now()}`,
-        group_id: targetGroupId,
+        group_id: activeGroup._id,
         user_id: newManager._id,
         joined_at: new Date().toISOString(),
         has_received_payout: false,
@@ -83,8 +118,13 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      manager: newManager,
-      message: "मैनेजर (MD) सफलतापूर्वक बनाया गया और ग्रुप में अंशदान सदस्य के रूप में जोड़ दिया गया।",
+      manager: {
+        _id: newManager._id,
+        name: newManager.name,
+        mobile: newManager.mobile,
+        role: newManager.role,
+      },
+      message: "मैनेजर (MD) सफलतापूर्वक बनाया गया और पासवर्ड Bcrypt से हैश करके सेव किया गया।",
     });
   } catch (error) {
     console.error("Create manager error:", error);

@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyToken } from "../../../../lib/auth";
-import { getLocalStore } from "../../../../lib/astra";
+import {
+  dbFindUsers,
+  dbFindUser,
+  dbInsertUser,
+  dbGetActiveGroup,
+  dbInsertGroupMember,
+} from "../../../../lib/astra";
+import { hashAadhaar, sanitize } from "../../../../lib/crypto";
 import { User, GroupMember } from "../../../../lib/types";
 
 export async function GET(req: NextRequest) {
@@ -11,12 +18,22 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const store = getLocalStore();
-  const members = store.users.filter((u) => u.role === "member");
+  const allMembers = await dbFindUsers({ role: "member" });
+  const safeMembers = allMembers.map((m) => ({
+    _id: m._id,
+    name: m.name,
+    mobile: m.mobile,
+    dob: m.dob,
+    role: m.role,
+    aadhaar_last4: m.aadhaar_last4,
+    pan: m.pan,
+    bank_details: m.bank_details,
+    created_at: m.created_at,
+  }));
 
   return NextResponse.json({
-    members,
-    total: members.length,
+    members: safeMembers,
+    total: safeMembers.length,
   });
 }
 
@@ -24,35 +41,48 @@ export async function POST(req: NextRequest) {
   const token = req.cookies.get("bbcc_session")?.value;
   const session = token ? verifyToken(token) : null;
 
-  // Both Founder and Manager can add members
   if (!session || (session.role !== "founder" && session.role !== "manager" && session.role !== "admin")) {
     return NextResponse.json({ error: "Unauthorized. केवल एडमिन या मैनेजर सदस्य जोड़ सकते हैं।" }, { status: 403 });
   }
 
   try {
     const body = await req.json();
-    const { name, mobile, dob, aadhaar, pan, bank_details, group_id } = body;
+    const name = sanitize(body.name);
+    const mobile = sanitize(body.mobile).replace(/\D/g, "");
+    const dob = sanitize(body.dob).replace(/\D/g, "");
+    const rawAadhaar = sanitize(body.aadhaar).replace(/\D/g, "");
+    const pan = sanitize(body.pan).toUpperCase();
+    const bank_details = body.bank_details;
 
-    if (!name || !mobile || !dob || !aadhaar || !pan) {
-      return NextResponse.json({ error: "सभी आवश्यक फ़ील्ड (नाम, मोबाइल, जन्मतिथि, आधार, पैन) भरें।" }, { status: 400 });
+    if (!name || mobile.length < 10 || dob.length < 8 || rawAadhaar.length < 12 || pan.length < 10) {
+      return NextResponse.json(
+        { error: "कृपया सभी फ़ील्ड सही प्रारूप में भरें (10-अंकीय मोबाइल, 8-अंकीय जन्मतिथि, 12-अंकीय आधार, 10-अक्षरीय पैन)।" },
+        { status: 400 }
+      );
     }
 
-    const store = getLocalStore();
+    const hashedAadhaar = hashAadhaar(rawAadhaar);
 
-    // Check if mobile or aadhaar already registered
-    const existing = store.users.find((u) => u.mobile === mobile || u.aadhaar === aadhaar);
-    if (existing) {
-      return NextResponse.json({ error: "यह मोबाइल नंबर अथवा आधार नंबर पहले से पंजीकृत है।" }, { status: 400 });
+    // Check if mobile or Aadhaar already registered
+    const existingByMobile = await dbFindUser({ mobile });
+    if (existingByMobile) {
+      return NextResponse.json({ error: "यह मोबाइल नंबर पहले से पंजीकृत है।" }, { status: 400 });
+    }
+
+    const existingByAadhaar = await dbFindUser({ aadhaar_hash: hashedAadhaar });
+    if (existingByAadhaar) {
+      return NextResponse.json({ error: "यह आधार नंबर पहले से पंजीकृत है।" }, { status: 400 });
     }
 
     const newUser: User = {
-      _id: `user_${Date.now()}`,
-      name: name.trim(),
-      mobile: mobile.trim(),
-      dob: dob.trim(),
+      _id: `user_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+      name,
+      mobile,
+      dob,
       role: "member",
-      aadhaar: aadhaar.trim(),
-      pan: pan.trim().toUpperCase(),
+      aadhaar_last4: rawAadhaar.slice(-4),
+      aadhaar_hash: hashedAadhaar,
+      pan,
       bank_details: bank_details || {
         account_number: "",
         ifsc: "",
@@ -61,25 +91,31 @@ export async function POST(req: NextRequest) {
       created_at: new Date().toISOString(),
     };
 
-    store.users.push(newUser);
+    await dbInsertUser(newUser);
 
-    // If a group was specified or default group exists, attach member
-    const targetGroupId = group_id || store.groups[0]?._id;
-    if (targetGroupId) {
+    const activeGroup = await dbGetActiveGroup();
+    if (activeGroup) {
       const membership: GroupMember = {
         _id: `gm_${Date.now()}`,
-        group_id: targetGroupId,
+        group_id: activeGroup._id,
         user_id: newUser._id,
         joined_at: new Date().toISOString(),
         has_received_payout: false,
       };
-      store.group_members.push(membership);
+      await dbInsertGroupMember(membership);
     }
 
     return NextResponse.json({
       success: true,
-      member: newUser,
-      message: "नया सदस्य सफलतापूर्वक जोड़ा गया।",
+      member: {
+        _id: newUser._id,
+        name: newUser.name,
+        mobile: newUser.mobile,
+        dob: newUser.dob,
+        aadhaar_last4: newUser.aadhaar_last4,
+        pan: newUser.pan,
+      },
+      message: "नया सदस्य Astra DB में सुरक्षित रूप से दर्ज किया गया।",
     });
   } catch (error) {
     console.error("Add member error:", error);

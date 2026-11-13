@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Shield, Lock, Phone, UserCheck, ArrowRight, Info, BookOpen } from "lucide-react";
+import { Shield, Lock, Phone, ArrowRight, Info, BookOpen, CheckCircle2 } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -39,19 +39,6 @@ export default function LoginPage() {
     }
   };
 
-  const handleFillDemo = (type: "admin" | "manager" | "client") => {
-    if (type === "admin") {
-      setIdentifier("649712349707");
-      setSecret("09042001");
-    } else if (type === "manager") {
-      setIdentifier("9876543210");
-      setSecret("manager_pass_123");
-    } else {
-      setIdentifier("9811122233");
-      setSecret("01011995");
-    }
-  };
-
   return (
     <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-4 bg-gradient-to-b from-slate-50 to-slate-100">
       <div className="max-w-md w-full bg-white rounded-3xl shadow-xl shadow-slate-200/60 border border-slate-200 overflow-hidden">
@@ -62,7 +49,7 @@ export default function LoginPage() {
           </div>
           <h2 className="text-2xl font-black tracking-tight">BBCC FUND GRUP</h2>
           <p className="mt-1 text-xs font-semibold text-slate-300">
-            एकल सुरक्षित लॉगिन पोर्टल (Unified Smart Login)
+            सुरक्षित एवं एन्क्रिप्टेड लॉगिन पोर्टल (Bank-Grade Security)
           </p>
 
           <Link
@@ -70,7 +57,7 @@ export default function LoginPage() {
             className="mt-3 inline-flex items-center gap-1.5 text-xs text-amber-300 hover:text-amber-200 underline font-medium"
           >
             <BookOpen className="w-3.5 h-3.5" />
-            <span>ग्रुप के नियम व शर्तें पढ़ें</span>
+            <span>ग्रुप के आधिकारिक नियम व शर्तें पढ़ें</span>
           </Link>
         </div>
 
@@ -86,13 +73,13 @@ export default function LoginPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                मोबाइल नंबर / आधार नंबर / यूज़र आईडी
+                मोबाइल नंबर / आधार नंबर
               </label>
               <div className="relative">
                 <input
                   type="text"
                   required
-                  placeholder="उदा. 9811122233 या 649712349707"
+                  placeholder="अपना मोबाइल नंबर या आधार दर्ज करें"
                   value={identifier}
                   onChange={(e) => setIdentifier(e.target.value)}
                   className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm font-semibold transition"
@@ -103,13 +90,13 @@ export default function LoginPage() {
 
             <div>
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                जन्मतिथि (DOB: DDMMYYYY) / पासवर्ड
+                जन्मतिथि (DOB) / पासवर्ड
               </label>
               <div className="relative">
                 <input
                   type="password"
                   required
-                  placeholder="उदा. 01011995 या पासवर्ड"
+                  placeholder="जन्मतिथि (उदा. 01011995) या पासवर्ड"
                   value={secret}
                   onChange={(e) => setSecret(e.target.value)}
                   className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm font-semibold transition"
@@ -123,39 +110,15 @@ export default function LoginPage() {
               disabled={loading}
               className="w-full mt-2 py-3 px-4 bg-brand-600 hover:bg-brand-700 active:scale-[0.99] disabled:opacity-60 text-white font-bold rounded-xl shadow-md shadow-brand-500/25 flex items-center justify-center gap-2 text-sm transition"
             >
-              <span>{loading ? "सत्यापित हो रहा है..." : "लॉगिन करें (Sign In)"}</span>
+              <span>{loading ? "सत्यापित हो रहा है..." : "सुरक्षित लॉगिन करें (Sign In)"}</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </form>
 
-          {/* Quick Demo Access Bar */}
-          <div className="mt-6 pt-6 border-t border-slate-200">
-            <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider text-center mb-2.5">
-              तुरंत टेस्ट करने के लिए क्लिक करें:
-            </p>
-            <div className="grid grid-cols-3 gap-2">
-              <button
-                type="button"
-                onClick={() => handleFillDemo("admin")}
-                className="p-2 text-[11px] font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg text-center border border-slate-200 transition"
-              >
-                👑 मुख्य फाउंडर
-              </button>
-              <button
-                type="button"
-                onClick={() => handleFillDemo("manager")}
-                className="p-2 text-[11px] font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg text-center border border-blue-200 transition"
-              >
-                👔 मैनेजर (MD)
-              </button>
-              <button
-                type="button"
-                onClick={() => handleFillDemo("client")}
-                className="p-2 text-[11px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg text-center border border-emerald-200 transition"
-              >
-                👤 सदस्य (Client)
-              </button>
-            </div>
+          {/* Security Badge */}
+          <div className="mt-6 pt-5 border-t border-slate-100 flex items-center justify-center gap-2 text-[11px] font-semibold text-emerald-700">
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+            <span>256-bit SSL एन्क्रिप्टेड • DataStax Astra DB सुरक्षित</span>
           </div>
         </div>
       </div>

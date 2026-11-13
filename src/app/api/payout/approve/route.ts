@@ -1,44 +1,48 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyToken } from "../../../../lib/auth";
-import { getLocalStore } from "../../../../lib/astra";
+import { dbFindWithdrawalRequestById, dbUpdateWithdrawalRequest } from "../../../../lib/astra";
 
 export async function POST(req: NextRequest) {
   const token = req.cookies.get("bbcc_session")?.value;
   const session = token ? verifyToken(token) : null;
 
   if (!session || (session.role !== "founder" && session.role !== "manager" && session.role !== "admin")) {
-    return NextResponse.json({ error: "Unauthorized. केवल फाउंडर या MD अप्रूव कर सकते हैं।" }, { status: 403 });
+    return NextResponse.json({ error: "Unauthorized. केवल मुख्य फाउंडर या MD ही अप्रूव कर सकते हैं।" }, { status: 403 });
   }
 
   try {
     const { request_id, role_approval } = await req.json();
 
-    const store = getLocalStore();
-    const targetReq = store.withdrawal_requests.find((r) => r._id === request_id);
+    const targetReq = await dbFindWithdrawalRequestById(request_id);
 
     if (!targetReq) {
       return NextResponse.json({ error: "रिक्वेस्ट नहीं मिली।" }, { status: 404 });
     }
 
+    const updates: Record<string, any> = {};
+
     if (session.role === "founder" || role_approval === "founder") {
-      targetReq.founder_approved = true;
-      targetReq.founder_approved_at = new Date().toISOString();
+      updates.founder_approved = true;
+      updates.founder_approved_at = new Date().toISOString();
     }
 
     if (session.role === "manager" || role_approval === "md") {
-      targetReq.md_approved = true;
-      targetReq.md_approved_at = new Date().toISOString();
+      updates.md_approved = true;
+      updates.md_approved_at = new Date().toISOString();
     }
 
-    // If both have approved, advance status to "approved"
-    if (targetReq.founder_approved && targetReq.md_approved) {
-      targetReq.status = "approved";
+    const isFounderOk = updates.founder_approved !== undefined ? updates.founder_approved : targetReq.founder_approved;
+    const isMdOk = updates.md_approved !== undefined ? updates.md_approved : targetReq.md_approved;
+
+    if (isFounderOk && isMdOk) {
+      updates.status = "approved";
     }
+
+    await dbUpdateWithdrawalRequest(request_id, updates);
 
     return NextResponse.json({
       success: true,
-      request: targetReq,
-      message: `${session.role === "founder" ? "फाउंडर" : "मैनेजिंग डायरेक्टर"} अप्रूवल दर्ज हुआ!`,
+      message: `${session.role === "founder" ? "फाउंडर" : "MD (मैनेजिंग डायरेक्टर)"} अप्रूवल Astra DB में दर्ज हुआ!`,
     });
   } catch (error) {
     console.error("Approval error:", error);

@@ -1,19 +1,28 @@
 export type UserRole = "admin" | "founder" | "manager" | "member";
 
+export interface SessionPayload {
+  userId: string;
+  name: string;
+  role: UserRole;
+  mobile: string;
+  aadhaar?: string;
+}
+
 export interface User {
   _id: string;
   name: string;
   mobile: string;
   dob: string; // YYYY-MM-DD or DDMMYYYY
   role: UserRole;
-  aadhaar: string; // Stored securely
+  aadhaar_last4: string; // Only last 4 digits stored for display
+  aadhaar_hash: string; // Secure HMAC-SHA256 for zero-knowledge search
   pan: string;
   bank_details?: {
     account_number: string;
     ifsc: string;
     upi_id: string;
   };
-  custom_password?: string; // For manager
+  password_hash?: string; // bcrypt hash for manager / founder
   created_at: string;
 }
 
