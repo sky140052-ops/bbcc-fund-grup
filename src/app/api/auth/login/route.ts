@@ -7,7 +7,7 @@ export async function POST(req: NextRequest) {
 
     if (!identifier || !secret) {
       return NextResponse.json(
-        { error: "कृपया ईमेल (Gmail) / मोबाइल और पासवर्ड दर्ज करें।" },
+        { error: "कृपया ईमेल (Gmail) और पासवर्ड दर्ज करें।" },
         { status: 400 }
       );
     }

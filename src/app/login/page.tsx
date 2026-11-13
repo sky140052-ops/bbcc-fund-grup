@@ -311,13 +311,13 @@ export default function LoginPage() {
             <form onSubmit={handlePasswordLogin} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                  पंजीकृत ईमेल (Gmail ID) / मोबाइल
+                  पंजीकृत ईमेल (Gmail ID)
                 </label>
                 <div className="relative">
                   <input
-                    type="text"
+                    type="email"
                     required
-                    placeholder="उदा. yourname@gmail.com"
+                    placeholder="उदा. sky140052@gmail.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm font-semibold transition"

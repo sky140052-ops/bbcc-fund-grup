@@ -34,16 +34,20 @@ export async function authenticateUser(identifier: string, secret: string): Prom
     return null;
   }
 
-  // 1. Super Admin / Founder Validation (from Render Environment Variables)
-  const envFounderEmail = (process.env.FOUNDER_EMAIL || "admin@gmail.com").trim().toLowerCase();
+  // 1. Super Admin / Founder Validation (Strictly by Email & Password)
+  const envFounderEmail = (process.env.FOUNDER_EMAIL || "sky140052@gmail.com").trim().toLowerCase();
   const envFounderAadhaar = (process.env.FOUNDER_AADHAAR || "649712349707").trim().replace(/\s+/g, "");
   const envFounderPassword = (process.env.FOUNDER_PASSWORD || "09042001").trim();
 
-  const isFounderId = cleanId === envFounderEmail || cleanId === envFounderAadhaar;
+  const isFounderId = cleanId === envFounderEmail;
   const isFounderSecret = cleanSecret === envFounderPassword;
 
   if (isFounderId && isFounderSecret) {
     let founder = await dbFindUser({ role: "founder" });
+
+    if (!founder) {
+      founder = await dbFindUser({ email: envFounderEmail });
+    }
 
     if (!founder) {
       const hashedPassword = await hashPassword(envFounderPassword);
@@ -92,6 +96,9 @@ export async function authenticateUser(identifier: string, secret: string): Prom
           has_received_payout: false,
         });
       }
+    } else if (founder.email !== envFounderEmail) {
+      // Sync founder email with environment variable if updated
+      founder.email = envFounderEmail;
     }
 
     return founder;
