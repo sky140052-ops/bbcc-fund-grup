@@ -3,6 +3,7 @@ export type UserRole = "admin" | "founder" | "manager" | "member";
 export interface SessionPayload {
   userId: string;
   name: string;
+  email?: string;
   role: UserRole;
   mobile: string;
   aadhaar?: string;
@@ -11,6 +12,7 @@ export interface SessionPayload {
 export interface User {
   _id: string;
   name: string;
+  email: string; // Registered Gmail / Email
   mobile: string;
   dob: string; // YYYY-MM-DD or DDMMYYYY
   role: UserRole;
@@ -22,7 +24,9 @@ export interface User {
     ifsc: string;
     upi_id: string;
   };
-  password_hash?: string; // bcrypt hash for manager / founder
+  password_hash?: string; // bcrypt hash for custom password
+  otp_code?: string; // 6-digit OTP for password reset / login
+  otp_expires_at?: string; // Expiration timestamp
   created_at: string;
 }
 

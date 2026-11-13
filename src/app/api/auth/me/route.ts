@@ -21,6 +21,7 @@ export async function GET(req: NextRequest) {
       user: {
         _id: payload.userId,
         name: payload.name,
+        email: payload.email,
         role: payload.role,
         mobile: payload.mobile,
       },
@@ -31,6 +32,7 @@ export async function GET(req: NextRequest) {
   const safeUser = {
     _id: user._id,
     name: user.name,
+    email: user.email,
     mobile: user.mobile,
     dob: user.dob,
     role: user.role,

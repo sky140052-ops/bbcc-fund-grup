@@ -12,8 +12,9 @@ import { User, SessionPayload } from "./types";
 
 const JWT_SECRET = process.env.JWT_SECRET || "bbcc_fund_secure_jwt_secret_render_production_key";
 
-export function signToken(payload: SessionPayload): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: "24h" });
+export function signToken(payload: SessionPayload, rememberMe: boolean = false): string {
+  const expiry = rememberMe ? "30d" : "1d";
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: expiry });
 }
 
 export function verifyToken(token: string): SessionPayload | null {
@@ -24,31 +25,34 @@ export function verifyToken(token: string): SessionPayload | null {
   }
 }
 
-// Enterprise-Grade Secure Authenticator
+// Enterprise-Grade Secure Authenticator with Email & Custom Password
 export async function authenticateUser(identifier: string, secret: string): Promise<User | null> {
-  const cleanId = sanitize(identifier).replace(/\s+/g, "");
-  const cleanSecret = sanitize(secret).replace(/\s+/g, "");
+  const cleanId = sanitize(identifier).trim().toLowerCase();
+  const cleanSecret = sanitize(secret).trim();
 
   if (!cleanId || !cleanSecret) {
     return null;
   }
 
   // 1. Super Admin / Founder Validation (from Render Environment Variables)
+  const envFounderEmail = (process.env.FOUNDER_EMAIL || "admin@gmail.com").trim().toLowerCase();
   const envFounderAadhaar = (process.env.FOUNDER_AADHAAR || "649712349707").trim().replace(/\s+/g, "");
-  const envFounderPassword = (process.env.FOUNDER_PASSWORD || "09042001").trim().replace(/\s+/g, "");
+  const envFounderPassword = (process.env.FOUNDER_PASSWORD || "09042001").trim();
 
-  if (cleanId === envFounderAadhaar && cleanSecret === envFounderPassword) {
-    // Check if founder already exists in database
+  const isFounderId = cleanId === envFounderEmail || cleanId === envFounderAadhaar;
+  const isFounderSecret = cleanSecret === envFounderPassword;
+
+  if (isFounderId && isFounderSecret) {
     let founder = await dbFindUser({ role: "founder" });
 
     if (!founder) {
-      // First-time initialization: Persist founder with hashed password and hashed Aadhaar in Astra DB
       const hashedPassword = await hashPassword(envFounderPassword);
       const hashedAadhaar = hashAadhaar(envFounderAadhaar);
 
       founder = {
         _id: `founder_${Date.now()}`,
         name: "Main Admin (Founder)",
+        email: envFounderEmail,
         mobile: "9999999999",
         dob: "09042001",
         role: "founder",
@@ -93,42 +97,30 @@ export async function authenticateUser(identifier: string, secret: string): Prom
     return founder;
   }
 
-  // 2. Search Database for Manager (MD) or Client (Member)
-  const idHash = hashAadhaar(cleanId);
+  // 2. Search Database for User by Email (Primary ID) or Mobile
+  let matchedUser = await dbFindUser({ email: cleanId });
 
-  // Search by mobile, user ID, or hashed Aadhaar (constant time lookup)
-  let matchedUser = await dbFindUser({ mobile: cleanId });
   if (!matchedUser) {
-    matchedUser = await dbFindUser({ _id: cleanId });
-  }
-  if (!matchedUser) {
-    matchedUser = await dbFindUser({ aadhaar_hash: idHash });
+    matchedUser = await dbFindUser({ mobile: cleanId });
   }
 
   if (!matchedUser) {
     return null;
   }
 
-  // 3. Manager (MD) Authentication using Bcrypt Hash
-  if (matchedUser.role === "manager") {
-    if (matchedUser.password_hash) {
-      const isValid = await verifyPassword(cleanSecret, matchedUser.password_hash);
-      if (isValid) return matchedUser;
-    }
-    // Also allow DOB fallback if manager logs in with DOB
-    const userDobClean = matchedUser.dob.replace(/[-/]/g, "");
-    const secretClean = cleanSecret.replace(/[-/]/g, "");
-    if (userDobClean === secretClean) {
+  // 3. Verify Custom Password using Bcrypt Hash
+  if (matchedUser.password_hash) {
+    const isPasswordValid = await verifyPassword(cleanSecret, matchedUser.password_hash);
+    if (isPasswordValid) {
       return matchedUser;
     }
-    return null;
   }
 
-  // 4. Client (Member) Authentication: Secure DOB verification
-  const userDobClean = matchedUser.dob.replace(/[-/]/g, "");
+  // 4. Initial/Fallback: If password not yet set, allow DOB (DDMMYYYY) matching for initial login
+  const userDobClean = (matchedUser.dob || "").replace(/[-/]/g, "");
   const secretClean = cleanSecret.replace(/[-/]/g, "");
 
-  if (userDobClean === secretClean) {
+  if (userDobClean && userDobClean === secretClean) {
     return matchedUser;
   }
 

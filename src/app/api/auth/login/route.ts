@@ -3,11 +3,11 @@ import { authenticateUser, signToken } from "../../../../lib/auth";
 
 export async function POST(req: NextRequest) {
   try {
-    const { identifier, secret } = await req.json();
+    const { identifier, secret, remember_me } = await req.json();
 
     if (!identifier || !secret) {
       return NextResponse.json(
-        { error: "कृपया मोबाइल नंबर/आधार और जन्मतिथि/पासवर्ड दर्ज करें।" },
+        { error: "कृपया ईमेल (Gmail) / मोबाइल और पासवर्ड दर्ज करें।" },
         { status: 400 }
       );
     }
@@ -16,38 +16,46 @@ export async function POST(req: NextRequest) {
 
     if (!user) {
       return NextResponse.json(
-        { error: "गलत क्रेडेंशियल्स! कृपया सही जानकारी दर्ज करें।" },
+        { error: "गलत ईमेल या पासवर्ड! कृपया सही विवरण दर्ज करें या पासवर्ड रीसेट करें।" },
         { status: 401 }
       );
     }
 
-    const token = signToken({
-      userId: user._id,
-      name: user.name,
-      role: user.role,
-      mobile: user.mobile,
-      aadhaar: user.aadhaar_last4,
-    });
+    const isRememberMe = Boolean(remember_me);
+    const maxAgeSeconds = isRememberMe ? 30 * 24 * 60 * 60 : 24 * 60 * 60; // 30 days if remember me
+
+    const token = signToken(
+      {
+        userId: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        mobile: user.mobile,
+        aadhaar: user.aadhaar_last4,
+      },
+      isRememberMe
+    );
 
     const response = NextResponse.json({
       success: true,
       user: {
         id: user._id,
         name: user.name,
+        email: user.email,
         role: user.role,
         mobile: user.mobile,
         aadhaar_last4: user.aadhaar_last4,
       },
       redirectTo: user.role === "member" ? "/dashboard" : "/admin",
+      message: isRememberMe ? "लॉगिन सफल (30 दिनों तक याद रखा जाएगा)" : "लॉगिन सफल",
     });
 
-    // Set secure HTTP-only session cookie (prevents XSS & CSRF attacks)
     response.cookies.set("bbcc_session", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "strict",
       path: "/",
-      maxAge: 60 * 60 * 24, // 24 hours
+      maxAge: maxAgeSeconds,
     });
 
     return response;

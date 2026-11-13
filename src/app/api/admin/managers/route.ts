@@ -24,6 +24,7 @@ export async function GET(req: NextRequest) {
   const safeManagers = managers.map((m) => ({
     _id: m._id,
     name: m.name,
+    email: m.email,
     mobile: m.mobile,
     dob: m.dob,
     role: m.role,
@@ -44,7 +45,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { name, mobile, password, aadhaar, pan, dob, member_id } = await req.json();
+    const { name, email, mobile, password, aadhaar, pan, dob, member_id } = await req.json();
 
     // Option 1: Promote an existing member to Manager (MD)
     if (member_id) {
@@ -54,6 +55,9 @@ export async function POST(req: NextRequest) {
       }
 
       const updates: Partial<User> = { role: "manager" };
+      if (email && email.trim()) {
+        updates.email = sanitize(email).trim().toLowerCase();
+      }
       if (password && password.trim()) {
         updates.password_hash = await hashPassword(password.trim());
       }
@@ -73,6 +77,7 @@ export async function POST(req: NextRequest) {
     }
 
     const cleanName = sanitize(name);
+    const cleanEmail = sanitize(email || `${mobile}@gmail.com`).trim().toLowerCase();
     const cleanMobile = sanitize(mobile).replace(/\D/g, "");
     const cleanPassword = sanitize(password);
 
@@ -92,6 +97,7 @@ export async function POST(req: NextRequest) {
     const newManager: User = {
       _id: `mgr_${Date.now()}`,
       name: cleanName,
+      email: cleanEmail,
       mobile: cleanMobile,
       dob: sanitize(dob) || "19900101",
       role: "manager",

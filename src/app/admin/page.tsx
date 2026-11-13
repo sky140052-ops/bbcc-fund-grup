@@ -24,6 +24,7 @@ import {
 interface Member {
   _id: string;
   name: string;
+  email?: string;
   role?: string;
   mobile: string;
   dob: string;
@@ -41,6 +42,7 @@ interface Member {
 interface Manager {
   _id: string;
   name: string;
+  email?: string;
   mobile: string;
   dob: string;
   role: string;
@@ -86,6 +88,8 @@ export default function AdminDashboard() {
 
   // Add Member Form
   const [mName, setMName] = useState("");
+  const [mEmail, setMEmail] = useState("");
+  const [mPassword, setMPassword] = useState("");
   const [mMobile, setMMobile] = useState("");
   const [mDob, setMDob] = useState("");
   const [mAadhaar, setMAadhaar] = useState("");
@@ -98,6 +102,7 @@ export default function AdminDashboard() {
 
   // Add Manager Form (Founder Only)
   const [mgrName, setMgrName] = useState("");
+  const [mgrEmail, setMgrEmail] = useState("");
   const [mgrMobile, setMgrMobile] = useState("");
   const [mgrPassword, setMgrPassword] = useState("");
   const [selectedMemberIdToPromote, setSelectedMemberIdToPromote] = useState("");
@@ -171,8 +176,10 @@ export default function AdminDashboard() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: mName,
+          email: mEmail,
           mobile: mMobile,
           dob: mDob,
+          password: mPassword,
           aadhaar: mAadhaar,
           pan: mPan,
           bank_details: {
@@ -193,6 +200,8 @@ export default function AdminDashboard() {
 
       setMemberMsg("✅ " + data.message);
       setMName("");
+      setMEmail("");
+      setMPassword("");
       setMMobile("");
       setMDob("");
       setMAadhaar("");
@@ -216,8 +225,8 @@ export default function AdminDashboard() {
 
     try {
       const payload = selectedMemberIdToPromote
-        ? { member_id: selectedMemberIdToPromote, password: mgrPassword }
-        : { name: mgrName, mobile: mgrMobile, password: mgrPassword };
+        ? { member_id: selectedMemberIdToPromote, email: mgrEmail, password: mgrPassword }
+        : { name: mgrName, email: mgrEmail, mobile: mgrMobile, password: mgrPassword };
 
       const res = await fetch("/api/admin/managers", {
         method: "POST",
@@ -234,6 +243,7 @@ export default function AdminDashboard() {
 
       setManagerMsg("✅ " + data.message);
       setMgrName("");
+      setMgrEmail("");
       setMgrMobile("");
       setMgrPassword("");
       setSelectedMemberIdToPromote("");
@@ -561,6 +571,31 @@ export default function AdminDashboard() {
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">ईमेल (Gmail - मुख्य लॉगिन ID)</label>
+                  <input
+                    type="email"
+                    required
+                    placeholder="उदा. rahul@gmail.com"
+                    value={mEmail}
+                    onChange={(e) => setMEmail(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">लॉगिन पासवर्ड</label>
+                  <input
+                    type="password"
+                    required
+                    placeholder="सुरक्षित पासवर्ड"
+                    value={mPassword}
+                    onChange={(e) => setMPassword(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">मोबाइल नंबर</label>
                   <input
                     type="tel"
@@ -664,7 +699,7 @@ export default function AdminDashboard() {
               <table className="w-full text-left text-xs sm:text-sm">
                 <thead className="bg-slate-50 text-slate-600 font-bold uppercase text-[11px] border-b border-slate-100">
                   <tr>
-                    <th className="py-3 px-4">नाम</th>
+                    <th className="py-3 px-4">नाम / ईमेल</th>
                     <th className="py-3 px-4">मोबाइल</th>
                     <th className="py-3 px-4">जन्मतिथि</th>
                     <th className="py-3 px-4">पैन / आधार</th>
@@ -674,23 +709,28 @@ export default function AdminDashboard() {
                 <tbody className="divide-y divide-slate-100 font-medium">
                   {members.map((m) => (
                     <tr key={m._id} className="hover:bg-slate-50/60 transition">
-                      <td className="py-3 px-4 font-bold text-slate-900 flex items-center gap-2">
-                        <span>{m.name}</span>
-                        {m.role === "founder" && (
-                          <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-black">
-                            👑 फाउंडर
-                          </span>
-                        )}
-                        {m.role === "manager" && (
-                          <span className="text-[10px] bg-indigo-100 text-indigo-800 px-1.5 py-0.5 rounded font-black">
-                            👔 MD
-                          </span>
-                        )}
-                        {(!m.role || m.role === "member") && (
-                          <span className="text-[10px] bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-bold">
-                            👤 सदस्य
-                          </span>
-                        )}
+                      <td className="py-3 px-4 font-bold text-slate-900">
+                        <div className="flex items-center gap-2">
+                          <span>{m.name}</span>
+                          {m.role === "founder" && (
+                            <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-black">
+                              👑 फाउंडर
+                            </span>
+                          )}
+                          {m.role === "manager" && (
+                            <span className="text-[10px] bg-indigo-100 text-indigo-800 px-1.5 py-0.5 rounded font-black">
+                              👔 MD
+                            </span>
+                          )}
+                          {(!m.role || m.role === "member") && (
+                            <span className="text-[10px] bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-bold">
+                              👤 सदस्य
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[11px] text-slate-500 font-mono mt-0.5 font-normal">
+                          {m.email || `${m.mobile}@gmail.com`}
+                        </div>
                       </td>
                       <td className="py-3 px-4 text-slate-600">{m.mobile}</td>
                       <td className="py-3 px-4 text-slate-500">{m.dob}</td>
@@ -783,6 +823,20 @@ export default function AdminDashboard() {
 
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1">
+                      मैनेजर ईमेल (Gmail ID)
+                    </label>
+                    <input
+                      type="email"
+                      required={!selectedMemberIdToPromote}
+                      placeholder="उदा. manager@gmail.com"
+                      value={mgrEmail}
+                      onChange={(e) => setMgrEmail(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
                       लॉगिन मोबाइल नंबर / आईडी
                     </label>
                     <input
@@ -837,7 +891,9 @@ export default function AdminDashboard() {
                 >
                   <div>
                     <h4 className="font-bold text-slate-900 text-sm">{mgr.name}</h4>
-                    <p className="text-xs text-slate-500 font-medium">मोबाइल: {mgr.mobile}</p>
+                    <p className="text-xs text-slate-600 font-medium">
+                      ईमेल: {mgr.email || "—"} • मोबाइल: {mgr.mobile}
+                    </p>
                     <p className="text-xs text-emerald-700 font-bold mt-0.5">
                       सुरक्षा: Bcrypt हैश एन्क्रिप्टेड (Password Protected)
                     </p>

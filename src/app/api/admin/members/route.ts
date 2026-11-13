@@ -7,7 +7,7 @@ import {
   dbGetActiveGroup,
   dbInsertGroupMember,
 } from "../../../../lib/astra";
-import { hashAadhaar, sanitize } from "../../../../lib/crypto";
+import { hashAadhaar, hashPassword, sanitize } from "../../../../lib/crypto";
 import { User, GroupMember } from "../../../../lib/types";
 
 export async function GET(req: NextRequest) {
@@ -22,6 +22,7 @@ export async function GET(req: NextRequest) {
   const safeMembers = allMembers.map((m) => ({
     _id: m._id,
     name: m.name,
+    email: m.email,
     mobile: m.mobile,
     dob: m.dob,
     role: m.role,
@@ -48,22 +49,29 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const name = sanitize(body.name);
+    const email = sanitize(body.email).trim().toLowerCase();
     const mobile = sanitize(body.mobile).replace(/\D/g, "");
     const dob = sanitize(body.dob).replace(/\D/g, "");
     const rawAadhaar = sanitize(body.aadhaar).replace(/\D/g, "");
     const pan = sanitize(body.pan).toUpperCase();
+    const customPassword = sanitize(body.password);
     const bank_details = body.bank_details;
 
-    if (!name || mobile.length < 10 || dob.length < 8 || rawAadhaar.length < 12 || pan.length < 10) {
+    if (!name || !email.includes("@") || mobile.length < 10 || dob.length < 8 || rawAadhaar.length < 12 || pan.length < 10) {
       return NextResponse.json(
-        { error: "कृपया सभी फ़ील्ड सही प्रारूप में भरें (10-अंकीय मोबाइल, 8-अंकीय जन्मतिथि, 12-अंकीय आधार, 10-अक्षरीय पैन)।" },
+        { error: "कृपया सभी फ़ील्ड सही प्रारूप में भरें (मान्य Gmail/ईमेल, 10-अंकीय मोबाइल, 8-अंकीय जन्मतिथि, 12-अंकीय आधार, 10-अक्षरीय पैन)।" },
         { status: 400 }
       );
     }
 
     const hashedAadhaar = hashAadhaar(rawAadhaar);
 
-    // Check if mobile or Aadhaar already registered
+    // Check if email, mobile or Aadhaar already registered
+    const existingByEmail = await dbFindUser({ email });
+    if (existingByEmail) {
+      return NextResponse.json({ error: "यह ईमेल पहले से पंजीकृत है।" }, { status: 400 });
+    }
+
     const existingByMobile = await dbFindUser({ mobile });
     if (existingByMobile) {
       return NextResponse.json({ error: "यह मोबाइल नंबर पहले से पंजीकृत है।" }, { status: 400 });
@@ -74,15 +82,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "यह आधार नंबर पहले से पंजीकृत है।" }, { status: 400 });
     }
 
+    const passwordHash = customPassword && customPassword.length >= 6
+      ? await hashPassword(customPassword)
+      : await hashPassword(dob); // fallback initial password is DOB
+
     const newUser: User = {
       _id: `user_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
       name,
+      email,
       mobile,
       dob,
       role: "member",
       aadhaar_last4: rawAadhaar.slice(-4),
       aadhaar_hash: hashedAadhaar,
       pan,
+      password_hash: passwordHash,
       bank_details: bank_details || {
         account_number: "",
         ifsc: "",

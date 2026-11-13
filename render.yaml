@@ -8,9 +8,17 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      - key: FOUNDER_EMAIL
+        sync: false
       - key: FOUNDER_AADHAAR
         sync: false
       - key: FOUNDER_PASSWORD
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: SMTP_EMAIL
+        sync: false
+      - key: SMTP_PASSWORD
         sync: false
       - key: ASTRA_DB_API_ENDPOINT
         sync: false
