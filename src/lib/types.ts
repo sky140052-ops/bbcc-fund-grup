@@ -37,6 +37,8 @@ export interface FundGroup {
   due_date_day: number; // e.g. 5 (5th of every month)
   total_cycle_months: number;
   current_cycle_month: number;
+  max_members?: number;
+  description?: string;
   status: "active" | "completed";
   created_by: string;
   created_at: string;
@@ -47,6 +49,7 @@ export interface GroupMember {
   group_id: string;
   user_id: string;
   joined_at: string;
+  status?: "pending" | "approved" | "rejected";
   has_received_payout: boolean;
   received_in_month?: number | null;
 }

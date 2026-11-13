@@ -55,6 +55,27 @@ interface GroupData {
   due_date_day: number;
   total_cycle_months: number;
   current_cycle_month: number;
+  max_members?: number;
+  description?: string;
+  approved_members_count?: number;
+  pending_members_count?: number;
+  status?: string;
+}
+
+interface ApplicationItem {
+  _id: string;
+  group_id: string;
+  group_name: string;
+  monthly_amount: number;
+  user_id: string;
+  user_name: string;
+  user_email: string;
+  user_mobile: string;
+  user_dob: string;
+  user_pan: string;
+  user_aadhaar_last4: string;
+  status: "pending" | "approved" | "rejected";
+  joined_at: string;
 }
 
 interface WithdrawalReq {
@@ -76,15 +97,29 @@ interface WithdrawalReq {
 export default function AdminDashboard() {
   const router = useRouter();
   const [currentUser, setCurrentUser] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<"overview" | "members" | "managers" | "payouts">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "groups" | "members" | "managers" | "payouts">("overview");
 
   const [group, setGroup] = useState<GroupData | null>(null);
+  const [allGroups, setAllGroups] = useState<GroupData[]>([]);
+  const [applications, setApplications] = useState<ApplicationItem[]>([]);
+  const [handlingAppId, setHandlingAppId] = useState<string | null>(null);
+
   const [members, setMembers] = useState<Member[]>([]);
   const [managers, setManagers] = useState<Manager[]>([]);
   const [requests, setRequests] = useState<WithdrawalReq[]>([]);
   const [poolBalance, setPoolBalance] = useState(0);
   const [totalCollected, setTotalCollected] = useState(0);
   const [loading, setLoading] = useState(true);
+
+  // Create Group Form (Admin Only)
+  const [gName, setGName] = useState("");
+  const [gAmount, setGAmount] = useState("5000");
+  const [gDueDate, setGDueDate] = useState("5");
+  const [gCycleMonths, setGCycleMonths] = useState("12");
+  const [gMaxMembers, setGMaxMembers] = useState("12");
+  const [gDesc, setGDesc] = useState("");
+  const [creatingGroup, setCreatingGroup] = useState(false);
+  const [createGroupMsg, setCreateGroupMsg] = useState("");
 
   // Add Member Form
   const [mName, setMName] = useState("");
@@ -133,6 +168,7 @@ export default function AdminDashboard() {
       const grpRes = await fetch("/api/groups");
       const grpData = await grpRes.json();
       setGroup(grpData.group);
+      setAllGroups(grpData.groups || (grpData.group ? [grpData.group] : []));
       setMembers(grpData.members || []);
       setPoolBalance(grpData.available_pool_balance || 0);
       setTotalCollected(grpData.total_collected_lifetime || 0);
@@ -142,11 +178,17 @@ export default function AdminDashboard() {
       const reqData = await reqRes.json();
       setRequests(reqData.requests || []);
 
-      // Load managers if founder
+      // Load managers & join requests if founder or admin
       if (authData.user?.role === "founder" || authData.user?.role === "admin") {
         const mgrRes = await fetch("/api/admin/managers");
         const mgrData = await mgrRes.json();
         setManagers(mgrData.managers || []);
+
+        const appRes = await fetch("/api/admin/join-requests");
+        if (appRes.ok) {
+          const appData = await appRes.json();
+          setApplications(appData.applications || []);
+        }
       }
     } catch (err) {
       console.error(err);
@@ -252,6 +294,71 @@ export default function AdminDashboard() {
       setManagerMsg("❌ मैनेजर बनाने में समस्या आई।");
     } finally {
       setAddingManager(false);
+    }
+  };
+
+  // Create New Fund Group (Admin Only)
+  const handleCreateGroup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCreatingGroup(true);
+    setCreateGroupMsg("");
+
+    try {
+      const res = await fetch("/api/groups", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: gName,
+          monthly_amount: Number(gAmount),
+          due_date_day: Number(gDueDate),
+          total_cycle_months: Number(gCycleMonths),
+          max_members: Number(gMaxMembers),
+          description: gDesc,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setCreateGroupMsg("❌ " + data.error);
+        setCreatingGroup(false);
+        return;
+      }
+
+      setCreateGroupMsg("✅ " + data.message);
+      setGName("");
+      setGAmount("5000");
+      setGDueDate("5");
+      setGCycleMonths("12");
+      setGMaxMembers("12");
+      setGDesc("");
+      loadData();
+    } catch {
+      setCreateGroupMsg("❌ ग्रुप बनाने में त्रुटि हुई।");
+    } finally {
+      setCreatingGroup(false);
+    }
+  };
+
+  // Approve or Reject Join Application
+  const handleApproveApplication = async (membershipId: string, action: "approve" | "reject") => {
+    setHandlingAppId(membershipId);
+    try {
+      const res = await fetch("/api/admin/join-requests/approve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ membership_id: membershipId, action }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert("❌ " + data.error);
+      } else {
+        alert("✅ " + data.message);
+        loadData();
+      }
+    } catch {
+      alert("कार्रवाई दर्ज करने में त्रुटि हुई।");
+    } finally {
+      setHandlingAppId(null);
     }
   };
 
@@ -393,6 +500,25 @@ export default function AdminDashboard() {
           <span>पूल ओवरव्यू</span>
         </button>
 
+        {isFounder && (
+          <button
+            onClick={() => setActiveTab("groups")}
+            className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-2 ${
+              activeTab === "groups"
+                ? "bg-slate-900 text-white shadow-sm"
+                : "bg-white text-slate-600 hover:bg-slate-100"
+            }`}
+          >
+            <Building className="w-4 h-4" />
+            <span>फंड ग्रुप्स व आवेदन</span>
+            {applications.filter((a) => a.status === "pending").length > 0 && (
+              <span className="px-2 py-0.5 rounded-full text-[10px] bg-rose-500 text-white font-black animate-pulse">
+                {applications.filter((a) => a.status === "pending").length} नए
+              </span>
+            )}
+          </button>
+        )}
+
         <button
           onClick={() => setActiveTab("members")}
           className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-2 ${
@@ -531,6 +657,256 @@ export default function AdminDashboard() {
               </li>
               <li>पैसे ट्रांसफर होते ही सिस्टम स्वतः ₹1 सैकड़ा प्रतिमाह ब्याज की गणना शुरू कर देगा।</li>
             </ul>
+          </div>
+        </div>
+      )}
+
+      {/* Tab: Groups & Join Applications (Admin Only) */}
+      {activeTab === "groups" && isFounder && (
+        <div className="space-y-8">
+          {/* Section 1: Pending Join Applications */}
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="p-6 border-b border-slate-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+              <div>
+                <div className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-600 uppercase tracking-wider mb-0.5">
+                  <Shield className="w-4 h-4" />
+                  <span>केवल मुख्य एडमिन अप्रूवल</span>
+                </div>
+                <h3 className="text-base font-black text-slate-900">
+                  ग्रुप में जुड़ने के लंबित आवेदन ({applications.filter((a) => a.status === "pending").length})
+                </h3>
+              </div>
+              <span className="text-xs font-semibold text-slate-500">
+                जब तक आप स्वीकार नहीं करेंगे, तब तक कोई सदस्य ग्रुप में सक्रिय नहीं होगा।
+              </span>
+            </div>
+
+            {applications.filter((a) => a.status === "pending").length === 0 ? (
+              <div className="p-8 text-center text-xs font-bold text-slate-500">
+                ✅ वर्तमान में कोई नया आवेदन लंबित नहीं है। सभी आवेदन स्वीकृत हैं।
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs sm:text-sm">
+                  <thead className="bg-slate-50 text-slate-600 font-bold uppercase text-[11px] border-b border-slate-100">
+                    <tr>
+                      <th className="py-3 px-4">आवेदक का नाम / ईमेल</th>
+                      <th className="py-3 px-4">मोबाइल</th>
+                      <th className="py-3 px-4">ग्रुप का नाम</th>
+                      <th className="py-3 px-4">मासिक राशि</th>
+                      <th className="py-3 px-4">आवेदन तिथि</th>
+                      <th className="py-3 px-4 text-center">कार्रवाई (Action)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-medium">
+                    {applications
+                      .filter((a) => a.status === "pending")
+                      .map((app) => (
+                        <tr key={app._id} className="hover:bg-slate-50/60 transition">
+                          <td className="py-3 px-4">
+                            <span className="font-bold text-slate-900 block">{app.user_name}</span>
+                            <span className="text-[11px] text-slate-500 font-mono">{app.user_email}</span>
+                          </td>
+                          <td className="py-3 px-4 text-slate-600">{app.user_mobile}</td>
+                          <td className="py-3 px-4 font-bold text-brand-700">{app.group_name}</td>
+                          <td className="py-3 px-4 font-black text-slate-900">₹{app.monthly_amount}/माह</td>
+                          <td className="py-3 px-4 text-slate-500 text-xs">
+                            {new Date(app.joined_at).toLocaleDateString("hi-IN")}
+                          </td>
+                          <td className="py-3 px-4 text-center">
+                            <div className="flex items-center justify-center gap-2">
+                              <button
+                                onClick={() => handleApproveApplication(app._id, "approve")}
+                                disabled={handlingAppId === app._id}
+                                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-sm transition"
+                              >
+                                {handlingAppId === app._id ? "..." : "स्वीकार करें ✅"}
+                              </button>
+                              <button
+                                onClick={() => handleApproveApplication(app._id, "reject")}
+                                disabled={handlingAppId === app._id}
+                                className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition"
+                              >
+                                अस्वीकार ❌
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Section 2: Create Group Form & All Groups List */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Create Group Form */}
+            <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 space-y-4">
+              <div>
+                <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-amber-100 text-amber-900 mb-1">
+                  👑 केवल एडमिन अधिकार
+                </div>
+                <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+                  <Building className="w-5 h-5 text-brand-600" />
+                  <span>नया फंड ग्रुप खोलें (Create Group)</span>
+                </h3>
+                <p className="text-xs text-slate-500 font-medium mt-1">
+                  ग्रुप का मासिक अंशदान, देय तारीख, और समाप्ति अवधि (टूटने का समय) एडमिन तय करेगा।
+                </p>
+              </div>
+
+              {createGroupMsg && (
+                <div className="p-3 bg-slate-100 rounded-xl text-xs font-bold text-slate-800">
+                  {createGroupMsg}
+                </div>
+              )}
+
+              <form onSubmit={handleCreateGroup} className="space-y-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    ग्रुप का नाम (Fund Group Name)
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="उदा. BBCC 12-Month Gold Group"
+                    value={gName}
+                    onChange={(e) => setGName(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      मासिक अंशदान (₹ / माह)
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      min={100}
+                      placeholder="उदा. 5000"
+                      value={gAmount}
+                      onChange={(e) => setGAmount(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      देय तारीख (Due Day)
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      min={1}
+                      max={28}
+                      placeholder="1 से 28 तारीख"
+                      value={gDueDate}
+                      onChange={(e) => setGDueDate(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      अवधि (फंड टूटने के माह)
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      min={1}
+                      placeholder="उदा. 12 महीने"
+                      value={gCycleMonths}
+                      onChange={(e) => setGCycleMonths(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      अधिकतम सदस्य संख्या
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      min={2}
+                      placeholder="उदा. 12 या 20"
+                      value={gMaxMembers}
+                      onChange={(e) => setGMaxMembers(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    ग्रुप का विवरण / नियम टिप्पणी
+                  </label>
+                  <textarea
+                    rows={2}
+                    placeholder="उदा. 12 माह का पारदर्शी बचत पूल, हर माह 5 तारीख तक अंशदान जमा करना होगा।"
+                    value={gDesc}
+                    onChange={(e) => setGDesc(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-none"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={creatingGroup}
+                  className="w-full py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl text-xs shadow-md transition"
+                >
+                  {creatingGroup ? "ग्रुप बनाया जा रहा है..." : "नया फंड ग्रुप बनाएं (Create Group)"}
+                </button>
+              </form>
+            </div>
+
+            {/* List of All Groups */}
+            <div className="lg:col-span-2 bg-white rounded-3xl border border-slate-200 shadow-sm p-6 space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                <h3 className="text-base font-black text-slate-900">
+                  सभी सक्रिय फंड ग्रुप्स ({allGroups.length})
+                </h3>
+                <span className="text-xs text-slate-500 font-medium">होमपेज पर सभी को दिखाई देंगे</span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {allGroups.map((g) => (
+                  <div
+                    key={g._id}
+                    className="p-4 rounded-2xl border border-slate-200 bg-slate-50 space-y-2.5 hover:shadow-sm transition"
+                  >
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-bold text-slate-900 text-sm">{g.name}</h4>
+                      <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-black uppercase">
+                        {g.status || "active"}
+                      </span>
+                    </div>
+
+                    <p className="text-xs text-slate-600 font-medium line-clamp-2">
+                      {g.description || "मासिक बचत व आपातकालीन फंड।"}
+                    </p>
+
+                    <div className="grid grid-cols-2 gap-2 text-[11px] pt-1">
+                      <div className="bg-white p-2 rounded-xl border border-slate-200 font-semibold text-slate-800">
+                        मासिक: ₹{g.monthly_amount?.toLocaleString()}/माह
+                      </div>
+                      <div className="bg-white p-2 rounded-xl border border-slate-200 font-semibold text-slate-800">
+                        तारीख: हर माह {g.due_date_day} तारीख
+                      </div>
+                      <div className="bg-white p-2 rounded-xl border border-slate-200 font-semibold text-slate-800">
+                        अवधि: {g.total_cycle_months} माह ({g.current_cycle_month}/{g.total_cycle_months})
+                      </div>
+                      <div className="bg-white p-2 rounded-xl border border-slate-200 font-semibold text-slate-800">
+                        सदस्य सीमा: {g.max_members || 12} लोग
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       )}

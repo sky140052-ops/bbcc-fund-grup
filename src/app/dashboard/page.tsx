@@ -18,6 +18,7 @@ import {
   LogOut,
   ExternalLink,
   ShieldCheck,
+  Building,
 } from "lucide-react";
 
 interface Member {
@@ -26,6 +27,7 @@ interface Member {
   mobile: string;
   aadhaar_last4: string;
   pan: string;
+  membership_status?: "pending" | "approved" | "rejected";
   payment_status: "paid" | "pending";
   paid_amount: number;
   paid_at?: string;
@@ -39,6 +41,13 @@ interface GroupData {
   due_date_day: number;
   total_cycle_months: number;
   current_cycle_month: number;
+  max_members?: number;
+  description?: string;
+  approved_members_count?: number;
+  pending_members_count?: number;
+  user_status?: "approved" | "pending" | "rejected" | "none";
+  available_pool?: number;
+  status?: string;
 }
 
 interface WithdrawalReq {
@@ -74,11 +83,14 @@ export default function MemberDashboard() {
   const router = useRouter();
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [group, setGroup] = useState<GroupData | null>(null);
+  const [allGroups, setAllGroups] = useState<GroupData[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [availablePool, setAvailablePool] = useState(0);
   const [requests, setRequests] = useState<WithdrawalReq[]>([]);
   const [payouts, setPayouts] = useState<PayoutItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [joiningGroupId, setJoiningGroupId] = useState<string | null>(null);
+  const [joinGroupMsg, setJoinGroupMsg] = useState<{ [key: string]: string }>({});
 
   // Withdrawal Form State
   const [reqAmount, setReqAmount] = useState("");
@@ -101,6 +113,7 @@ export default function MemberDashboard() {
       const groupRes = await fetch("/api/groups");
       const groupData = await groupRes.json();
       setGroup(groupData.group);
+      setAllGroups(groupData.groups || (groupData.group ? [groupData.group] : []));
       setMembers(groupData.members || []);
       setAvailablePool(groupData.available_pool_balance || 0);
 
@@ -122,6 +135,29 @@ export default function MemberDashboard() {
   const handleLogout = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
     router.push("/login");
+  };
+
+  // Handle Apply to Join another Group
+  const handleApplyToJoin = async (groupId: string) => {
+    setJoiningGroupId(groupId);
+    try {
+      const res = await fetch("/api/groups/join", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ group_id: groupId }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setJoinGroupMsg({ ...joinGroupMsg, [groupId]: `❌ ${data.error}` });
+      } else {
+        setJoinGroupMsg({ ...joinGroupMsg, [groupId]: `✅ ${data.message}` });
+        loadData();
+      }
+    } catch {
+      setJoinGroupMsg({ ...joinGroupMsg, [groupId]: "❌ आवेदन भेजने में समस्या आई।" });
+    } finally {
+      setJoiningGroupId(null);
+    }
   };
 
   // Handle Monthly Payment (Razorpay simulation)
@@ -253,6 +289,19 @@ export default function MemberDashboard() {
         </div>
       </div>
 
+      {/* Pending Membership Alert Banner */}
+      {myMemberInfo?.membership_status === "pending" && (
+        <div className="bg-amber-50 border border-amber-300 rounded-3xl p-6 flex items-start gap-4 text-amber-900 shadow-sm">
+          <Clock className="w-6 h-6 text-amber-600 flex-shrink-0 mt-0.5" />
+          <div>
+            <h4 className="font-black text-sm">आपका आवेदन एडमिन के पास समीक्षाधीन है (Pending Approval)</h4>
+            <p className="text-xs text-amber-800 mt-1 font-medium leading-relaxed">
+              मुख्य एडमिन द्वारा आपके आवेदन को स्वीकार (Approve) किए जाने के बाद ही आप मासिक अंशदान जमा कर सकेंगे एवं निकासी के लिए वोट कर सकेंगे।
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
@@ -324,6 +373,99 @@ export default function MemberDashboard() {
           <p className="mt-1 text-xs text-amber-700 font-medium">
             1% प्रतिमाह (पेमेंट मिलने के दिन से शुरू)
           </p>
+        </div>
+      </div>
+
+      {/* AVAILABLE FUND GROUPS LIST */}
+      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 space-y-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-3 border-b border-slate-100 gap-2">
+          <div>
+            <div className="inline-flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-brand-600 mb-0.5">
+              <Building className="w-4 h-4" />
+              <span>एडमिन द्वारा संचालित फंड ग्रुप्स</span>
+            </div>
+            <h3 className="text-base font-black text-slate-900">
+              उपलब्ध फंड ग्रुप्स व आपकी सदस्यता स्थिति ({allGroups.length})
+            </h3>
+          </div>
+          <p className="text-xs text-slate-500 font-medium">
+            आप किसी भी अन्य ग्रुप में जुड़ने का आवेदन कर सकते हैं।
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {allGroups.map((g) => {
+            const isJoined = g.user_status === "approved";
+            const isPending = g.user_status === "pending";
+            const msg = joinGroupMsg[g._id];
+
+            return (
+              <div
+                key={g._id}
+                className="p-5 rounded-2xl border border-slate-200 bg-slate-50 flex flex-col justify-between space-y-3"
+              >
+                <div>
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-bold text-slate-900 text-sm">{g.name}</h4>
+                    <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-black uppercase">
+                      {g.status || "active"}
+                    </span>
+                  </div>
+
+                  <p className="text-xs text-slate-600 font-medium mt-1.5 line-clamp-2">
+                    {g.description || "मासिक बचत व आपातकालीन सहायता समूह।"}
+                  </p>
+
+                  <div className="grid grid-cols-2 gap-2 text-xs pt-3">
+                    <div className="bg-white p-2 rounded-xl border border-slate-200">
+                      <span className="text-[10px] text-slate-500 font-bold uppercase block">मासिक</span>
+                      <span className="font-black text-slate-900">₹{g.monthly_amount?.toLocaleString()}</span>
+                    </div>
+                    <div className="bg-white p-2 rounded-xl border border-slate-200">
+                      <span className="text-[10px] text-slate-500 font-bold uppercase block">देय तारीख</span>
+                      <span className="font-black text-slate-900">{g.due_date_day} तारीख</span>
+                    </div>
+                    <div className="bg-white p-2 rounded-xl border border-slate-200">
+                      <span className="text-[10px] text-slate-500 font-bold uppercase block">अवधि</span>
+                      <span className="font-black text-slate-800">{g.total_cycle_months} माह</span>
+                    </div>
+                    <div className="bg-white p-2 rounded-xl border border-slate-200">
+                      <span className="text-[10px] text-slate-500 font-bold uppercase block">सदस्य</span>
+                      <span className="font-black text-slate-800">{g.approved_members_count || 1}/{g.max_members || 12}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-slate-200">
+                  {msg && (
+                    <div className="mb-2 p-2 rounded-xl text-xs font-bold bg-white text-slate-800 border border-slate-200">
+                      {msg}
+                    </div>
+                  )}
+
+                  {isJoined ? (
+                    <div className="w-full py-2 bg-emerald-50 text-emerald-800 border border-emerald-300 font-bold rounded-xl text-xs text-center flex items-center justify-center gap-1.5">
+                      <CheckCircle className="w-4 h-4 text-emerald-600" />
+                      <span>आप सक्रिय सदस्य हैं ✅</span>
+                    </div>
+                  ) : isPending ? (
+                    <div className="w-full py-2 bg-amber-50 text-amber-900 border border-amber-300 font-bold rounded-xl text-xs text-center flex items-center justify-center gap-1.5">
+                      <Clock className="w-4 h-4 text-amber-600" />
+                      <span>आवेदन लंबित है (Pending) ⏳</span>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => handleApplyToJoin(g._id)}
+                      disabled={joiningGroupId === g._id}
+                      className="w-full py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl text-xs shadow-sm transition"
+                    >
+                      {joiningGroupId === g._id ? "आवेदन भेजा जा रहा है..." : "इस ग्रुप से जुड़ें (Apply to Join)"}
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 

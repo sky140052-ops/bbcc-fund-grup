@@ -127,6 +127,26 @@ export async function dbUpdateUser(userId: string, updates: Partial<User>): Prom
 }
 
 // GROUPS
+export async function dbFindGroups(filter: Record<string, any> = {}): Promise<FundGroup[]> {
+  const col = await getCollection<FundGroup>("groups");
+  if (col) {
+    return await col.find(filter).toArray();
+  }
+  const store = getCleanStore();
+  return store.groups.filter((g) => {
+    return Object.entries(filter).every(([k, v]) => (g as any)[k] === v);
+  });
+}
+
+export async function dbFindGroupById(groupId: string): Promise<FundGroup | null> {
+  const col = await getCollection<FundGroup>("groups");
+  if (col) {
+    return await col.findOne({ _id: groupId });
+  }
+  const store = getCleanStore();
+  return store.groups.find((g) => g._id === groupId) || null;
+}
+
 export async function dbGetActiveGroup(): Promise<FundGroup | null> {
   const col = await getCollection<FundGroup>("groups");
   if (col) {
@@ -158,6 +178,17 @@ export async function dbFindGroupMembers(groupId: string): Promise<GroupMember[]
   return store.group_members.filter((gm) => gm.group_id === groupId);
 }
 
+export async function dbFindAllGroupMembers(filter: Record<string, any> = {}): Promise<GroupMember[]> {
+  const col = await getCollection<GroupMember>("group_members");
+  if (col) {
+    return await col.find(filter).toArray();
+  }
+  const store = getCleanStore();
+  return store.group_members.filter((gm) => {
+    return Object.entries(filter).every(([k, v]) => (gm as any)[k] === v);
+  });
+}
+
 export async function dbInsertGroupMember(member: GroupMember): Promise<void> {
   const col = await getCollection<GroupMember>("group_members");
   if (col) {
@@ -166,6 +197,19 @@ export async function dbInsertGroupMember(member: GroupMember): Promise<void> {
   }
   const store = getCleanStore();
   store.group_members.push(member);
+}
+
+export async function dbUpdateGroupMemberById(memberId: string, updates: Partial<GroupMember>): Promise<void> {
+  const col = await getCollection<GroupMember>("group_members");
+  if (col) {
+    await col.updateOne({ _id: memberId } as any, { $set: updates as any });
+    return;
+  }
+  const store = getCleanStore();
+  const idx = store.group_members.findIndex((gm) => gm._id === memberId);
+  if (idx !== -1) {
+    store.group_members[idx] = { ...store.group_members[idx], ...updates };
+  }
 }
 
 export async function dbUpdateGroupMember(

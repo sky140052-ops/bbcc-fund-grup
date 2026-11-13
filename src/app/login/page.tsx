@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -17,15 +17,18 @@ import {
   Calendar,
   Eye,
   EyeOff,
+  UserPlus,
+  Building,
 } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
 
-  // Active view: "password" | "otp" | "forgot"
-  const [activeView, setActiveView] = useState<"password" | "otp" | "forgot">("password");
+  // Active view: "password" | "otp" | "register" | "forgot"
+  const [activeView, setActiveView] = useState<"password" | "otp" | "register" | "forgot">("password");
+  const [applyGroupId, setApplyGroupId] = useState<string>("");
 
-  // Form states
+  // Form states - Login
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(true);
@@ -36,6 +39,18 @@ export default function LoginPage() {
   const [otpLoginCode, setOtpLoginCode] = useState("");
   const [otpSentForLogin, setOtpSentForLogin] = useState(false);
 
+  // Registration states
+  const [regName, setRegName] = useState("");
+  const [regEmail, setRegEmail] = useState("");
+  const [regPassword, setRegPassword] = useState("");
+  const [regMobile, setRegMobile] = useState("");
+  const [regDob, setRegDob] = useState("");
+  const [regAadhaar, setRegAadhaar] = useState("");
+  const [regPan, setRegPan] = useState("");
+  const [regAccountNo, setRegAccountNo] = useState("");
+  const [regIfsc, setRegIfsc] = useState("");
+  const [regUpi, setRegUpi] = useState("");
+
   // Forgot Password states
   const [forgotMobile, setForgotMobile] = useState("");
   const [forgotDob, setForgotDob] = useState("");
@@ -44,12 +59,28 @@ export default function LoginPage() {
   const [forgotOtp, setForgotOtp] = useState("");
   const [forgotNewPassword, setForgotNewPassword] = useState("");
   const [forgotConfirmPassword, setForgotConfirmPassword] = useState("");
-  const [forgotStep, setForgotStep] = useState<1 | 2>(1); // 1 = enter mobile & dob, 2 = enter otp & new pwd
+  const [forgotStep, setForgotStep] = useState<1 | 2>(1);
 
   // Status states
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const tabParam = params.get("tab");
+      const groupParam = params.get("apply_group") || params.get("group_id");
+
+      if (groupParam) {
+        setApplyGroupId(groupParam);
+      }
+
+      if (tabParam === "register" || groupParam) {
+        setActiveView("register");
+      }
+    }
+  }, []);
 
   const resetMessages = () => {
     setError("");
@@ -79,6 +110,15 @@ export default function LoginPage() {
         setError(data.error || "लॉगिन असफल रहा। कृपया सही ईमेल व पासवर्ड दर्ज करें।");
         setLoading(false);
         return;
+      }
+
+      // If user came from a group apply link
+      if (applyGroupId) {
+        await fetch("/api/groups/join", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ group_id: applyGroupId }),
+        });
       }
 
       router.push(data.redirectTo || "/dashboard");
@@ -141,6 +181,14 @@ export default function LoginPage() {
         return;
       }
 
+      if (applyGroupId) {
+        await fetch("/api/groups/join", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ group_id: applyGroupId }),
+        });
+      }
+
       router.push(data.redirectTo || "/dashboard");
     } catch {
       setError("सर्वर से जुड़ने में समस्या हुई।");
@@ -148,7 +196,49 @@ export default function LoginPage() {
     }
   };
 
-  // 4. Forgot Password: Step 1 Send OTP via Mobile + DOB
+  // 4. Registration Handler
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    resetMessages();
+    setLoading(true);
+
+    try {
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: regName,
+          email: regEmail,
+          password: regPassword,
+          mobile: regMobile,
+          dob: regDob,
+          aadhaar: regAadhaar,
+          pan: regPan,
+          bank_details: {
+            account_number: regAccountNo,
+            ifsc: regIfsc,
+            upi_id: regUpi,
+          },
+          group_id: applyGroupId || undefined,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "पंजीकरण असफल रहा।");
+        setLoading(false);
+        return;
+      }
+
+      alert("✅ " + data.message);
+      router.push(data.redirectTo || "/dashboard");
+    } catch {
+      setError("सर्वर से जुड़ने में समस्या हुई। कृपया दोबारा प्रयास करें।");
+      setLoading(false);
+    }
+  };
+
+  // 5. Forgot Password: Step 1 Send OTP via Mobile + DOB
   const handleForgotSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     resetMessages();
@@ -182,7 +272,7 @@ export default function LoginPage() {
     }
   };
 
-  // 5. Forgot Password: Step 2 Reset Password with OTP
+  // 6. Forgot Password: Step 2 Reset Password with OTP
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     resetMessages();
@@ -221,10 +311,7 @@ export default function LoginPage() {
       setActiveView("password");
       setPassword("");
       setForgotStep(1);
-      setForgotOtp("");
-      setForgotNewPassword("");
-      setForgotConfirmPassword("");
-      setSuccessMsg("नया पासवर्ड बन गया है! अब नए पासवर्ड से लॉगिन करें।");
+      setSuccessMsg("नया पासवर्ड सेट हो गया है। अब नए पासवर्ड से लॉगिन करें।");
       setLoading(false);
     } catch {
       setError("सर्वर से जुड़ने में समस्या हुई।");
@@ -234,20 +321,22 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-4 bg-gradient-to-b from-slate-50 to-slate-100">
-      <div className="max-w-md w-full bg-white rounded-3xl shadow-xl shadow-slate-200/60 border border-slate-200 overflow-hidden">
+      <div className={`w-full ${activeView === "register" ? "max-w-xl" : "max-w-md"} bg-white rounded-3xl shadow-xl shadow-slate-200/60 border border-slate-200 overflow-hidden transition-all duration-200`}>
         {/* Header */}
-        <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-brand-900 p-8 text-white text-center relative">
-          <div className="w-14 h-14 mx-auto rounded-2xl bg-white/10 backdrop-blur border border-white/20 flex items-center justify-center mb-3 shadow-inner">
-            <Shield className="w-7 h-7 text-sky-400" />
+        <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-brand-900 p-6 sm:p-8 text-white text-center relative">
+          <div className="w-12 h-12 mx-auto rounded-2xl bg-white/10 backdrop-blur border border-white/20 flex items-center justify-center mb-2.5 shadow-inner">
+            <Shield className="w-6 h-6 text-sky-400" />
           </div>
-          <h2 className="text-2xl font-black tracking-tight">BBCC FUND GRUP</h2>
+          <h2 className="text-xl sm:text-2xl font-black tracking-tight">BBCC FUND GRUP</h2>
           <p className="mt-1 text-xs font-semibold text-slate-300">
-            ईमेल (Gmail) एवं OTP आधारित सुरक्षित लॉगिन
+            {activeView === "register"
+              ? "पारदर्शी बचत समिति — नया क्लाइंट रजिस्ट्रेशन"
+              : "ईमेल (Gmail) एवं सुरक्षित पासवर्ड आधारित लॉगिन"}
           </p>
 
           <Link
             href="/rules"
-            className="mt-3 inline-flex items-center gap-1.5 text-xs text-amber-300 hover:text-amber-200 underline font-medium"
+            className="mt-2.5 inline-flex items-center gap-1.5 text-xs text-amber-300 hover:text-amber-200 underline font-medium"
           >
             <BookOpen className="w-3.5 h-3.5" />
             <span>ग्रुप के आधिकारिक नियम व शर्तें पढ़ें</span>
@@ -256,36 +345,53 @@ export default function LoginPage() {
 
         {/* View Switcher Tabs (Only if not in forgot password mode) */}
         {activeView !== "forgot" && (
-          <div className="grid grid-cols-2 border-b border-slate-100 bg-slate-50 p-1.5 gap-1.5">
+          <div className="grid grid-cols-3 border-b border-slate-100 bg-slate-50 p-1.5 gap-1 text-[11px] sm:text-xs">
             <button
               type="button"
               onClick={() => {
                 setActiveView("password");
                 resetMessages();
               }}
-              className={`py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+              className={`py-2 rounded-xl font-bold transition flex items-center justify-center gap-1 ${
                 activeView === "password"
                   ? "bg-white text-slate-900 shadow-sm"
                   : "text-slate-500 hover:text-slate-900"
               }`}
             >
-              <KeyRound className="w-3.5 h-3.5" />
-              <span>पासवर्ड से लॉगिन</span>
+              <KeyRound className="w-3 h-3" />
+              <span>लॉगिन</span>
             </button>
+
             <button
               type="button"
               onClick={() => {
                 setActiveView("otp");
                 resetMessages();
               }}
-              className={`py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+              className={`py-2 rounded-xl font-bold transition flex items-center justify-center gap-1 ${
                 activeView === "otp"
                   ? "bg-white text-slate-900 shadow-sm"
                   : "text-slate-500 hover:text-slate-900"
               }`}
             >
-              <Mail className="w-3.5 h-3.5" />
-              <span>ईमेल OTP से लॉगिन</span>
+              <Mail className="w-3 h-3" />
+              <span>ईमेल OTP</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setActiveView("register");
+                resetMessages();
+              }}
+              className={`py-2 rounded-xl font-bold transition flex items-center justify-center gap-1 ${
+                activeView === "register"
+                  ? "bg-white text-slate-900 shadow-sm"
+                  : "text-slate-500 hover:text-slate-900"
+              }`}
+            >
+              <UserPlus className="w-3 h-3" />
+              <span>रजिस्टर</span>
             </button>
           </div>
         )}
@@ -388,6 +494,17 @@ export default function LoginPage() {
                 <span>{loading ? "सत्यापित हो रहा है..." : "लॉगिन करें (Sign In)"}</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
+
+              <div className="pt-2 text-center">
+                <span className="text-xs text-slate-500">खाता नहीं है? </span>
+                <button
+                  type="button"
+                  onClick={() => setActiveView("register")}
+                  className="text-xs font-bold text-brand-600 hover:underline"
+                >
+                  यहाँ नया खाता बनाएं
+                </button>
+              </div>
             </form>
           )}
 
@@ -442,7 +559,6 @@ export default function LoginPage() {
                     />
                   </div>
 
-                  {/* Remember Me Checkbox (30 Days) */}
                   <div className="flex items-center gap-2 pt-1">
                     <input
                       type="checkbox"
@@ -472,38 +588,184 @@ export default function LoginPage() {
                     onClick={() => setOtpSentForLogin(false)}
                     className="w-full text-center text-xs font-bold text-slate-500 hover:underline"
                   >
-                    ईमेल बदलें या दोबारा OTP भेजें
+                    ईमेल दोबारा बदलें
                   </button>
                 </form>
               )}
             </div>
           )}
 
-          {/* VIEW 3: Forgot Password (Mobile + DOB -> Email OTP -> New Password) */}
+          {/* VIEW 3: Public Registration */}
+          {activeView === "register" && (
+            <form onSubmit={handleRegister} className="space-y-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">पूरा नाम (Full Name)</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="उदा. अमित कुमार"
+                  value={regName}
+                  onChange={(e) => setRegName(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-brand-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">ईमेल (Gmail ID)</label>
+                  <input
+                    type="email"
+                    required
+                    placeholder="amit@gmail.com"
+                    value={regEmail}
+                    onChange={(e) => setRegEmail(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">पासवर्ड बनाएं (कम से कम 6 अक्षर)</label>
+                  <input
+                    type="password"
+                    required
+                    placeholder="अपनी पसंद का पासवर्ड"
+                    value={regPassword}
+                    onChange={(e) => setRegPassword(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">मोबाइल नंबर</label>
+                  <input
+                    type="tel"
+                    required
+                    placeholder="10-अंकीय मोबाइल"
+                    value={regMobile}
+                    onChange={(e) => setRegMobile(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">जन्मतिथि (DOB)</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="DDMMYYYY (01011995)"
+                    value={regDob}
+                    onChange={(e) => setRegDob(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">आधार नंबर (12 अंक)</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="XXXX-XXXX-XXXX"
+                    value={regAadhaar}
+                    onChange={(e) => setRegAadhaar(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">पैन कार्ड नंबर (PAN)</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="ABCDE1234F"
+                    value={regPan}
+                    onChange={(e) => setRegPan(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold uppercase focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">बैंक खाता नंबर (Payout हेतु)</label>
+                <input
+                  type="text"
+                  placeholder="अकाउंट नंबर दर्ज करें"
+                  value={regAccountNo}
+                  onChange={(e) => setRegAccountNo(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">IFSC कोड</label>
+                  <input
+                    type="text"
+                    placeholder="SBIN0001234"
+                    value={regIfsc}
+                    onChange={(e) => setRegIfsc(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold uppercase focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">UPI ID</label>
+                  <input
+                    type="text"
+                    placeholder="name@upi"
+                    value={regUpi}
+                    onChange={(e) => setRegUpi(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full mt-3 py-3 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl text-xs shadow-md transition"
+              >
+                {loading ? "रजिस्टर किया जा रहा है..." : "खाता बनाएं व आवेदन करें (Register)"}
+              </button>
+
+              <div className="pt-2 text-center">
+                <span className="text-xs text-slate-500">पहले से पंजीकृत हैं? </span>
+                <button
+                  type="button"
+                  onClick={() => setActiveView("password")}
+                  className="text-xs font-bold text-brand-600 hover:underline"
+                >
+                  यहाँ लॉगिन करें
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* VIEW 4: Forgot Password Flow */}
           {activeView === "forgot" && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+            <div>
+              <div className="flex items-center justify-between mb-4">
                 <h3 className="text-sm font-black text-slate-900 flex items-center gap-1.5">
-                  <RotateCcw className="w-4 h-4 text-amber-600" />
-                  <span>पासवर्ड रीसेट करें (Forgot Password)</span>
+                  <RotateCcw className="w-4 h-4 text-brand-600" />
+                  <span>पासवर्ड रीसेट करें</span>
                 </h3>
                 <button
                   type="button"
                   onClick={() => {
                     setActiveView("password");
                     resetMessages();
+                    setForgotStep(1);
                   }}
-                  className="text-xs font-bold text-slate-400 hover:text-slate-600"
+                  className="text-xs font-bold text-slate-500 hover:text-slate-800 underline"
                 >
-                  ✕ रद्द करें
+                  लॉगिन पर वापस जाएं
                 </button>
               </div>
 
               {forgotStep === 1 ? (
                 <form onSubmit={handleForgotSendOtp} className="space-y-3">
-                  <p className="text-xs text-slate-600 font-medium">
-                    अपने पंजीकृत <strong>मोबाइल नंबर</strong> और <strong>जन्मतिथि</strong> दर्ज करें।
-                    सत्यापन कोड (OTP) आपके पंजीकृत ईमेल पर भेजा जाएगा।
+                  <p className="text-xs text-slate-500 leading-relaxed font-medium">
+                    अपना पंजीकृत <strong>मोबाइल नंबर</strong> और <strong>जन्मतिथि (DOB)</strong> दर्ज करें।
+                    सिस्टम आपके रजिस्टर्ड ईमेल पर OTP भेजेगा।
                   </p>
 
                   <div>
@@ -519,24 +781,24 @@ export default function LoginPage() {
                         onChange={(e) => setForgotMobile(e.target.value)}
                         className="w-full pl-10 pr-3 py-2.5 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-brand-500"
                       />
-                      <Phone className="w-3.5 h-3.5 text-slate-400 absolute left-3.5 top-3" />
+                      <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
                     </div>
                   </div>
 
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1">
-                      पंजीकृत जन्मतिथि (DOB)
+                      जन्मतिथि (DOB - DDMMYYYY)
                     </label>
                     <div className="relative">
                       <input
                         type="text"
                         required
-                        placeholder="DDMMYYYY (उदा. 01011995)"
+                        placeholder="01011995"
                         value={forgotDob}
                         onChange={(e) => setForgotDob(e.target.value)}
                         className="w-full pl-10 pr-3 py-2.5 rounded-xl border border-slate-300 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-brand-500"
                       />
-                      <Calendar className="w-3.5 h-3.5 text-slate-400 absolute left-3.5 top-3" />
+                      <Calendar className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
                     </div>
                   </div>
 
@@ -545,7 +807,7 @@ export default function LoginPage() {
                     disabled={loading}
                     className="w-full py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl text-xs shadow-md transition"
                   >
-                    {loading ? "जांच हो रही है..." : "ईमेल पर OTP भेजें (Send OTP)"}
+                    {loading ? "जांच हो रही है..." : "ईमेल पर 6-अंकीय OTP भेजें"}
                   </button>
                 </form>
               ) : (
