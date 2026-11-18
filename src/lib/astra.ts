@@ -126,6 +126,26 @@ export async function dbUpdateUser(userId: string, updates: Partial<User>): Prom
   }
 }
 
+export async function dbDeleteUser(userId: string): Promise<boolean> {
+  const col = await getCollection<User>("users");
+  if (col) {
+    await col.deleteOne({ _id: userId } as any);
+    const gmCol = await getCollection<GroupMember>("group_members");
+    if (gmCol) {
+      await gmCol.deleteMany({ user_id: userId } as any);
+    }
+    return true;
+  }
+  const store = getCleanStore();
+  const idx = store.users.findIndex((u) => u._id === userId);
+  if (idx !== -1) {
+    store.users.splice(idx, 1);
+    store.group_members = store.group_members.filter((gm) => gm.user_id !== userId);
+    return true;
+  }
+  return false;
+}
+
 // GROUPS
 export async function dbFindGroups(filter: Record<string, any> = {}): Promise<FundGroup[]> {
   const col = await getCollection<FundGroup>("groups");

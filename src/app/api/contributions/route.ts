@@ -2,11 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyToken } from "../../../lib/auth";
 import {
   dbGetActiveGroup,
+  dbFindGroupById,
   dbFindContributions,
   dbInsertContribution,
+  dbFindGroupMembers,
+  dbFindUsers,
 } from "../../../lib/astra";
 import { sanitize } from "../../../lib/crypto";
 import { Contribution } from "../../../lib/types";
+import { sendPaymentAlertToAll } from "../../../lib/email";
 
 export async function GET(req: NextRequest) {
   const token = req.cookies.get("bbcc_session")?.value;
@@ -67,6 +71,37 @@ export async function POST(req: NextRequest) {
     };
 
     await dbInsertContribution(newPayment);
+
+    // Send Broadcast Email to All Group Members & Admin
+    try {
+      const groupMemberships = await dbFindGroupMembers(targetGroupId);
+      const allUsers = await dbFindUsers();
+      const recipientEmails = allUsers
+        .filter(
+          (u) =>
+            u.email &&
+            (groupMemberships.some((gm) => gm.user_id === u._id) ||
+              u.role === "admin" ||
+              u.role === "founder")
+        )
+        .map((u) => u.email);
+
+      const paymentDateStr = new Date().toLocaleDateString("hi-IN", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      });
+
+      sendPaymentAlertToAll({
+        groupName: activeGroup.name,
+        payerName: session.name,
+        amount: paymentAmount,
+        paymentDate: paymentDateStr,
+        recipientEmails,
+      }).catch((err) => console.warn("Failed sending deposit broadcast email:", err));
+    } catch (broadcastErr) {
+      console.warn("Broadcast error on payment:", broadcastErr);
+    }
 
     return NextResponse.json({
       success: true,

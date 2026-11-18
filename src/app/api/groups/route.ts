@@ -87,7 +87,10 @@ export async function GET(req: NextRequest) {
   const selectedContribs = allContributions.filter((c) => c.group_id === selectedGroup._id);
   const selectedPayouts = allPayouts.filter((p) => p.group_id === selectedGroup._id);
 
+  const isPrivileged = session?.role === "founder" || session?.role === "admin";
+
   const members = groupUsers.map((u) => {
+    const isSelf = u._id === currentUserId;
     const contribution = selectedContribs.find(
       (c) =>
         c.user_id === u._id &&
@@ -100,13 +103,13 @@ export async function GET(req: NextRequest) {
     return {
       _id: u._id,
       name: u.name,
-      email: u.email,
+      email: (isPrivileged || isSelf) ? u.email : undefined,
       role: u.role,
-      mobile: u.mobile,
-      dob: u.dob,
-      aadhaar_last4: u.aadhaar_last4,
-      pan: u.pan,
-      bank_details: u.bank_details,
+      mobile: (isPrivileged || isSelf) ? u.mobile : (u.mobile ? `XXXXXX${u.mobile.slice(-4)}` : "XXXXXXXXXX"),
+      dob: (isPrivileged || isSelf) ? u.dob : undefined,
+      aadhaar_last4: (isPrivileged || isSelf) ? u.aadhaar_last4 : "XXXX",
+      pan: (isPrivileged || isSelf) ? u.pan : (u.pan ? `XXXXX${u.pan.slice(-4)}` : "XXXXXXXXXX"),
+      bank_details: (isPrivileged || isSelf) ? u.bank_details : undefined,
       membership_status: membership?.status || "approved",
       payment_status: contribution ? "paid" : "pending",
       paid_amount: contribution ? contribution.amount : 0,
@@ -133,6 +136,10 @@ export async function GET(req: NextRequest) {
     total_disbursed_lifetime: totalDisbursed,
     available_pool_balance: availablePoolBalance,
     monthly_target: members.length * selectedGroup.monthly_amount,
+    help_contact: {
+      email: process.env.FOUNDER_EMAIL || "contact@bbccfund.org",
+      phone: process.env.ADMIN_PHONE || "+91 99999 99999",
+    },
   });
 }
 
@@ -145,10 +152,10 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { name, monthly_amount, due_date_day, total_cycle_months, max_members, description } = await req.json();
+    const { name, monthly_amount, due_date_day, start_date, end_date, total_cycle_months, max_members, description } = await req.json();
 
     const cleanName = sanitize(name) || "BBCC Fund Grup";
-    const amountNum = Math.max(100, Number(monthly_amount) || 5000);
+    const amountNum = Math.max(1, Number(monthly_amount) || 10);
     const dueDayNum = Math.min(28, Math.max(1, Number(due_date_day) || 5));
     const durationNum = Math.max(1, Number(total_cycle_months) || 12);
     const maxMembersNum = Math.max(2, Number(max_members) || 12);
@@ -159,6 +166,8 @@ export async function POST(req: NextRequest) {
       name: cleanName,
       monthly_amount: amountNum,
       due_date_day: dueDayNum,
+      start_date: start_date || undefined,
+      end_date: end_date || undefined,
       total_cycle_months: durationNum,
       current_cycle_month: 1,
       max_members: maxMembersNum,

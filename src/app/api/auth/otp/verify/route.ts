@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { dbFindUser, dbUpdateUser } from "../../../../../lib/astra";
-import { signToken } from "../../../../../lib/auth";
+import { verifyUserOtp, signToken } from "../../../../../lib/auth";
+import { sendLoginAlertEmail } from "../../../../../lib/email";
 import { sanitize } from "../../../../../lib/crypto";
 
 export async function POST(req: NextRequest) {
@@ -14,28 +14,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "कृपया ईमेल और OTP दोनों दर्ज करें।" }, { status: 400 });
     }
 
-    const user = await dbFindUser({ email: cleanEmail });
+    const user = await verifyUserOtp(cleanEmail, cleanOtp);
 
     if (!user) {
-      return NextResponse.json({ error: "उपयोगकर्ता नहीं मिला।" }, { status: 404 });
+      return NextResponse.json(
+        { error: "अमान्य या समय समाप्त (Expired) OTP! कृपया पुनः OTP भेजें।" },
+        { status: 401 }
+      );
     }
 
-    if (!user.otp_code || user.otp_code !== cleanOtp) {
-      return NextResponse.json({ error: "गलत OTP कोड! कृपया ईमेल में आया सही कोड दर्ज करें।" }, { status: 400 });
-    }
-
-    if (user.otp_expires_at && new Date() > new Date(user.otp_expires_at)) {
-      return NextResponse.json({ error: "यह OTP समाप्त (Expired) हो चुका है।" }, { status: 400 });
-    }
-
-    // Clear used OTP
-    await dbUpdateUser(user._id, {
-      otp_code: undefined,
-      otp_expires_at: undefined,
-    });
-
-    const isRememberMe = Boolean(remember_me);
-    const maxAgeSeconds = isRememberMe ? 30 * 24 * 60 * 60 : 24 * 60 * 60; // 30 days
+    const isRememberMe = remember_me !== false;
+    const maxAgeSeconds = isRememberMe ? 30 * 24 * 60 * 60 : 24 * 60 * 60; // 30 days default
 
     const token = signToken(
       {
@@ -49,18 +38,27 @@ export async function POST(req: NextRequest) {
       isRememberMe
     );
 
+    // Send Login Notification Email immediately
+    sendLoginAlertEmail({
+      toEmail: user.email,
+      userName: user.name,
+      role: user.role,
+    }).catch((err) => console.warn("Login alert send failed:", err));
+
+    const isFounder = user.role === "founder" || user.role === "admin";
+    const redirectTo = isFounder ? "/admin" : "/dashboard";
+
     const response = NextResponse.json({
       success: true,
+      message: isFounder ? "👑 मुख्य एडमिन लॉगिन सफल!" : "लॉगिन सफल रहा!",
       user: {
-        id: user._id,
+        _id: user._id,
         name: user.name,
         email: user.email,
         role: user.role,
         mobile: user.mobile,
-        aadhaar_last4: user.aadhaar_last4,
       },
-      redirectTo: user.role === "member" ? "/dashboard" : "/admin",
-      message: isRememberMe ? "लॉगिन सफल (30 दिनों तक याद रखा जाएगा)" : "लॉगिन सफल",
+      redirectTo,
     });
 
     response.cookies.set("bbcc_session", token, {
@@ -72,8 +70,8 @@ export async function POST(req: NextRequest) {
     });
 
     return response;
-  } catch (error) {
-    console.error("OTP login verify error:", error);
-    return NextResponse.json({ error: "सत्यापन में त्रुटि हुई।" }, { status: 500 });
+  } catch (err) {
+    console.error("OTP verification error:", err);
+    return NextResponse.json({ error: "OTP सत्यापन में त्रुटि हुई।" }, { status: 500 });
   }
 }

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Shield, BookOpen, User, LogOut } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "BBCC Fund Grup - Community Savings & Chit Platform",
+  title: "BBCC GROUP FUND - Community Savings & Chit Platform",
   description: "Secure, Transparent Community Fund & Bishi Management Platform with Astra DB & Razorpay",
 };
 
@@ -24,29 +24,29 @@ export default function RootLayout({
               </div>
               <div>
                 <span className="text-lg font-black tracking-tight text-slate-900 group-hover:text-brand-600 transition-colors">
-                  BBCC FUND GRUP
+                  BBCC GROUP FUND
                 </span>
                 <span className="block text-xs font-semibold text-emerald-600 tracking-wide">
-                  पारदर्शी बचत एवं सहयोग समिति
+                  पारदर्शी बचत एवं आपातकालीन सहायता समूह
                 </span>
               </div>
             </Link>
 
-            <nav className="flex items-center gap-2 sm:gap-4">
+            <nav className="flex items-center gap-2 sm:gap-3">
               <Link
                 href="/rules"
-                className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg border border-amber-200 transition"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-semibold text-slate-700 hover:text-brand-600 hover:bg-slate-100 rounded-lg transition"
               >
-                <BookOpen className="w-4 h-4 text-amber-600" />
-                <span>नियम व शर्तें (Rules)</span>
+                <BookOpen className="w-4 h-4 text-slate-500" />
+                <span>नियम (Terms)</span>
               </Link>
 
               <Link
                 href="/login"
-                className="flex items-center gap-1.5 px-3.5 py-1.5 text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg shadow-sm transition"
+                className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs sm:text-sm font-bold text-white bg-brand-600 hover:bg-brand-700 rounded-xl shadow-sm transition"
               >
                 <User className="w-4 h-4" />
-                <span>Login</span>
+                <span>जुड़ें / लॉगिन</span>
               </Link>
             </nav>
           </div>

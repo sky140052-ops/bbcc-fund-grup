@@ -19,6 +19,10 @@ import {
   ExternalLink,
   ShieldCheck,
   Building,
+  Eye,
+  X,
+  UserCheck,
+  FileCheck,
 } from "lucide-react";
 
 interface Member {
@@ -99,6 +103,8 @@ export default function MemberDashboard() {
   const [repayDate, setRepayDate] = useState("");
   const [submittingReq, setSubmittingReq] = useState(false);
   const [feedbackMsg, setFeedbackMsg] = useState("");
+  const [showMyKycModal, setShowMyKycModal] = useState(false);
+  const [enlargedImage, setEnlargedImage] = useState<{ url: string; title: string } | null>(null);
 
   const loadData = async () => {
     try {
@@ -272,16 +278,23 @@ export default function MemberDashboard() {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <button
+            onClick={() => setShowMyKycModal(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition shadow-sm"
+          >
+            <ShieldCheck className="w-3.5 h-3.5" />
+            <span>मेरा KYC प्रोफाइल 📁</span>
+          </button>
           <Link
             href="/rules"
-            className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-xl text-xs transition"
+            className="px-3.5 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-xl text-xs transition"
           >
             नियम व शर्तें
           </Link>
           <button
             onClick={handleLogout}
-            className="flex items-center gap-1.5 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold transition"
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold transition"
           >
             <LogOut className="w-3.5 h-3.5" />
             <span>लॉगआउट</span>
@@ -492,25 +505,25 @@ export default function MemberDashboard() {
                 <thead className="bg-slate-50 text-slate-600 font-bold text-xs uppercase tracking-wider border-b border-slate-100">
                   <tr>
                     <th className="py-3 px-4">सदस्य का नाम</th>
-                    <th className="py-3 px-4">मोबाइल नंबर</th>
-                    <th className="py-3 px-4">पैन नंबर</th>
-                    <th className="py-3 px-4">इस माह का स्टेटस</th>
-                    <th className="py-3 px-4">पूल फंड लिया?</th>
+                    <th className="py-3 px-4">अंशदान स्थिति</th>
+                    <th className="py-3 px-4">जमा तारीख (Date)</th>
+                    <th className="py-3 px-4">जमा राशि</th>
+                    <th className="py-3 px-4">पूल फंड लाभ</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-medium">
                   {members.map((m) => (
                     <tr key={m._id} className="hover:bg-slate-50/60 transition">
-                      <td className="py-3 px-4 font-bold text-slate-900 flex items-center gap-2">
-                        <span>{m.name}</span>
-                        {m._id === currentUser?._id && (
-                          <span className="text-[10px] bg-brand-100 text-brand-700 px-1.5 py-0.5 rounded font-black">
-                            आप
-                          </span>
-                        )}
+                      <td className="py-3 px-4 font-bold text-slate-900">
+                        <div className="flex items-center gap-2">
+                          <span>{m.name}</span>
+                          {m._id === currentUser?._id && (
+                            <span className="text-[10px] bg-brand-100 text-brand-700 px-1.5 py-0.5 rounded font-black">
+                              आप
+                            </span>
+                          )}
+                        </div>
                       </td>
-                      <td className="py-3 px-4 text-slate-600">{m.mobile}</td>
-                      <td className="py-3 px-4 text-slate-500 uppercase">{m.pan}</td>
                       <td className="py-3 px-4">
                         {m.payment_status === "paid" ? (
                           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
@@ -521,6 +534,18 @@ export default function MemberDashboard() {
                             <Clock className="w-3 h-3" /> बाकी है
                           </span>
                         )}
+                      </td>
+                      <td className="py-3 px-4 text-xs font-semibold text-slate-700">
+                        {m.paid_at
+                          ? new Date(m.paid_at).toLocaleDateString("hi-IN", {
+                              day: "numeric",
+                              month: "short",
+                              year: "numeric",
+                            })
+                          : "—"}
+                      </td>
+                      <td className="py-3 px-4 text-xs font-black text-slate-900">
+                        {m.payment_status === "paid" ? `₹${m.paid_amount || group?.monthly_amount || 0}` : "—"}
                       </td>
                       <td className="py-3 px-4">
                         {m.has_received_payout ? (
@@ -778,6 +803,193 @@ export default function MemberDashboard() {
           </div>
         </div>
       </div>
+
+      {/* My KYC Profile Modal */}
+      {showMyKycModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 p-6 sm:p-8 space-y-6">
+            <div className="flex items-start justify-between border-b border-slate-100 pb-4">
+              <div>
+                <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-50 text-emerald-700 border border-emerald-200 mb-1">
+                  🔒 आपकी निजी KYC प्रोफाइल
+                </div>
+                <h3 className="text-xl font-black text-slate-900">
+                  {currentUser?.name} की आधिकारिक प्रोफाइल
+                </h3>
+                <p className="text-xs text-slate-500 font-medium">
+                  आपकी व्यक्तिगत जानकारी पूरी तरह सुरक्षित है और किसी अन्य सदस्य को नहीं दिखाई जाती।
+                </p>
+              </div>
+              <button
+                onClick={() => setShowMyKycModal(false)}
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Profile Overview Card with Live Photo */}
+            <div className="flex flex-col sm:flex-row items-center gap-5 bg-slate-50 p-5 rounded-2xl border border-slate-200">
+              {currentUser?.photo_live ? (
+                <img
+                  src={currentUser.photo_live}
+                  alt="My Live Photo"
+                  className="w-24 h-24 object-cover rounded-2xl border-2 border-brand-500 shadow-md cursor-pointer hover:opacity-90"
+                  onClick={() => setEnlargedImage({ url: currentUser.photo_live, title: "मेरी लाइव फोटो" })}
+                />
+              ) : (
+                <div className="w-24 h-24 bg-slate-200 rounded-2xl flex items-center justify-center text-slate-400 text-xs font-bold text-center p-2">
+                  लाइव फोटो उपलब्ध नहीं
+                </div>
+              )}
+              <div className="space-y-1 text-center sm:text-left">
+                <div className="flex items-center justify-center sm:justify-start gap-2">
+                  <h4 className="text-lg font-black text-slate-900">{currentUser?.name}</h4>
+                  <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-bold">
+                    सत्यापित सदस्य
+                  </span>
+                </div>
+                <p className="text-xs text-slate-600 font-medium">
+                  ईमेल: {currentUser?.email} • मोबाइल: {currentUser?.mobile}
+                </p>
+                <p className="text-xs text-slate-500 font-medium">
+                  जन्मतिथि: {currentUser?.dob || "—"} • लिंग: {currentUser?.gender || "—"} ({currentUser?.marital_status || "—"})
+                </p>
+              </div>
+            </div>
+
+            {/* Family & Address */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-1.5">
+                <span className="text-[10px] uppercase font-bold text-slate-400 block">पारिवारिक व वित्तीय जानकारी</span>
+                <p><strong>पिता / पति:</strong> {currentUser?.father_name || "—"}</p>
+                <p><strong>व्यवसाय:</strong> {currentUser?.occupation || "—"}</p>
+                <p><strong>मासिक आय:</strong> ₹{currentUser?.monthly_income || "—"}</p>
+              </div>
+
+              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-1.5">
+                <span className="text-[10px] uppercase font-bold text-slate-400 block">स्थाई पता</span>
+                <p>{currentUser?.address || "—"}</p>
+                <p><strong>शहर:</strong> {currentUser?.city || "—"} - {currentUser?.pincode || "—"}</p>
+              </div>
+            </div>
+
+            {/* Nominee & Bank Details */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-1.5">
+                <span className="text-[10px] uppercase font-bold text-amber-700 block">वारिस (Nominee)</span>
+                <p><strong>नाम:</strong> {currentUser?.nominee_name || "—"}</p>
+                <p><strong>संबंध:</strong> {currentUser?.nominee_relation || "—"}</p>
+                <p><strong>मोबाइल:</strong> {currentUser?.nominee_mobile || "—"}</p>
+              </div>
+
+              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-1.5">
+                <span className="text-[10px] uppercase font-bold text-emerald-700 block">बैंक विवरण (Payout)</span>
+                <p><strong>खाता संख्या:</strong> {currentUser?.bank_details?.account_number || "—"}</p>
+                <p><strong>IFSC:</strong> {currentUser?.bank_details?.ifsc || "—"}</p>
+                <p><strong>UPI ID:</strong> {currentUser?.bank_details?.upi_id || "—"}</p>
+              </div>
+            </div>
+
+            {/* Documents Preview */}
+            <div className="space-y-3">
+              <span className="text-xs font-bold text-slate-800 uppercase tracking-wider block">
+                मेरे संलग्न दस्तावेज (Uploaded Documents)
+              </span>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center text-xs">
+                <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200">
+                  <span className="text-[10px] text-slate-500 font-bold block mb-1">आधार कार्ड (Front)</span>
+                  {currentUser?.aadhaar_front ? (
+                    <img
+                      src={currentUser.aadhaar_front}
+                      alt="Aadhaar Front"
+                      className="w-full h-24 object-contain bg-white rounded-lg border border-slate-300 p-0.5 cursor-pointer hover:opacity-90"
+                      onClick={() => setEnlargedImage({ url: currentUser.aadhaar_front, title: "आधार कार्ड (Front)" })}
+                    />
+                  ) : (
+                    <div className="w-full h-24 bg-slate-200 rounded-lg flex items-center justify-center text-slate-400 text-[10px]">
+                      अपलोड नहीं है
+                    </div>
+                  )}
+                </div>
+
+                <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200">
+                  <span className="text-[10px] text-slate-500 font-bold block mb-1">आधार कार्ड (Back)</span>
+                  {currentUser?.aadhaar_back ? (
+                    <img
+                      src={currentUser.aadhaar_back}
+                      alt="Aadhaar Back"
+                      className="w-full h-24 object-contain bg-white rounded-lg border border-slate-300 p-0.5 cursor-pointer hover:opacity-90"
+                      onClick={() => setEnlargedImage({ url: currentUser.aadhaar_back, title: "आधार कार्ड (Back)" })}
+                    />
+                  ) : (
+                    <div className="w-full h-24 bg-slate-200 rounded-lg flex items-center justify-center text-slate-400 text-[10px]">
+                      अपलोड नहीं है
+                    </div>
+                  )}
+                </div>
+
+                <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[10px] text-slate-500 font-bold">पैन कार्ड ({currentUser?.pan_type || "PAN"})</span>
+                  </div>
+                  {currentUser?.pan_document ? (
+                    <img
+                      src={currentUser.pan_document}
+                      alt="PAN Document"
+                      className="w-full h-24 object-contain bg-white rounded-lg border border-slate-300 p-0.5 cursor-pointer hover:opacity-90"
+                      onClick={() => setEnlargedImage({ url: currentUser.pan_document, title: "पैन कार्ड दस्तावेज" })}
+                    />
+                  ) : (
+                    <div className="w-full h-24 bg-slate-200 rounded-lg flex items-center justify-center text-slate-400 text-[10px]">
+                      अपलोड नहीं है
+                    </div>
+                  )}
+                  {currentUser?.pan_type === "epan" && currentUser?.epan_password && (
+                    <div className="mt-1 text-[10px] bg-amber-100 text-amber-900 rounded p-1 font-mono font-bold">
+                      पासवर्ड: {currentUser.epan_password}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-2 flex justify-end">
+              <button
+                onClick={() => setShowMyKycModal(false)}
+                className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs transition"
+              >
+                बंद करें (Close)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Enlarged Image Preview Modal */}
+      {enlargedImage && (
+        <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4">
+          <div className="max-w-4xl w-full space-y-3">
+            <div className="flex items-center justify-between text-white">
+              <span className="font-bold text-sm">{enlargedImage.title}</span>
+              <button
+                onClick={() => setEnlargedImage(null)}
+                className="p-1 rounded-lg bg-white/20 hover:bg-white/30 text-white"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            <div className="bg-black rounded-2xl overflow-hidden flex items-center justify-center max-h-[80vh]">
+              <img
+                src={enlargedImage.url}
+                alt={enlargedImage.title}
+                className="max-h-[80vh] w-auto object-contain rounded-xl"
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

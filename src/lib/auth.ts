@@ -2,6 +2,7 @@ import jwt from "jsonwebtoken";
 import {
   dbFindUser,
   dbInsertUser,
+  dbUpdateUser,
   dbGetActiveGroup,
   dbInsertGroup,
   dbInsertGroupMember,
@@ -25,110 +26,105 @@ export function verifyToken(token: string): SessionPayload | null {
   }
 }
 
-// Enterprise-Grade Secure Authenticator with Email & Custom Password
-export async function authenticateUser(identifier: string, secret: string): Promise<User | null> {
-  const cleanId = sanitize(identifier).trim().toLowerCase();
-  const cleanSecret = sanitize(secret).trim();
+// Get or initialize Super Admin based purely on FOUNDER_EMAIL environment variable
+export async function getOrCreateAdmin(email: string): Promise<User> {
+  const envFounderEmail = (process.env.FOUNDER_EMAIL || "").trim().toLowerCase();
+  const envFounderAadhaar = (process.env.FOUNDER_AADHAAR || "000000000000").trim().replace(/\s+/g, "");
 
-  if (!cleanId || !cleanSecret) {
-    return null;
+  let founder = await dbFindUser({ role: "founder" });
+  if (!founder && envFounderEmail) {
+    founder = await dbFindUser({ email: envFounderEmail });
   }
 
-  // 1. Super Admin / Founder Validation (Strictly by Email & Password)
-  const envFounderEmail = (process.env.FOUNDER_EMAIL || "sky140052@gmail.com").trim().toLowerCase();
-  const envFounderAadhaar = (process.env.FOUNDER_AADHAAR || "649712349707").trim().replace(/\s+/g, "");
-  const envFounderPassword = (process.env.FOUNDER_PASSWORD || "09042001").trim();
+  if (!founder) {
+    const hashedAadhaar = hashAadhaar(envFounderAadhaar);
 
-  const isFounderId = cleanId === envFounderEmail;
-  const isFounderSecret = cleanSecret === envFounderPassword;
+    founder = {
+      _id: `founder_${Date.now()}`,
+      name: "Main Admin (Founder)",
+      email: envFounderEmail || email,
+      mobile: "9999999999",
+      dob: "01011990",
+      role: "founder",
+      aadhaar_last4: envFounderAadhaar.slice(-4),
+      aadhaar_hash: hashedAadhaar,
+      pan: "ADMIN00000",
+      created_at: new Date().toISOString(),
+    };
 
-  if (isFounderId && isFounderSecret) {
-    let founder = await dbFindUser({ role: "founder" });
+    await dbInsertUser(founder);
 
-    if (!founder) {
-      founder = await dbFindUser({ email: envFounderEmail });
-    }
-
-    if (!founder) {
-      const hashedPassword = await hashPassword(envFounderPassword);
-      const hashedAadhaar = hashAadhaar(envFounderAadhaar);
-
-      founder = {
-        _id: `founder_${Date.now()}`,
-        name: "Main Admin (Founder)",
-        email: envFounderEmail,
-        mobile: "9999999999",
-        dob: "09042001",
-        role: "founder",
-        aadhaar_last4: envFounderAadhaar.slice(-4),
-        aadhaar_hash: hashedAadhaar,
-        pan: "FOUNDER123",
-        password_hash: hashedPassword,
+    // Initialize default group if not present
+    let activeGroup = await dbGetActiveGroup();
+    if (!activeGroup) {
+      activeGroup = {
+        _id: `grp_bbcc_${Date.now()}`,
+        name: "BBCC Fund Grup (मुख्य बचत समूह)",
+        monthly_amount: 5000,
+        due_date_day: 5,
+        total_cycle_months: 12,
+        current_cycle_month: 1,
+        max_members: 12,
+        description: "12 महीने का पारदर्शी बचत फंड, हर माह 5 तारीख तक अंशदान जमा करना होगा।",
+        status: "active",
+        created_by: founder._id,
         created_at: new Date().toISOString(),
       };
-
-      await dbInsertUser(founder);
-
-      // Ensure active group exists and enroll founder
-      let activeGroup = await dbGetActiveGroup();
-      if (!activeGroup) {
-        activeGroup = {
-          _id: `grp_bbcc_${Date.now()}`,
-          name: "BBCC Fund Grup",
-          monthly_amount: 5000,
-          due_date_day: 5,
-          total_cycle_months: 12,
-          current_cycle_month: 1,
-          status: "active",
-          created_by: founder._id,
-          created_at: new Date().toISOString(),
-        };
-        await dbInsertGroup(activeGroup);
-      }
-
-      const members = await dbFindGroupMembers(activeGroup._id);
-      if (!members.some((m) => m.user_id === founder!._id)) {
-        await dbInsertGroupMember({
-          _id: `gm_${Date.now()}`,
-          group_id: activeGroup._id,
-          user_id: founder._id,
-          joined_at: new Date().toISOString(),
-          has_received_payout: false,
-        });
-      }
-    } else if (founder.email !== envFounderEmail) {
-      // Sync founder email with environment variable if updated
-      founder.email = envFounderEmail;
+      await dbInsertGroup(activeGroup);
     }
 
-    return founder;
+    const members = await dbFindGroupMembers(activeGroup._id);
+    if (!members.some((m) => m.user_id === founder!._id)) {
+      await dbInsertGroupMember({
+        _id: `gm_${Date.now()}`,
+        group_id: activeGroup._id,
+        user_id: founder._id,
+        joined_at: new Date().toISOString(),
+        status: "approved",
+        has_received_payout: false,
+      });
+    }
+  } else if (founder.email !== envFounderEmail) {
+    founder.email = envFounderEmail;
+    await dbUpdateUser(founder._id, { email: envFounderEmail });
   }
 
-  // 2. Search Database for User by Email (Primary ID) or Mobile
-  let matchedUser = await dbFindUser({ email: cleanId });
+  return founder;
+}
 
-  if (!matchedUser) {
-    matchedUser = await dbFindUser({ mobile: cleanId });
-  }
+// Pure Email + OTP Verifier: Identifies Admin vs Client
+export async function verifyUserOtp(email: string, otp: string): Promise<User | null> {
+  const cleanEmail = sanitize(email).trim().toLowerCase();
+  const cleanOtp = sanitize(otp).trim();
 
-  if (!matchedUser) {
+  if (!cleanEmail || !cleanOtp) {
     return null;
   }
 
-  // 3. Verify Custom Password using Bcrypt Hash
-  if (matchedUser.password_hash) {
-    const isPasswordValid = await verifyPassword(cleanSecret, matchedUser.password_hash);
-    if (isPasswordValid) {
-      return matchedUser;
-    }
+  const envFounderEmail = (process.env.FOUNDER_EMAIL || "").trim().toLowerCase();
+  const isAdmin = Boolean(envFounderEmail && cleanEmail === envFounderEmail);
+
+  let user: User | null = null;
+
+  if (isAdmin) {
+    user = await getOrCreateAdmin(cleanEmail);
+  } else {
+    user = await dbFindUser({ email: cleanEmail });
   }
 
-  // 4. Initial/Fallback: If password not yet set, allow DOB (DDMMYYYY) matching for initial login
-  const userDobClean = (matchedUser.dob || "").replace(/[-/]/g, "");
-  const secretClean = cleanSecret.replace(/[-/]/g, "");
+  if (!user) {
+    return null;
+  }
 
-  if (userDobClean && userDobClean === secretClean) {
-    return matchedUser;
+  // Validate OTP code and expiration
+  const storedOtp = user.otp_code?.trim();
+  const expiresAt = user.otp_expires_at ? new Date(user.otp_expires_at).getTime() : 0;
+  const isExpired = Date.now() > expiresAt;
+
+  if (storedOtp && storedOtp === cleanOtp && !isExpired) {
+    // Clear OTP after successful use
+    await dbUpdateUser(user._id, { otp_code: "", otp_expires_at: "" });
+    return user;
   }
 
   return null;

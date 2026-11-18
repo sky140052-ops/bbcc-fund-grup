@@ -7,10 +7,12 @@ import {
   dbFindPayouts,
   dbFindContributions,
   dbFindGroupMembers,
+  dbFindUsers,
   dbInsertWithdrawalRequest,
 } from "../../../lib/astra";
 import { sanitize } from "../../../lib/crypto";
 import { WithdrawalRequest } from "../../../lib/types";
+import { sendLoanRequestAlertToAll } from "../../../lib/email";
 
 export async function GET(req: NextRequest) {
   const token = req.cookies.get("bbcc_session")?.value;
@@ -133,12 +135,38 @@ export async function POST(req: NextRequest) {
       interest_rate_monthly_percent: 1.0, // 1 Rs Saikda / month
       votes_count: 0,
       status: "voting",
+      admin_approved: false,
       founder_approved: false,
       md_approved: false,
       created_at: new Date().toISOString(),
     };
 
     await dbInsertWithdrawalRequest(newRequest);
+
+    // Broadcast Loan Request Notification to All Members & Admin
+    try {
+      const allUsers = await dbFindUsers();
+      const recipientEmails = allUsers
+        .filter(
+          (u) =>
+            u.email &&
+            (groupMemberships.some((gm) => gm.user_id === u._id) ||
+              u.role === "admin" ||
+              u.role === "founder")
+        )
+        .map((u) => u.email);
+
+      sendLoanRequestAlertToAll({
+        groupName: activeGroup.name,
+        applicantName: session.name,
+        amount: amountNum,
+        reason: cleanReason,
+        repayDate: newRequest.repayment_due_date,
+        recipientEmails,
+      }).catch((err) => console.warn("Loan alert broadcast error:", err));
+    } catch (err) {
+      console.warn("Failed sending loan request broadcast:", err);
+    }
 
     return NextResponse.json({
       success: true,

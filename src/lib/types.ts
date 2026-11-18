@@ -1,4 +1,4 @@
-export type UserRole = "admin" | "founder" | "manager" | "member";
+export type UserRole = "admin" | "client" | "founder" | "member";
 
 export interface SessionPayload {
   userId: string;
@@ -24,6 +24,25 @@ export interface User {
     ifsc: string;
     upi_id: string;
   };
+  // Loan-Grade KYC Details
+  father_name?: string;
+  gender?: string;
+  marital_status?: string;
+  address?: string;
+  city?: string;
+  pincode?: string;
+  occupation?: string;
+  monthly_income?: string;
+  nominee_name?: string;
+  nominee_relation?: string;
+  nominee_mobile?: string;
+  // Documents & Live Photos (Base64 Data)
+  photo_live?: string; // Live webcam / camera photo
+  aadhaar_front?: string; // Aadhaar card front image
+  aadhaar_back?: string; // Aadhaar card back image
+  pan_type?: "physical" | "epan";
+  pan_document?: string; // PAN card image or e-PAN file
+  epan_password?: string; // Password if e-PAN uploaded
   password_hash?: string; // bcrypt hash for custom password
   otp_code?: string; // 6-digit OTP for password reset / login
   otp_expires_at?: string; // Expiration timestamp
@@ -35,6 +54,8 @@ export interface FundGroup {
   name: string;
   monthly_amount: number;
   due_date_day: number; // e.g. 5 (5th of every month)
+  start_date?: string; // कब से
+  end_date?: string; // कब तक
   total_cycle_months: number;
   current_cycle_month: number;
   max_members?: number;
@@ -82,9 +103,14 @@ export interface WithdrawalRequest {
   interest_rate_monthly_percent: number; // 1%
   votes_count: number;
   status: "voting" | "approved" | "disbursed" | "rejected" | "repaid";
-  founder_approved: boolean;
+  admin_approved: boolean;
+  admin_approved_at?: string;
+  disbursed_at?: string;
+  transaction_utr_id?: string;
+  payment_screenshot_url?: string;
+  founder_approved?: boolean;
   founder_approved_at?: string;
-  md_approved: boolean;
+  md_approved?: boolean;
   md_approved_at?: string;
   created_at: string;
 }

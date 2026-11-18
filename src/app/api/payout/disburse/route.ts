@@ -3,12 +3,16 @@ import { verifyToken } from "../../../../lib/auth";
 import {
   dbFindWithdrawalRequestById,
   dbFindUser,
+  dbFindUsers,
+  dbFindGroupById,
+  dbFindGroupMembers,
   dbInsertPayout,
   dbUpdateWithdrawalRequest,
   dbUpdateGroupMember,
 } from "../../../../lib/astra";
 import { sanitize } from "../../../../lib/crypto";
 import { PayoutDisbursal } from "../../../../lib/types";
+import { sendLoanDisbursedAlertToAll } from "../../../../lib/email";
 
 export async function POST(req: NextRequest) {
   const token = req.cookies.get("bbcc_session")?.value;
@@ -38,14 +42,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "रिक्वेस्ट नहीं मिली।" }, { status: 404 });
     }
 
-    // Security Gate: MUST be approved by BOTH Founder and MD
-    if (!targetReq.founder_approved || !targetReq.md_approved) {
-      return NextResponse.json(
-        { error: "भुगतान भेजने से पहले फाउंडर और MD दोनों का अप्रूवल आवश्यक है।" },
-        { status: 400 }
-      );
-    }
-
     const recipientUser = await dbFindUser({ _id: targetReq.user_id });
     const now = new Date().toISOString();
 
@@ -68,14 +64,49 @@ export async function POST(req: NextRequest) {
       interest_rate_monthly_percent: 1.0, // 1% per month
     };
 
+    // Mark admin approved and disbursed
     await dbInsertPayout(newPayout);
-    await dbUpdateWithdrawalRequest(targetReq._id, { status: "disbursed" });
+    await dbUpdateWithdrawalRequest(targetReq._id, {
+      status: "disbursed",
+      admin_approved: true,
+      founder_approved: true,
+      disbursed_at: now,
+      transaction_utr_id: cleanUtr,
+      payment_screenshot_url: newPayout.payment_screenshot_url,
+    });
 
     // Lock user from requesting again until cycle completes
     await dbUpdateGroupMember(targetReq.group_id, targetReq.user_id, {
       has_received_payout: true,
       received_in_month: targetReq.cycle_month,
     });
+
+    // Broadcast Disbursal with Screenshot to All Members & Admin
+    try {
+      const group = await dbFindGroupById(targetReq.group_id);
+      const groupMemberships = await dbFindGroupMembers(targetReq.group_id);
+      const allUsers = await dbFindUsers();
+      const recipientEmails = allUsers
+        .filter(
+          (u) =>
+            u.email &&
+            (groupMemberships.some((gm) => gm.user_id === u._id) ||
+              u.role === "admin" ||
+              u.role === "founder")
+        )
+        .map((u) => u.email);
+
+      sendLoanDisbursedAlertToAll({
+        groupName: group?.name || "BBCC Fund",
+        applicantName: targetReq.user_name,
+        netAmount: targetReq.net_payable_amount,
+        utr: cleanUtr,
+        screenshotUrl: newPayout.payment_screenshot_url,
+        recipientEmails,
+      }).catch((err) => console.warn("Loan disburse broadcast error:", err));
+    } catch (broadcastErr) {
+      console.warn("Failed sending loan disburse broadcast:", broadcastErr);
+    }
 
     return NextResponse.json({
       success: true,

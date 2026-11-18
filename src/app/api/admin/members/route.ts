@@ -42,8 +42,8 @@ export async function POST(req: NextRequest) {
   const token = req.cookies.get("bbcc_session")?.value;
   const session = token ? verifyToken(token) : null;
 
-  if (!session || (session.role !== "founder" && session.role !== "manager" && session.role !== "admin")) {
-    return NextResponse.json({ error: "Unauthorized. केवल एडमिन या मैनेजर सदस्य जोड़ सकते हैं।" }, { status: 403 });
+  if (!session || (session.role !== "founder" && session.role !== "admin")) {
+    return NextResponse.json({ error: "Unauthorized. केवल एडमिन ही सदस्य जोड़ सकते हैं।" }, { status: 403 });
   }
 
   try {
