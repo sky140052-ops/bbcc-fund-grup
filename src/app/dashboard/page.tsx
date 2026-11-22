@@ -307,7 +307,7 @@ export default function MemberDashboardPage() {
   const maxLoanEligible = Math.floor(myTotalDeposited * 0.90);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6 sm:space-y-8 pb-28 sm:pb-8">
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 border-b border-slate-200">
         <div className="flex items-center gap-4">
@@ -1079,6 +1079,49 @@ export default function MemberDashboardPage() {
           </div>
         </div>
       )}
+
+      {/* Mobile App Bottom Navigation Dock */}
+      <div className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 py-2 px-3 flex items-center justify-around shadow-2xl">
+        <button
+          onClick={() => setActiveTab("my_fund")}
+          className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition ${
+            activeTab === "my_fund" ? "text-blue-600 font-black" : "text-slate-500 font-semibold"
+          }`}
+        >
+          <CreditCard className="w-5 h-5" />
+          <span className="text-[10px]">जमा (₹100)</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab("loan")}
+          className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition ${
+            activeTab === "loan" ? "text-blue-600 font-black" : "text-slate-500 font-semibold"
+          }`}
+        >
+          <DollarSign className="w-5 h-5" />
+          <span className="text-[10px]">लोन (90%)</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab("my_profile")}
+          className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition ${
+            activeTab === "my_profile" ? "text-blue-600 font-black" : "text-slate-500 font-semibold"
+          }`}
+        >
+          <User className="w-5 h-5" />
+          <span className="text-[10px]">प्रोफाइल</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab("transparency")}
+          className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition ${
+            activeTab === "transparency" ? "text-blue-600 font-black" : "text-slate-500 font-semibold"
+          }`}
+        >
+          <Users className="w-5 h-5" />
+          <span className="text-[10px]">समुदाय</span>
+        </button>
+      </div>
 
       {/* Screenshot Zoom Modal */}
       {previewScreenshot && (

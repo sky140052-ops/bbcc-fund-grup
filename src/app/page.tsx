@@ -16,6 +16,7 @@ import {
   Sparkles,
   PhoneCall,
   Clock,
+  UserPlus,
 } from "lucide-react";
 
 export default function HomePage() {
@@ -26,7 +27,6 @@ export default function HomePage() {
   const [emailInput, setEmailInput] = useState("");
   const [otpCode, setOtpCode] = useState("");
   const [otpSent, setOtpSent] = useState(false);
-  const [backupOtp, setBackupOtp] = useState<string | null>(null);
   const [loadingOtp, setLoadingOtp] = useState(false);
   const [verifyingOtp, setVerifyingOtp] = useState(false);
   const [statusMsg, setStatusMsg] = useState("");
@@ -52,7 +52,7 @@ export default function HomePage() {
     checkSession();
   }, []);
 
-  // Send OTP
+  // Send OTP (Strictly to Email via Brevo API - NO screen display)
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg("");
@@ -78,10 +78,7 @@ export default function HomePage() {
       }
 
       setOtpSent(true);
-      setStatusMsg(data.message || `OTP ईमेल ${cleanEmail} पर भेज दिया गया है।`);
-      if (data.backup_otp) {
-        setBackupOtp(data.backup_otp);
-      }
+      setStatusMsg(data.message || `OTP आपके ईमेल ${cleanEmail} पर भेज दिया गया है। कृपया इनबॉक्स/स्पैम चेक करें।`);
     } catch (err: any) {
       setErrorMsg(err.message || "सर्वर से कनेक्ट करने में त्रुटि।");
     } finally {
@@ -96,7 +93,7 @@ export default function HomePage() {
     setStatusMsg("");
 
     if (otpCode.length < 6) {
-      setErrorMsg("कृपया 6-अंकीय OTP दर्ज करें।");
+      setErrorMsg("कृपया ईमेल पर आया 6-अंकीय OTP दर्ज करें।");
       return;
     }
 
@@ -150,13 +147,13 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-slate-50/50 flex flex-col justify-between">
       {/* Hero & Official Notice Section */}
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-10 sm:py-14 w-full space-y-8">
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-8 sm:py-14 w-full space-y-6 sm:space-y-8">
         
         {/* Top Header Card */}
         <div className="text-center space-y-3">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-100/80 border border-blue-200 text-blue-800 text-xs sm:text-sm font-black tracking-wide">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-100/80 border border-blue-200 text-blue-800 text-xs sm:text-sm font-black tracking-wide">
             <Sparkles className="w-4 h-4 text-blue-600" />
-            <span>डिजिटल फंड इंडिया • DFI आधिकारिक पोर्टल</span>
+            <span>DFI इमरजेंसी सेवा • आधिकारिक पोर्टल</span>
           </div>
 
           <h1 className="text-3xl sm:text-5xl font-black text-slate-900 tracking-tight leading-tight">
@@ -167,39 +164,47 @@ export default function HomePage() {
             नमस्ते साथियों,
           </p>
 
-          <p className="text-sm sm:text-base text-slate-600 max-w-2xl mx-auto leading-relaxed">
+          <p className="text-xs sm:text-base text-slate-600 max-w-2xl mx-auto leading-relaxed">
             इमरजेंसी सेवा के लिए एक ग्रुप बनाया गया है जिसका नाम <b>DFI</b> है। यह समूह सदस्यों के
             आपसी सहयोग, पारदर्शी बचत और आकस्मिक वित्तीय सहायता के उद्देश्य से संचालित है।
           </p>
 
-          {/* Primary CTA Button: Go to Dashboard */}
-          <div className="pt-3 pb-2">
+          {/* Primary Action Buttons */}
+          <div className="pt-2 sm:pt-4 pb-2 flex flex-col sm:flex-row items-center justify-center gap-3">
             <button
               onClick={handleGoToDashboardClick}
-              className="inline-flex items-center justify-center gap-3 px-8 sm:px-12 py-4 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-black text-base sm:text-lg shadow-xl shadow-blue-500/25 transition transform hover:-translate-y-0.5 active:translate-y-0"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-3 px-8 sm:px-10 py-3.5 sm:py-4 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-black text-sm sm:text-base shadow-xl shadow-blue-500/25 transition transform active:scale-95"
             >
               <span>Go to Dashboard (डैशबोर्ड पर जाएं)</span>
               <ArrowRight className="w-5 h-5" />
             </button>
-            <p className="text-xs text-slate-400 mt-2">
-              * एडमिन और सदस्य दोनों ईमेल OTP द्वारा इसी बटन से डैशबोर्ड में प्रवेश करें।
-            </p>
+
+            <button
+              onClick={() => router.push("/join")}
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 sm:py-4 rounded-2xl bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-sm shadow-sm transition active:scale-95"
+            >
+              <UserPlus className="w-4 h-4 text-blue-600" />
+              <span>नए सदस्य स्वयं जुड़ें (Self Registration)</span>
+            </button>
           </div>
+          <p className="text-[11px] text-slate-400">
+            * एडमिन एवं सदस्य सुरक्षित ईमेल OTP द्वारा प्रवेश करें।
+          </p>
         </div>
 
         {/* Notice Card 1: मुख्य ग्रुप नियम */}
-        <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-5">
+        <div className="bg-white rounded-3xl p-5 sm:p-8 border border-slate-200 shadow-sm space-y-4 sm:space-y-5">
           <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
             <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-200 text-blue-600 flex items-center justify-center font-bold">
               <FileText className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-lg sm:text-xl font-black text-slate-900">ग्रुप के नियम</h2>
+              <h2 className="text-base sm:text-xl font-black text-slate-900">ग्रुप के नियम</h2>
               <p className="text-xs text-slate-500">कृपया सभी 6 नियमों का ध्यानपूर्वक पालन करें</p>
             </div>
           </div>
 
-          <ol className="space-y-3.5 text-xs sm:text-sm text-slate-700 font-medium">
+          <ol className="space-y-3 text-xs sm:text-sm text-slate-700 font-medium">
             <li className="flex items-start gap-3 p-3 rounded-xl bg-slate-50/70 border border-slate-100">
               <span className="w-6 h-6 rounded-full bg-blue-600 text-white font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">
                 1
@@ -265,13 +270,13 @@ export default function HomePage() {
         </div>
 
         {/* Notice Card 2: विशेष सूचना */}
-        <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white rounded-3xl p-6 sm:p-8 shadow-xl space-y-5 border border-slate-800">
+        <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white rounded-3xl p-5 sm:p-8 shadow-xl space-y-4 sm:space-y-5 border border-slate-800">
           <div className="flex items-center gap-3 pb-3 border-b border-white/10">
             <div className="w-10 h-10 rounded-xl bg-white/10 text-yellow-400 flex items-center justify-center font-bold">
               <AlertCircle className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-lg sm:text-xl font-black text-yellow-400">
+              <h2 className="text-base sm:text-xl font-black text-yellow-400">
                 जुनेद भाई के लिए जरूरी सूचना - DFI ग्रुप
               </h2>
               <p className="text-xs text-slate-300">सभी सदस्यों के लिए आवश्यक दिशा-निर्देश</p>
@@ -332,11 +337,11 @@ export default function HomePage() {
           </ol>
         </div>
 
-        {/* Second CTA Button at bottom for convenience */}
+        {/* Bottom CTA */}
         <div className="text-center pt-2 pb-6">
           <button
             onClick={handleGoToDashboardClick}
-            className="inline-flex items-center justify-center gap-3 px-8 sm:px-12 py-4 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black text-base sm:text-lg shadow-lg shadow-blue-600/30 transition transform hover:-translate-y-0.5"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-3 px-8 sm:px-12 py-3.5 sm:py-4 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black text-sm sm:text-base shadow-lg shadow-blue-600/30 transition transform active:scale-95"
           >
             <span>Go to Dashboard (डैशबोर्ड पर जाएं)</span>
             <ArrowRight className="w-5 h-5" />
@@ -345,7 +350,7 @@ export default function HomePage() {
       </main>
 
       {/* ======================================================== */}
-      {/* LOGIN MODAL (Email OTP Gateway)                          */}
+      {/* LOGIN MODAL (Pure Email OTP Gateway - NO ON-SCREEN OTP)  */}
       {/* ======================================================== */}
       {showLoginModal && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
@@ -404,7 +409,7 @@ export default function HomePage() {
                     />
                   </div>
                   <p className="text-[11px] text-slate-400 mt-1.5">
-                    * एडमिन या सदस्य अपना पंजीकृत ईमेल दर्ज करें।
+                    * OTP आपके इस ईमेल पते पर भेजा जाएगा।
                   </p>
                 </div>
 
@@ -414,11 +419,11 @@ export default function HomePage() {
                   className="w-full flex items-center justify-center gap-2 py-3.5 px-6 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm shadow-md shadow-blue-600/25 transition disabled:opacity-50"
                 >
                   {loadingOtp ? (
-                    <span>OTP भेजा जा रहा है (Brevo API)...</span>
+                    <span>OTP भेजा जा रहा है...</span>
                   ) : (
                     <>
                       <KeyRound className="w-4 h-4" />
-                      <span>OTP भेजें (Send OTP)</span>
+                      <span>OTP प्राप्त करें (Send to Email)</span>
                     </>
                   )}
                 </button>
@@ -429,7 +434,7 @@ export default function HomePage() {
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
                     <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
-                      6-अंकीय OTP दर्ज करें
+                      ईमेल पर आया 6-अंकीय OTP दर्ज करें
                     </label>
                     <button
                       type="button"
@@ -455,15 +460,9 @@ export default function HomePage() {
                       className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 text-lg font-mono font-bold tracking-widest text-center focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
                     />
                   </div>
-
-                  {backupOtp && (
-                    <div className="mt-2.5 p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs">
-                      <span className="font-bold">त्वरित स्क्रीन OTP: </span>
-                      <span className="font-mono font-black text-sm text-blue-700 bg-white px-2 py-0.5 rounded border border-amber-300">
-                        {backupOtp}
-                      </span>
-                    </div>
-                  )}
+                  <p className="text-[11px] text-slate-400 mt-1 text-center">
+                    OTP ईमेल के इनबॉक्स या स्पैम (Spam) फोल्डर में जांचें।
+                  </p>
                 </div>
 
                 <button

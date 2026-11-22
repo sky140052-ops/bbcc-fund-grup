@@ -71,8 +71,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: `ईमेल ${cleanEmail} पर 6-अंकीय OTP भेजा गया है। (${sendResult.provider})`,
-      backup_otp: otp, // Backup OTP on screen for fast testing
+      message: `ईमेल ${cleanEmail} पर 6-अंकीय OTP भेज दिया गया है। कृपया अपना ईमेल चेक करें।`,
       is_admin: isAdmin,
       is_member: isMember,
     });
