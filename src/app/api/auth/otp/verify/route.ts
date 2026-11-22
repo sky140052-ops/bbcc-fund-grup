@@ -23,10 +23,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const isRememberMe = remember_me !== false;
-    const maxAgeSeconds = isRememberMe ? 30 * 24 * 60 * 60 : 24 * 60 * 60; // 30 days default
-
-    const token = signToken(sessionPayload, isRememberMe);
+    const THIRTY_DAYS_SEC = 30 * 24 * 60 * 60; // 30 days session
+    const token = signToken(sessionPayload, true);
 
     // Send Login Notification Email
     sendLoginAlertEmail({
@@ -49,7 +47,8 @@ export async function POST(req: NextRequest) {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
-      maxAge: maxAgeSeconds,
+      maxAge: THIRTY_DAYS_SEC,
+      expires: new Date(Date.now() + THIRTY_DAYS_SEC * 1000),
       path: "/",
     });
 

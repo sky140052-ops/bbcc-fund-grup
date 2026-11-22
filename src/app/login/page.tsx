@@ -7,7 +7,8 @@ export default function LoginPage() {
   const router = useRouter();
 
   useEffect(() => {
-    router.replace("/");
+    // If user opens /login directly, redirect to home and open login modal
+    router.replace("/?open_login=true");
   }, [router]);
 
   return (

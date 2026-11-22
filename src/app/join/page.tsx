@@ -36,11 +36,11 @@ export default function JoinPage() {
         if (data && data.settings) {
           setLinkActive(Boolean(data.settings.registration_link_active));
         } else {
-          setLinkActive(true);
+          setLinkActive(false);
         }
       })
       .catch(() => {
-        setLinkActive(true);
+        setLinkActive(false);
       })
       .finally(() => {
         setCheckingSettings(false);

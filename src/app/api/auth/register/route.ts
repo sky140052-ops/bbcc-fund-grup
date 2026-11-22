@@ -189,12 +189,14 @@ export async function POST(req: NextRequest) {
       redirectTo: "/dashboard",
     });
 
+    const THIRTY_DAYS_SEC = 30 * 24 * 60 * 60;
     response.cookies.set("bbcc_session", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
+      sameSite: "lax",
       path: "/",
-      maxAge: 30 * 24 * 60 * 60,
+      maxAge: THIRTY_DAYS_SEC,
+      expires: new Date(Date.now() + THIRTY_DAYS_SEC * 1000),
     });
 
     return response;

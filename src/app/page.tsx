@@ -32,25 +32,65 @@ export default function HomePage() {
   const [statusMsg, setStatusMsg] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
 
-  // Check if session already active
+  // Check if session already active & Registration link status
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [linkActive, setLinkActive] = useState<boolean>(false);
+  const [checkingSession, setCheckingSession] = useState<boolean>(true);
 
   useEffect(() => {
-    async function checkSession() {
+    let isMounted = true;
+
+    async function initPage() {
+      // 1. Check Session State
       try {
         const res = await fetch("/api/auth/me");
         if (res.ok) {
           const data = await res.json();
-          if (data.authenticated && data.user) {
+          if (isMounted && data.authenticated && data.user) {
             setCurrentUser(data.user);
           }
         }
       } catch {
         // No active session
+      } finally {
+        if (isMounted) setCheckingSession(false);
+      }
+
+      // 2. Check System Settings (Registration Link Active)
+      try {
+        const settingsRes = await fetch("/api/admin/settings");
+        if (settingsRes.ok) {
+          const settingsData = await settingsRes.json();
+          if (isMounted && settingsData.settings) {
+            setLinkActive(Boolean(settingsData.settings.registration_link_active));
+          }
+        }
+      } catch {
+        // Default to false
+      }
+
+      // 3. Open modal if requested via URL
+      if (typeof window !== "undefined" && window.location.search.includes("open_login=true")) {
+        if (isMounted) setShowLoginModal(true);
       }
     }
-    checkSession();
+
+    initPage();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
+
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+      setCurrentUser(null);
+      window.location.reload();
+    } catch {
+      window.location.reload();
+    }
+  };
 
   // Send OTP (Strictly to Email via Brevo API - NO screen display)
   const handleSendOtp = async (e: React.FormEvent) => {
@@ -131,17 +171,37 @@ export default function HomePage() {
     }
   };
 
-  // Direct Go to Dashboard handler
-  const handleGoToDashboardClick = () => {
+  // Direct Go to Dashboard handler - respects 30-day active session
+  const handleGoToDashboardClick = async () => {
     if (currentUser) {
       if (currentUser.role === "admin" || currentUser.role === "founder") {
         router.push("/admin");
       } else {
         router.push("/dashboard");
       }
-    } else {
-      setShowLoginModal(true);
+      return;
     }
+
+    // Double check with backend session before asking for login
+    try {
+      const res = await fetch("/api/auth/me");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.authenticated && data.user) {
+          setCurrentUser(data.user);
+          if (data.user.role === "admin" || data.user.role === "founder") {
+            router.push("/admin");
+          } else {
+            router.push("/dashboard");
+          }
+          return;
+        }
+      }
+    } catch {
+      // Session expired or absent
+    }
+
+    setShowLoginModal(true);
   };
 
   return (
@@ -169,26 +229,53 @@ export default function HomePage() {
             आपसी सहयोग, पारदर्शी बचत और आकस्मिक वित्तीय सहायता के उद्देश्य से संचालित है।
           </p>
 
+          {/* Logged in indicator if active session exists */}
+          {currentUser && (
+            <div className="max-w-md mx-auto p-3 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center justify-between shadow-sm animate-scale-in">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>
+                  लॉगिन स्थिति: <b>{currentUser.name}</b> (
+                  {currentUser.role === "admin" || currentUser.role === "founder" ? "👑 एडमिन" : "👤 सदस्य"}
+                  )
+                </span>
+              </div>
+              <button
+                onClick={handleLogout}
+                className="text-[11px] text-rose-600 hover:text-rose-800 underline font-semibold ml-2"
+              >
+                लॉगआउट
+              </button>
+            </div>
+          )}
+
           {/* Primary Action Buttons */}
           <div className="pt-2 sm:pt-4 pb-2 flex flex-col sm:flex-row items-center justify-center gap-3">
             <button
               onClick={handleGoToDashboardClick}
               className="w-full sm:w-auto inline-flex items-center justify-center gap-3 px-8 sm:px-10 py-3.5 sm:py-4 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-black text-sm sm:text-base shadow-xl shadow-blue-500/25 transition hover-lift active-press animate-pulse-glow"
             >
-              <span>Go to Dashboard (डैशबोर्ड पर जाएं)</span>
+              <span>
+                {currentUser
+                  ? `${currentUser.name} का डैशबोर्ड खोलें`
+                  : "Go to Dashboard (डैशबोर्ड पर जाएं)"}
+              </span>
               <ArrowRight className="w-5 h-5" />
             </button>
 
-            <button
-              onClick={() => router.push("/join")}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 sm:py-4 rounded-2xl bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-sm shadow-sm transition hover-lift active-press"
-            >
-              <UserPlus className="w-4 h-4 text-blue-600" />
-              <span>नए सदस्य स्वयं जुड़ें (Self Registration)</span>
-            </button>
+            {/* Registration button: ONLY visible when Admin has activated it */}
+            {linkActive && (
+              <button
+                onClick={() => router.push("/join")}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 sm:py-4 rounded-2xl bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-sm shadow-sm transition hover-lift active-press"
+              >
+                <UserPlus className="w-4 h-4 text-blue-600" />
+                <span>नए सदस्य स्वयं जुड़ें (Self Registration)</span>
+              </button>
+            )}
           </div>
           <p className="text-[11px] text-slate-400">
-            * एडमिन एवं सदस्य सुरक्षित ईमेल OTP द्वारा प्रवेश करें।
+            * 30 दिनों तक लॉगिन स्वतः सुरक्षित रहता है। बार-बार OTP की आवश्यकता नहीं होगी।
           </p>
         </div>
 
@@ -343,7 +430,11 @@ export default function HomePage() {
             onClick={handleGoToDashboardClick}
             className="w-full sm:w-auto inline-flex items-center justify-center gap-3 px-8 sm:px-12 py-3.5 sm:py-4 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black text-sm sm:text-base shadow-lg shadow-blue-600/30 transition hover-lift active-press"
           >
-            <span>Go to Dashboard (डैशबोर्ड पर जाएं)</span>
+            <span>
+              {currentUser
+                ? `${currentUser.name} का डैशबोर्ड खोलें`
+                : "Go to Dashboard (डैशबोर्ड पर जाएं)"}
+            </span>
             <ArrowRight className="w-5 h-5" />
           </button>
         </div>
