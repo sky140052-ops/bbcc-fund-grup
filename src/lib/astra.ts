@@ -146,14 +146,15 @@ export async function dbInsertUser(user: User): Promise<User> {
 
 export async function dbUpdateUser(userId: string, updates: Partial<User>): Promise<void> {
   const col = await getCollection<User>("users");
+  const { _id, ...safeUpdates } = updates as any;
   if (col) {
-    await col.updateOne({ _id: userId } as any, { $set: updates as any });
+    await col.updateOne({ _id: userId } as any, { $set: safeUpdates as any });
     return;
   }
   const store = getCleanStore();
   const idx = store.users.findIndex((u) => u._id === userId);
   if (idx !== -1) {
-    store.users[idx] = { ...store.users[idx], ...updates };
+    store.users[idx] = { ...store.users[idx], ...safeUpdates };
   }
 }
 
@@ -252,14 +253,15 @@ export async function dbInsertGroupMember(member: GroupMember): Promise<void> {
 
 export async function dbUpdateGroupMemberById(memberId: string, updates: Partial<GroupMember>): Promise<void> {
   const col = await getCollection<GroupMember>("group_members");
+  const { _id, ...safeUpdates } = updates as any;
   if (col) {
-    await col.updateOne({ _id: memberId } as any, { $set: updates as any });
+    await col.updateOne({ _id: memberId } as any, { $set: safeUpdates as any });
     return;
   }
   const store = getCleanStore();
   const idx = store.group_members.findIndex((gm) => gm._id === memberId);
   if (idx !== -1) {
-    store.group_members[idx] = { ...store.group_members[idx], ...updates };
+    store.group_members[idx] = { ...store.group_members[idx], ...safeUpdates };
   }
 }
 
@@ -269,8 +271,9 @@ export async function dbUpdateGroupMember(
   updates: Partial<GroupMember>
 ): Promise<void> {
   const col = await getCollection<GroupMember>("group_members");
+  const { _id, ...safeUpdates } = updates as any;
   if (col) {
-    await col.updateOne({ group_id: groupId, user_id: userId } as any, { $set: updates as any });
+    await col.updateOne({ group_id: groupId, user_id: userId } as any, { $set: safeUpdates as any });
     return;
   }
   const store = getCleanStore();
@@ -278,7 +281,7 @@ export async function dbUpdateGroupMember(
     (gm) => gm.group_id === groupId && gm.user_id === userId
   );
   if (idx !== -1) {
-    store.group_members[idx] = { ...store.group_members[idx], ...updates };
+    store.group_members[idx] = { ...store.group_members[idx], ...safeUpdates };
   }
 }
 
@@ -338,14 +341,15 @@ export async function dbUpdateWithdrawalRequest(
   updates: Partial<WithdrawalRequest>
 ): Promise<void> {
   const col = await getCollection<WithdrawalRequest>("withdrawal_requests");
+  const { _id, ...safeUpdates } = updates as any;
   if (col) {
-    await col.updateOne({ _id: id } as any, { $set: updates as any });
+    await col.updateOne({ _id: id } as any, { $set: safeUpdates as any });
     return;
   }
   const store = getCleanStore();
   const idx = store.withdrawal_requests.findIndex((r) => r._id === id);
   if (idx !== -1) {
-    store.withdrawal_requests[idx] = { ...store.withdrawal_requests[idx], ...updates };
+    store.withdrawal_requests[idx] = { ...store.withdrawal_requests[idx], ...safeUpdates };
   }
 }
 
@@ -573,17 +577,18 @@ export async function dbInsertMember(member: Member): Promise<Member> {
 
 export async function dbUpdateMember(memberId: string, updates: Partial<Member>): Promise<void> {
   const col = await getCollection<Member>("members");
+  const { _id, ...safeUpdates } = updates as any;
   if (col) {
     await col.updateOne(
       { _id: memberId } as any,
-      { $set: { ...updates, updated_at: new Date().toISOString() } as any }
+      { $set: { ...safeUpdates, updated_at: new Date().toISOString() } as any }
     );
     return;
   }
   const store = getCleanStore();
   const idx = store.members.findIndex((m) => m._id === memberId);
   if (idx !== -1) {
-    store.members[idx] = { ...store.members[idx], ...updates, updated_at: new Date().toISOString() };
+    store.members[idx] = { ...store.members[idx], ...safeUpdates, updated_at: new Date().toISOString() };
   }
 }
 
@@ -638,14 +643,15 @@ export async function dbInsertLoan(loan: Loan): Promise<Loan> {
 
 export async function dbUpdateLoan(loanId: string, updates: Partial<Loan>): Promise<void> {
   const col = await getCollection<Loan>("loans");
+  const { _id, ...safeUpdates } = updates as any;
   if (col) {
-    await col.updateOne({ _id: loanId } as any, { $set: updates as any });
+    await col.updateOne({ _id: loanId } as any, { $set: safeUpdates as any });
     return;
   }
   const store = getCleanStore();
   const idx = store.loans.findIndex((l) => l._id === loanId);
   if (idx !== -1) {
-    store.loans[idx] = { ...store.loans[idx], ...updates };
+    store.loans[idx] = { ...store.loans[idx], ...safeUpdates };
   }
 }
 
@@ -673,19 +679,20 @@ export async function dbUpdateSystemSettings(updates: Partial<SystemSettings>): 
   const updated: SystemSettings = {
     ...current,
     ...updates,
+    _id: "dfi_system_settings",
     updated_at: new Date().toISOString(),
   };
 
   const col = await getCollection<SystemSettings>("system_settings");
   if (col) {
     try {
-      await col.updateOne(
+      await col.replaceOne(
         { _id: "dfi_system_settings" } as any,
-        { $set: updated as any },
+        updated as any,
         { upsert: true }
       );
     } catch (err) {
-      console.warn("Astra DB update settings error, fallback to memory:", err);
+      console.error("Astra DB update settings error, fallback to memory:", err);
     }
   }
 
