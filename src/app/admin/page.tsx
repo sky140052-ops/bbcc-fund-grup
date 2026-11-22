@@ -57,14 +57,9 @@ export default function AdminPage() {
   const [emailData, setEmailData] = useState<any>(null);
   const [databaseData, setDatabaseData] = useState<any>(null);
 
-  // Diagnostic Test & Brevo Settings states
+  // Diagnostic Test states
   const [testingEmail, setTestingEmail] = useState(false);
   const [emailTestResult, setEmailTestResult] = useState<string | null>(null);
-  const [testEmailInput, setTestEmailInput] = useState("sky140052@gmail.com");
-  const [brevoKeyInput, setBrevoKeyInput] = useState("");
-  const [brevoSenderInput, setBrevoSenderInput] = useState("sky140052@gmail.com");
-  const [savingBrevo, setSavingBrevo] = useState(false);
-  const [brevoSaveMsg, setBrevoSaveMsg] = useState<string | null>(null);
   const [testingRazorpay, setTestingRazorpay] = useState(false);
   const [razorpayTestResult, setRazorpayTestResult] = useState<string | null>(null);
 
@@ -298,7 +293,7 @@ export default function AdminPage() {
     }
   };
 
-  // Test Email Service OTP (Brevo prioritized)
+  // Test Email Service OTP (from .env.local)
   const handleTestEmail = async () => {
     setTestingEmail(true);
     setEmailTestResult(null);
@@ -306,10 +301,7 @@ export default function AdminPage() {
       const res = await fetch("/api/admin/status", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "test_email",
-          to_email: testEmailInput || adminData?.email || "sky140052@gmail.com",
-        }),
+        body: JSON.stringify({ action: "test_email" }),
       });
       const data = await res.json();
       if (res.ok && data.success) {
@@ -321,37 +313,6 @@ export default function AdminPage() {
       setEmailTestResult("🔴 सर्वर से संपर्क नहीं हो सका।");
     } finally {
       setTestingEmail(false);
-    }
-  };
-
-  // Save Brevo API Key & Sender Email
-  const handleSaveBrevo = async () => {
-    if (!brevoKeyInput.trim()) {
-      setBrevoSaveMsg("🔴 कृपया Brevo API Key (xkeysib-...) दर्ज करें।");
-      return;
-    }
-    setSavingBrevo(true);
-    setBrevoSaveMsg(null);
-    try {
-      const res = await fetch("/api/admin/settings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          brevo_api_key: brevoKeyInput.trim(),
-          brevo_sender_email: (brevoSenderInput || adminData?.email || "sky140052@gmail.com").trim(),
-        }),
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setBrevoSaveMsg("🟢 Brevo API Key व प्रेषक ईमेल सफलतापूर्वक सुरक्षित हो गए!");
-        fetchAdminStatus();
-      } else {
-        setBrevoSaveMsg(`🔴 ${data.error || "सहेजने में विफल।"}`);
-      }
-    } catch {
-      setBrevoSaveMsg("🔴 सर्वर से संपर्क नहीं हो सका।");
-    } finally {
-      setSavingBrevo(false);
     }
   };
 
@@ -789,82 +750,26 @@ export default function AdminPage() {
               </div>
             </div>
 
-            {/* Brevo Email Status & Configuration */}
+            {/* Email OTP Service Status - 100% Automatic from .env.local */}
             <div className="p-6 rounded-3xl bg-white border border-slate-200 shadow-sm space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                  Brevo ईमेल OTP API
+                  ईमेल OTP सेवा API
                 </span>
                 <span className={`flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold ${emailData?.connected ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`}>
                   <CheckCircle2 className="w-3 h-3" />
-                  <span>{emailData?.connected ? "सक्रिय" : "कॉन्फ़िगर करें"}</span>
+                  <span>{emailData?.connected ? "सक्रिय (Active)" : "असक्रिय"}</span>
                 </span>
               </div>
-              <p className="text-xs text-slate-600">{emailData?.details}</p>
-
-              {/* Configure Brevo API Key form */}
-              <div className="space-y-2 pt-2 border-t border-slate-100">
-                <label className="block text-[11px] font-bold text-slate-700">
-                  Brevo API Key (xkeysib-...)
-                </label>
-                <input
-                  type="password"
-                  value={brevoKeyInput}
-                  onChange={(e) => setBrevoKeyInput(e.target.value)}
-                  placeholder="xkeysib-..."
-                  className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-xl font-mono focus:outline-none focus:ring-1 focus:ring-blue-500"
-                />
-                <div className="flex gap-2">
-                  <input
-                    type="email"
-                    value={brevoSenderInput}
-                    onChange={(e) => setBrevoSenderInput(e.target.value)}
-                    placeholder="Brevo में सत्यापित प्रेषक ईमेल"
-                    className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleSaveBrevo}
-                    disabled={savingBrevo}
-                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shrink-0 transition disabled:opacity-50"
-                  >
-                    {savingBrevo ? "सहेज रहे..." : "सेव करें"}
-                  </button>
-                </div>
-                {brevoSaveMsg && (
-                  <p className="text-[11px] font-semibold text-slate-700">{brevoSaveMsg}</p>
-                )}
-                <a
-                  href="https://app.brevo.com/settings/keys/api"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-[11px] text-blue-600 hover:underline block font-semibold"
+              <p className="text-xs text-slate-600 leading-relaxed">{emailData?.details}</p>
+              <div className="pt-2 border-t border-slate-100 space-y-2">
+                <button
+                  onClick={handleTestEmail}
+                  disabled={testingEmail}
+                  className="w-full py-2.5 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs transition disabled:opacity-50"
                 >
-                  🔗 Brevo API Key प्राप्त करें (app.brevo.com)
-                </a>
-              </div>
-
-              {/* Test Email Section */}
-              <div className="space-y-2 pt-2 border-t border-slate-100">
-                <label className="block text-[11px] font-bold text-slate-700">
-                  परीक्षण ईमेल दर्ज करें (Test Recipient)
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    type="email"
-                    value={testEmailInput}
-                    onChange={(e) => setTestEmailInput(e.target.value)}
-                    placeholder="member@gmail.com"
-                    className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  />
-                  <button
-                    onClick={handleTestEmail}
-                    disabled={testingEmail}
-                    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs shrink-0 transition disabled:opacity-50"
-                  >
-                    {testingEmail ? "भेज रहे..." : "OTP भेजें"}
-                  </button>
-                </div>
+                  {testingEmail ? "OTP भेजा जा रहा है..." : "ईमेल कनेक्शन टेस्ट करें"}
+                </button>
                 {emailTestResult && (
                   <div className="p-2 rounded-lg bg-blue-50 text-[11px] font-semibold text-blue-900 break-words">
                     {emailTestResult}

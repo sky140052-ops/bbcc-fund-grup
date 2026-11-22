@@ -111,7 +111,7 @@ export async function POST(req: NextRequest) {
       if (!sendResult.success) {
         return NextResponse.json(
           {
-            error: sendResult.error || "ईमेल भेजने में विफल। कृपया Brevo API Key या ईमेल सेटिंग्स जांचें।",
+            error: sendResult.error || "ईमेल भेजने में विफल। कृपया .env.local में ईमेल सेटिंग्स जांचें।",
             provider: sendResult.provider,
           },
           { status: 400 }
