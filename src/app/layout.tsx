@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import Link from "next/link";
-import { Shield, BookOpen, User, LogOut } from "lucide-react";
+import { ShieldCheck, UserCheck, LayoutDashboard, Home } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "BBCC GROUP FUND - Community Savings & Chit Platform",
-  description: "Secure, Transparent Community Fund & Bishi Management Platform with Astra DB & Razorpay",
+  title: "DFI - Digital Financial Infrastructure & Member Management",
+  description: "DFI Secure Admin Portal, Member KYC, Aadhaar/PAN Verification & Payment Integration",
 };
 
 export default function RootLayout({
@@ -15,38 +15,38 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="hi">
-      <body className="antialiased min-h-screen flex flex-col bg-slate-50 text-slate-900">
+      <body className="antialiased min-h-screen flex flex-col bg-slate-50 text-slate-900 font-sans">
         <header className="sticky top-0 z-50 bg-white/95 backdrop-blur border-b border-slate-200 shadow-sm">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-            <Link href="/" className="flex items-center gap-2 group">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-700 to-sky-500 flex items-center justify-center text-white shadow-md shadow-sky-500/20 font-bold text-lg">
-                BB
+            <Link href="/" className="flex items-center gap-3 group">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-700 via-indigo-600 to-sky-500 flex items-center justify-center text-white shadow-md shadow-blue-500/20 font-black text-xl tracking-wider">
+                DFI
               </div>
               <div>
-                <span className="text-lg font-black tracking-tight text-slate-900 group-hover:text-brand-600 transition-colors">
-                  BBCC GROUP FUND
+                <span className="text-xl font-black tracking-tight text-slate-900 group-hover:text-blue-600 transition-colors">
+                  DFI
                 </span>
-                <span className="block text-xs font-semibold text-emerald-600 tracking-wide">
-                  पारदर्शी बचत एवं आपातकालीन सहायता समूह
+                <span className="block text-[11px] font-semibold text-emerald-600 tracking-wide">
+                  डिजिटल वित्तीय एवं सदस्य प्रबंधन पोर्टल
                 </span>
               </div>
             </Link>
 
             <nav className="flex items-center gap-2 sm:gap-3">
               <Link
-                href="/rules"
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-semibold text-slate-700 hover:text-brand-600 hover:bg-slate-100 rounded-lg transition"
+                href="/"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-semibold text-slate-700 hover:text-blue-600 hover:bg-slate-100 rounded-lg transition"
               >
-                <BookOpen className="w-4 h-4 text-slate-500" />
-                <span>नियम (Terms)</span>
+                <Home className="w-4 h-4 text-slate-500" />
+                <span>होम</span>
               </Link>
 
               <Link
-                href="/login"
-                className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs sm:text-sm font-bold text-white bg-brand-600 hover:bg-brand-700 rounded-xl shadow-sm transition"
+                href="/admin"
+                className="flex items-center gap-1.5 px-4 py-2 text-xs sm:text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-sm shadow-blue-600/30 transition"
               >
-                <User className="w-4 h-4" />
-                <span>जुड़ें / लॉगिन</span>
+                <LayoutDashboard className="w-4 h-4" />
+                <span>एडमिन डैशबोर्ड</span>
               </Link>
             </nav>
           </div>
@@ -56,11 +56,15 @@ export default function RootLayout({
 
         <footer className="bg-white border-t border-slate-200 py-6 text-center text-xs text-slate-500">
           <div className="max-w-7xl mx-auto px-4">
-            <p className="font-medium text-slate-700">
-              © 2026 BBCC Fund Grup. सर्वाधिकार सुरक्षित (All Rights Reserved).
+            <div className="flex items-center justify-center gap-2 mb-1 text-slate-700 font-semibold text-sm">
+              <ShieldCheck className="w-4 h-4 text-blue-600" />
+              <span>DFI - Digital Financial Infrastructure</span>
+            </div>
+            <p className="mt-1 text-slate-400">
+              सुरक्षित सदस्य प्रबंधन • आधार व पैन सत्यापन • Razorpay एवं ईमेल OTP प्रमाणीकरण
             </p>
             <p className="mt-1 text-slate-400">
-              Astra DB Serverless & Razorpay Verified Gateway • 100% पारदर्शी बचत समूह
+              © 2026 DFI. All Rights Reserved.
             </p>
           </div>
         </footer>

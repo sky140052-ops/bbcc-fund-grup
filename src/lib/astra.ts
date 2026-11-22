@@ -1,5 +1,5 @@
 import { DataAPIClient, Db } from "@datastax/astra-db-ts";
-import { User, FundGroup, GroupMember, Contribution, WithdrawalRequest, Vote, PayoutDisbursal } from "./types";
+import { User, Member, FundGroup, GroupMember, Contribution, WithdrawalRequest, Vote, PayoutDisbursal } from "./types";
 
 let dbInstance: Db | null = null;
 const initializedCollections = new Set<string>();
@@ -50,6 +50,7 @@ declare global {
   // eslint-disable-next-line no-var
   var __bbcc_clean_store: {
     users: User[];
+    members: Member[];
     groups: FundGroup[];
     group_members: GroupMember[];
     contributions: Contribution[];
@@ -63,6 +64,7 @@ export function getCleanStore() {
   if (!global.__bbcc_clean_store) {
     global.__bbcc_clean_store = {
       users: [],
+      members: [],
       groups: [],
       group_members: [],
       contributions: [],
@@ -363,4 +365,69 @@ export async function dbInsertPayout(payout: PayoutDisbursal): Promise<void> {
   }
   const store = getCleanStore();
   store.payouts.push(payout);
+}
+
+// ==========================================
+// DFI MEMBERS OPERATIONS
+// ==========================================
+export async function dbFindMembers(filter: Record<string, any> = {}): Promise<Member[]> {
+  const col = await getCollection<Member>("members");
+  if (col) {
+    return await col.find(filter).toArray();
+  }
+  const store = getCleanStore();
+  return store.members.filter((m) => {
+    return Object.entries(filter).every(([k, v]) => (m as any)[k] === v);
+  });
+}
+
+export async function dbFindMemberById(id: string): Promise<Member | null> {
+  const col = await getCollection<Member>("members");
+  if (col) {
+    return await col.findOne({ _id: id });
+  }
+  const store = getCleanStore();
+  return store.members.find((m) => m._id === id) || null;
+}
+
+export async function dbInsertMember(member: Member): Promise<Member> {
+  const col = await getCollection<Member>("members");
+  if (col) {
+    await col.insertOne(member as any);
+    return member;
+  }
+  const store = getCleanStore();
+  store.members.push(member);
+  return member;
+}
+
+export async function dbUpdateMember(memberId: string, updates: Partial<Member>): Promise<void> {
+  const col = await getCollection<Member>("members");
+  if (col) {
+    await col.updateOne(
+      { _id: memberId } as any,
+      { $set: { ...updates, updated_at: new Date().toISOString() } as any }
+    );
+    return;
+  }
+  const store = getCleanStore();
+  const idx = store.members.findIndex((m) => m._id === memberId);
+  if (idx !== -1) {
+    store.members[idx] = { ...store.members[idx], ...updates, updated_at: new Date().toISOString() };
+  }
+}
+
+export async function dbDeleteMember(memberId: string): Promise<boolean> {
+  const col = await getCollection<Member>("members");
+  if (col) {
+    await col.deleteOne({ _id: memberId } as any);
+    return true;
+  }
+  const store = getCleanStore();
+  const idx = store.members.findIndex((m) => m._id === memberId);
+  if (idx !== -1) {
+    store.members.splice(idx, 1);
+    return true;
+  }
+  return false;
 }

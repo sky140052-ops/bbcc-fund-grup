@@ -49,13 +49,39 @@ export interface User {
   created_at: string;
 }
 
+// ==========================================
+// DFI MEMBER TYPE
+// ==========================================
+export interface Member {
+  _id: string;
+  name: string;
+  mobile: string;
+  photo?: string; // Base64 data URL (Live Camera Selfie or JPEG/PNG)
+  aadhaar_number: string; // 12-digit Aadhaar number
+  aadhaar_file?: string; // Base64 data URL (PDF or Image)
+  aadhaar_file_type?: "pdf" | "image";
+  aadhaar_file_name?: string;
+  pan_number: string; // 10-char PAN
+  pan_file?: string; // Base64 data URL (PDF or Image)
+  pan_file_type?: "pdf" | "image";
+  pan_file_name?: string;
+  // Payment Details
+  upi_id?: string;
+  account_number?: string;
+  ifsc?: string;
+  bank_name?: string;
+  wallet_number?: string; // PhonePe / Google Pay / Paytm mobile number
+  created_at: string;
+  updated_at?: string;
+}
+
 export interface FundGroup {
   _id: string;
   name: string;
   monthly_amount: number;
-  due_date_day: number; // e.g. 5 (5th of every month)
-  start_date?: string; // कब से
-  end_date?: string; // कब तक
+  due_date_day: number;
+  start_date?: string;
+  end_date?: string;
   total_cycle_months: number;
   current_cycle_month: number;
   max_members?: number;
@@ -95,12 +121,12 @@ export interface WithdrawalRequest {
   user_name: string;
   cycle_month: number;
   reason: string;
-  requested_amount: number; // Max pool balance
-  deduction_fee: number; // Flat ₹20
-  net_payable_amount: number; // requested_amount - 20
+  requested_amount: number;
+  deduction_fee: number;
+  net_payable_amount: number;
   repayment_duration_days: number;
   repayment_due_date: string;
-  interest_rate_monthly_percent: number; // 1%
+  interest_rate_monthly_percent: number;
   votes_count: number;
   status: "voting" | "approved" | "disbursed" | "rejected" | "repaid";
   admin_approved: boolean;
@@ -131,12 +157,12 @@ export interface PayoutDisbursal {
   recipient_user_id: string;
   recipient_name: string;
   gross_amount: number;
-  deduction_fee: number; // ₹20
-  net_disbursed_amount: number; // gross - 20
+  deduction_fee: number;
+  net_disbursed_amount: number;
   disbursed_at: string;
   payment_screenshot_url: string;
   transaction_utr_id: string;
   repayment_due_date: string;
   interest_start_date: string;
-  interest_rate_monthly_percent: number; // 1%
+  interest_rate_monthly_percent: number;
 }

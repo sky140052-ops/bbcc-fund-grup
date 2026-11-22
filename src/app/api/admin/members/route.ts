@@ -1,138 +1,214 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyToken } from "../../../../lib/auth";
 import {
-  dbFindUsers,
-  dbFindUser,
-  dbInsertUser,
-  dbGetActiveGroup,
-  dbInsertGroupMember,
+  dbFindMembers,
+  dbInsertMember,
+  dbUpdateMember,
+  dbDeleteMember,
+  dbFindMemberById,
 } from "../../../../lib/astra";
-import { hashAadhaar, hashPassword, sanitize } from "../../../../lib/crypto";
-import { User, GroupMember } from "../../../../lib/types";
+import { sanitize } from "../../../../lib/crypto";
+import { Member } from "../../../../lib/types";
 
-export async function GET(req: NextRequest) {
+// Helper to check admin auth
+function getAdminSession(req: NextRequest) {
   const token = req.cookies.get("bbcc_session")?.value;
-  const session = token ? verifyToken(token) : null;
-
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!token) return null;
+  const session = verifyToken(token);
+  if (!session) return null;
+  if (session.role === "admin" || session.role === "founder") {
+    return session;
   }
-
-  const allMembers = await dbFindUsers({ role: "member" });
-  const safeMembers = allMembers.map((m) => ({
-    _id: m._id,
-    name: m.name,
-    email: m.email,
-    mobile: m.mobile,
-    dob: m.dob,
-    role: m.role,
-    aadhaar_last4: m.aadhaar_last4,
-    pan: m.pan,
-    bank_details: m.bank_details,
-    created_at: m.created_at,
-  }));
-
-  return NextResponse.json({
-    members: safeMembers,
-    total: safeMembers.length,
-  });
+  return null;
 }
 
-export async function POST(req: NextRequest) {
-  const token = req.cookies.get("bbcc_session")?.value;
-  const session = token ? verifyToken(token) : null;
+// GET: Fetch all members or search by query
+export async function GET(req: NextRequest) {
+  const session = getAdminSession(req);
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized. केवल एडमिन ही देख सकते हैं।" }, { status: 401 });
+  }
 
-  if (!session || (session.role !== "founder" && session.role !== "admin")) {
-    return NextResponse.json({ error: "Unauthorized. केवल एडमिन ही सदस्य जोड़ सकते हैं।" }, { status: 403 });
+  try {
+    const url = new URL(req.url);
+    const query = (url.searchParams.get("q") || "").trim().toLowerCase();
+
+    let members = await dbFindMembers();
+
+    if (query) {
+      members = members.filter((m) => {
+        return (
+          m.name?.toLowerCase().includes(query) ||
+          m.mobile?.includes(query) ||
+          m.aadhaar_number?.includes(query) ||
+          m.pan_number?.toLowerCase().includes(query) ||
+          m.upi_id?.toLowerCase().includes(query) ||
+          m.wallet_number?.includes(query)
+        );
+      });
+    }
+
+    // Sort newest first
+    members.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+    return NextResponse.json({
+      success: true,
+      members,
+      total: members.length,
+    });
+  } catch (err: any) {
+    console.error("Fetch members error:", err);
+    return NextResponse.json({ error: "सदस्य सूची लोड करने में त्रुटि।" }, { status: 500 });
+  }
+}
+
+// POST: Add new member
+export async function POST(req: NextRequest) {
+  const session = getAdminSession(req);
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized. केवल एडमिन ही सदस्य जोड़ सकते हैं।" }, { status: 401 });
   }
 
   try {
     const body = await req.json();
-    const name = sanitize(body.name);
-    const email = sanitize(body.email).trim().toLowerCase();
-    const mobile = sanitize(body.mobile).replace(/\D/g, "");
-    const dob = sanitize(body.dob).replace(/\D/g, "");
-    const rawAadhaar = sanitize(body.aadhaar).replace(/\D/g, "");
-    const pan = sanitize(body.pan).toUpperCase();
-    const customPassword = sanitize(body.password);
-    const bank_details = body.bank_details;
 
-    if (!name || !email.includes("@") || mobile.length < 10 || dob.length < 8 || rawAadhaar.length < 12 || pan.length < 10) {
-      return NextResponse.json(
-        { error: "कृपया सभी फ़ील्ड सही प्रारूप में भरें (मान्य Gmail/ईमेल, 10-अंकीय मोबाइल, 8-अंकीय जन्मतिथि, 12-अंकीय आधार, 10-अक्षरीय पैन)।" },
-        { status: 400 }
-      );
+    const name = sanitize(body.name || "").trim();
+    const mobile = sanitize(body.mobile || "").replace(/\D/g, "");
+
+    if (!name) {
+      return NextResponse.json({ error: "कृपया सदस्य का नाम दर्ज करें।" }, { status: 400 });
     }
 
-    const hashedAadhaar = hashAadhaar(rawAadhaar);
-
-    // Check if email, mobile or Aadhaar already registered
-    const existingByEmail = await dbFindUser({ email });
-    if (existingByEmail) {
-      return NextResponse.json({ error: "यह ईमेल पहले से पंजीकृत है।" }, { status: 400 });
+    if (mobile.length < 10) {
+      return NextResponse.json({ error: "कृपया 10-अंकों का वैध मोबाइल नंबर दर्ज करें।" }, { status: 400 });
     }
 
-    const existingByMobile = await dbFindUser({ mobile });
-    if (existingByMobile) {
-      return NextResponse.json({ error: "यह मोबाइल नंबर पहले से पंजीकृत है।" }, { status: 400 });
-    }
+    const aadhaar_number = sanitize(body.aadhaar_number || "").replace(/\D/g, "");
+    const pan_number = sanitize(body.pan_number || "").toUpperCase().trim();
 
-    const existingByAadhaar = await dbFindUser({ aadhaar_hash: hashedAadhaar });
-    if (existingByAadhaar) {
-      return NextResponse.json({ error: "यह आधार नंबर पहले से पंजीकृत है।" }, { status: 400 });
-    }
-
-    const passwordHash = customPassword && customPassword.length >= 6
-      ? await hashPassword(customPassword)
-      : await hashPassword(dob); // fallback initial password is DOB
-
-    const newUser: User = {
-      _id: `user_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+    const newMember: Member = {
+      _id: `dfi_mem_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
       name,
-      email,
       mobile,
-      dob,
-      role: "member",
-      aadhaar_last4: rawAadhaar.slice(-4),
-      aadhaar_hash: hashedAadhaar,
-      pan,
-      password_hash: passwordHash,
-      bank_details: bank_details || {
-        account_number: "",
-        ifsc: "",
-        upi_id: "",
-      },
+      photo: body.photo || "",
+      aadhaar_number,
+      aadhaar_file: body.aadhaar_file || "",
+      aadhaar_file_type: body.aadhaar_file_type || (body.aadhaar_file?.includes("application/pdf") ? "pdf" : "image"),
+      aadhaar_file_name: body.aadhaar_file_name || "aadhaar_doc",
+      pan_number,
+      pan_file: body.pan_file || "",
+      pan_file_type: body.pan_file_type || (body.pan_file?.includes("application/pdf") ? "pdf" : "image"),
+      pan_file_name: body.pan_file_name || "pan_doc",
+      upi_id: sanitize(body.upi_id || "").trim(),
+      account_number: sanitize(body.account_number || "").trim(),
+      ifsc: sanitize(body.ifsc || "").toUpperCase().trim(),
+      bank_name: sanitize(body.bank_name || "").trim(),
+      wallet_number: sanitize(body.wallet_number || "").replace(/\D/g, ""),
       created_at: new Date().toISOString(),
     };
 
-    await dbInsertUser(newUser);
+    await dbInsertMember(newMember);
 
-    const activeGroup = await dbGetActiveGroup();
-    if (activeGroup) {
-      const membership: GroupMember = {
-        _id: `gm_${Date.now()}`,
-        group_id: activeGroup._id,
-        user_id: newUser._id,
-        joined_at: new Date().toISOString(),
-        has_received_payout: false,
-      };
-      await dbInsertGroupMember(membership);
+    return NextResponse.json({
+      success: true,
+      message: `सदस्य ${name} को सफलतापूर्वक जोड़ दिया गया है!`,
+      member: newMember,
+    });
+  } catch (err: any) {
+    console.error("Add member error:", err);
+    return NextResponse.json({ error: "सदस्य जोड़ने में त्रुटि: " + (err?.message || "Internal error") }, { status: 500 });
+  }
+}
+
+// PUT: Update existing member
+export async function PUT(req: NextRequest) {
+  const session = getAdminSession(req);
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized. केवल एडमिन ही सदस्य अपडेट कर सकते हैं।" }, { status: 401 });
+  }
+
+  try {
+    const body = await req.json();
+    const id = body._id || body.id;
+
+    if (!id) {
+      return NextResponse.json({ error: "सदस्य ID आवश्यक है।" }, { status: 400 });
+    }
+
+    const existing = await dbFindMemberById(id);
+    if (!existing) {
+      return NextResponse.json({ error: "सदस्य नहीं मिला।" }, { status: 404 });
+    }
+
+    const updates: Partial<Member> = {};
+
+    if (body.name !== undefined) updates.name = sanitize(body.name).trim();
+    if (body.mobile !== undefined) updates.mobile = sanitize(body.mobile).replace(/\D/g, "");
+    if (body.photo !== undefined) updates.photo = body.photo;
+    if (body.aadhaar_number !== undefined) updates.aadhaar_number = sanitize(body.aadhaar_number).replace(/\D/g, "");
+    if (body.aadhaar_file !== undefined) {
+      updates.aadhaar_file = body.aadhaar_file;
+      updates.aadhaar_file_type = body.aadhaar_file_type || (body.aadhaar_file?.includes("application/pdf") ? "pdf" : "image");
+      updates.aadhaar_file_name = body.aadhaar_file_name || "aadhaar_doc";
+    }
+    if (body.pan_number !== undefined) updates.pan_number = sanitize(body.pan_number).toUpperCase().trim();
+    if (body.pan_file !== undefined) {
+      updates.pan_file = body.pan_file;
+      updates.pan_file_type = body.pan_file_type || (body.pan_file?.includes("application/pdf") ? "pdf" : "image");
+      updates.pan_file_name = body.pan_file_name || "pan_doc";
+    }
+    if (body.upi_id !== undefined) updates.upi_id = sanitize(body.upi_id).trim();
+    if (body.account_number !== undefined) updates.account_number = sanitize(body.account_number).trim();
+    if (body.ifsc !== undefined) updates.ifsc = sanitize(body.ifsc).toUpperCase().trim();
+    if (body.bank_name !== undefined) updates.bank_name = sanitize(body.bank_name).trim();
+    if (body.wallet_number !== undefined) updates.wallet_number = sanitize(body.wallet_number).replace(/\D/g, "");
+
+    await dbUpdateMember(id, updates);
+
+    const updated = await dbFindMemberById(id);
+
+    return NextResponse.json({
+      success: true,
+      message: "सदस्य विवरण सफलतापूर्वक अपडेट कर दिया गया!",
+      member: updated,
+    });
+  } catch (err: any) {
+    console.error("Update member error:", err);
+    return NextResponse.json({ error: "सदस्य विवरण अपडेट करने में त्रुटि।" }, { status: 500 });
+  }
+}
+
+// DELETE: Delete member
+export async function DELETE(req: NextRequest) {
+  const session = getAdminSession(req);
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized. केवल एडमिन ही सदस्य हटा सकते हैं।" }, { status: 401 });
+  }
+
+  try {
+    const url = new URL(req.url);
+    let id = url.searchParams.get("id");
+
+    if (!id) {
+      const body = await req.json().catch(() => ({}));
+      id = body.id || body._id;
+    }
+
+    if (!id) {
+      return NextResponse.json({ error: "सदस्य ID आवश्यक है।" }, { status: 400 });
+    }
+
+    const success = await dbDeleteMember(id);
+    if (!success) {
+      return NextResponse.json({ error: "सदस्य नहीं मिला या हटाया नहीं जा सका।" }, { status: 404 });
     }
 
     return NextResponse.json({
       success: true,
-      member: {
-        _id: newUser._id,
-        name: newUser.name,
-        mobile: newUser.mobile,
-        dob: newUser.dob,
-        aadhaar_last4: newUser.aadhaar_last4,
-        pan: newUser.pan,
-      },
-      message: "नया सदस्य Astra DB में सुरक्षित रूप से दर्ज किया गया।",
+      message: "सदस्य को सफलतापूर्वक हटा दिया गया है।",
     });
-  } catch (error) {
-    console.error("Add member error:", error);
-    return NextResponse.json({ error: "सदस्य जोड़ने में त्रुटि हुई।" }, { status: 500 });
+  } catch (err: any) {
+    console.error("Delete member error:", err);
+    return NextResponse.json({ error: "सदस्य हटाने में त्रुटि।" }, { status: 500 });
   }
 }
