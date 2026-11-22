@@ -14,9 +14,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "कृपया ईमेल और OTP दोनों दर्ज करें।" }, { status: 400 });
     }
 
-    const user = await verifyUserOtp(cleanEmail, cleanOtp);
+    const sessionPayload = await verifyUserOtp(cleanEmail, cleanOtp);
 
-    if (!user) {
+    if (!sessionPayload) {
       return NextResponse.json(
         { error: "अमान्य या समय समाप्त (Expired) OTP! कृपया पुनः OTP भेजें।" },
         { status: 401 }
@@ -26,52 +26,36 @@ export async function POST(req: NextRequest) {
     const isRememberMe = remember_me !== false;
     const maxAgeSeconds = isRememberMe ? 30 * 24 * 60 * 60 : 24 * 60 * 60; // 30 days default
 
-    const token = signToken(
-      {
-        userId: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        mobile: user.mobile,
-        aadhaar: user.aadhaar_last4,
-      },
-      isRememberMe
-    );
+    const token = signToken(sessionPayload, isRememberMe);
 
-    // Send Login Notification Email immediately
+    // Send Login Notification Email
     sendLoginAlertEmail({
-      toEmail: user.email,
-      userName: user.name,
-      role: user.role,
+      toEmail: sessionPayload.email,
+      userName: sessionPayload.name,
+      role: sessionPayload.role,
     }).catch((err) => console.warn("Login alert send failed:", err));
 
-    const isFounder = user.role === "founder" || user.role === "admin";
-    const redirectTo = isFounder ? "/admin" : "/dashboard";
+    const isAdmin = sessionPayload.role === "admin" || sessionPayload.role === "founder";
+    const redirectTo = isAdmin ? "/admin" : "/dashboard";
 
     const response = NextResponse.json({
       success: true,
-      message: isFounder ? "👑 मुख्य एडमिन लॉगिन सफल!" : "लॉगिन सफल रहा!",
-      user: {
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        mobile: user.mobile,
-      },
+      message: isAdmin ? "👑 मुख्य एडमिन लॉगिन सफल!" : "👤 सदस्य लॉगिन सफल रहा!",
+      user: sessionPayload,
       redirectTo,
     });
 
     response.cookies.set("bbcc_session", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      path: "/",
+      sameSite: "lax",
       maxAge: maxAgeSeconds,
+      path: "/",
     });
 
     return response;
   } catch (err) {
-    console.error("OTP verification error:", err);
-    return NextResponse.json({ error: "OTP सत्यापन में त्रुटि हुई।" }, { status: 500 });
+    console.error("Verify OTP error:", err);
+    return NextResponse.json({ error: "सत्यापन प्रक्रिया में त्रुटि।" }, { status: 500 });
   }
 }

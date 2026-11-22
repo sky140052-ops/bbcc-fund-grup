@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import {
   ShieldCheck,
   Mail,
@@ -10,83 +9,87 @@ import {
   ArrowRight,
   CheckCircle2,
   Users,
-  CreditCard,
-  FileCheck,
-  Server,
-  Zap,
-  Eye,
+  AlertCircle,
   KeyRound,
+  FileText,
+  X,
+  Sparkles,
+  PhoneCall,
+  Clock,
 } from "lucide-react";
 
 export default function HomePage() {
   const router = useRouter();
 
-  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
-  const [adminEmail, setAdminEmail] = useState("sky140052@gmail.com");
+  // Login Modal State
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [emailInput, setEmailInput] = useState("");
   const [otpCode, setOtpCode] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   const [backupOtp, setBackupOtp] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [verifying, setVerifying] = useState(false);
+  const [loadingOtp, setLoadingOtp] = useState(false);
+  const [verifyingOtp, setVerifyingOtp] = useState(false);
   const [statusMsg, setStatusMsg] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
 
-  // Check if already logged in as Admin
+  // Check if session already active
+  const [currentUser, setCurrentUser] = useState<any>(null);
+
   useEffect(() => {
-    async function checkAuth() {
+    async function checkSession() {
       try {
         const res = await fetch("/api/auth/me");
         if (res.ok) {
           const data = await res.json();
-          if (data.authenticated && (data.user?.role === "admin" || data.user?.role === "founder")) {
-            setIsAdminLoggedIn(true);
+          if (data.authenticated && data.user) {
+            setCurrentUser(data.user);
           }
         }
       } catch {
-        // Not authenticated
+        // No active session
       }
     }
-    checkAuth();
+    checkSession();
   }, []);
 
-  // Request Email OTP
+  // Send OTP
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg("");
     setStatusMsg("");
 
-    if (!adminEmail.includes("@")) {
-      setErrorMsg("कृपया मान्य ईमेल पता दर्ज करें।");
+    const cleanEmail = emailInput.trim().toLowerCase();
+    if (!cleanEmail.includes("@")) {
+      setErrorMsg("कृपया मान्य ईमेल आईडी दर्ज करें।");
       return;
     }
 
-    setLoading(true);
+    setLoadingOtp(true);
     try {
       const res = await fetch("/api/auth/otp/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: adminEmail }),
+        body: JSON.stringify({ email: cleanEmail }),
       });
 
       const data = await res.json();
-
       if (!res.ok) {
-        throw new Error(data.error || "OTP भेजने में विफल");
+        throw new Error(data.error || "OTP भेजने में विफल।");
       }
 
       setOtpSent(true);
-      setStatusMsg(data.message || `OTP ईमेल ${adminEmail} पर भेज दिया गया है।`);
+      setStatusMsg(data.message || `OTP ईमेल ${cleanEmail} पर भेज दिया गया है।`);
       if (data.backup_otp) {
         setBackupOtp(data.backup_otp);
       }
     } catch (err: any) {
       setErrorMsg(err.message || "सर्वर से कनेक्ट करने में त्रुटि।");
     } finally {
-      setLoading(false);
+      setLoadingOtp(false);
     }
   };
 
-  // Verify OTP and Login
+  // Verify OTP
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg("");
@@ -97,299 +100,391 @@ export default function HomePage() {
       return;
     }
 
-    setVerifying(true);
+    setVerifyingOtp(true);
     try {
       const res = await fetch("/api/auth/otp/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email: adminEmail,
+          email: emailInput.trim().toLowerCase(),
           otp: otpCode,
           remember_me: true,
         }),
       });
 
       const data = await res.json();
-
       if (!res.ok) {
-        throw new Error(data.error || "OTP अमान्य है।");
+        throw new Error(data.error || "OTP अमान्य या समाप्त हो चुका है।");
       }
 
-      setStatusMsg("सफलतापूर्वक सत्यापित! एडमिन डैशबोर्ड खोला जा रहा है...");
+      setStatusMsg("सत्यापन सफल! डैशबोर्ड पर पुनर्निर्देशित किया जा रहा है...");
       setTimeout(() => {
-        router.push("/admin");
-      }, 600);
+        if (data.redirectTo) {
+          router.push(data.redirectTo);
+        } else if (data.user?.role === "admin" || data.user?.role === "founder") {
+          router.push("/admin");
+        } else {
+          router.push("/dashboard");
+        }
+      }, 500);
     } catch (err: any) {
       setErrorMsg(err.message || "सत्यापन विफल रहा।");
     } finally {
-      setVerifying(false);
+      setVerifyingOtp(false);
+    }
+  };
+
+  // Direct Go to Dashboard handler
+  const handleGoToDashboardClick = () => {
+    if (currentUser) {
+      if (currentUser.role === "admin" || currentUser.role === "founder") {
+        router.push("/admin");
+      } else {
+        router.push("/dashboard");
+      }
+    } else {
+      setShowLoginModal(true);
     }
   };
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] flex flex-col justify-between">
-      {/* Hero & Login Section */}
-      <section className="py-12 sm:py-16 px-4 max-w-7xl mx-auto w-full">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
-          
-          {/* Left Column: Branding & Features */}
-          <div className="lg:col-span-7 space-y-6">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-50 border border-blue-200 text-blue-700 text-xs font-bold tracking-wide">
-              <Zap className="w-3.5 h-3.5" />
-              <span>DFI • DIGITAL FINANCIAL INFRASTRUCTURE</span>
-            </div>
+    <div className="min-h-screen bg-slate-50/50 flex flex-col justify-between">
+      {/* Hero & Official Notice Section */}
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-10 sm:py-14 w-full space-y-8">
+        
+        {/* Top Header Card */}
+        <div className="text-center space-y-3">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-100/80 border border-blue-200 text-blue-800 text-xs sm:text-sm font-black tracking-wide">
+            <Sparkles className="w-4 h-4 text-blue-600" />
+            <span>डिजिटल फंड इंडिया • DFI आधिकारिक पोर्टल</span>
+          </div>
 
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-slate-900 tracking-tight leading-tight">
-              डिजिटल फंड एवं <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">
-                सुरक्षित सदस्य प्रबंधन
-              </span>
-            </h1>
+          <h1 className="text-3xl sm:text-5xl font-black text-slate-900 tracking-tight leading-tight">
+            इमरजेंसी सेवा ग्रुप - DFI 🙏
+          </h1>
 
-            <p className="text-base sm:text-lg text-slate-600 max-w-2xl leading-relaxed">
-              DFI एक आधुनिक एवं पूर्ण रूप से सुरक्षित वित्तीय डेटाबेस प्लेटफ़ॉर्म है। यहाँ एडमिन
-              अपने सदस्यों की प्रोफाइल, लाइव वेबकैम फोटो, आधार कार्ड (PDF/JPEG), पैन कार्ड
-              (PDF/JPEG) और डिजिटल भुगतान विवरण (UPI, बैंक खाता, PhonePe/GPay) को पूर्ण सुरक्षा के
-              साथ प्रबंधित कर सकते हैं।
+          <p className="text-base sm:text-lg font-bold text-slate-700">
+            नमस्ते साथियों,
+          </p>
+
+          <p className="text-sm sm:text-base text-slate-600 max-w-2xl mx-auto leading-relaxed">
+            इमरजेंसी सेवा के लिए एक ग्रुप बनाया गया है जिसका नाम <b>DFI</b> है। यह समूह सदस्यों के
+            आपसी सहयोग, पारदर्शी बचत और आकस्मिक वित्तीय सहायता के उद्देश्य से संचालित है।
+          </p>
+
+          {/* Primary CTA Button: Go to Dashboard */}
+          <div className="pt-3 pb-2">
+            <button
+              onClick={handleGoToDashboardClick}
+              className="inline-flex items-center justify-center gap-3 px-8 sm:px-12 py-4 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-black text-base sm:text-lg shadow-xl shadow-blue-500/25 transition transform hover:-translate-y-0.5 active:translate-y-0"
+            >
+              <span>Go to Dashboard (डैशबोर्ड पर जाएं)</span>
+              <ArrowRight className="w-5 h-5" />
+            </button>
+            <p className="text-xs text-slate-400 mt-2">
+              * एडमिन और सदस्य दोनों ईमेल OTP द्वारा इसी बटन से डैशबोर्ड में प्रवेश करें।
             </p>
+          </div>
+        </div>
 
-            {/* Highlights Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4">
-              <div className="flex items-start gap-3 p-4 rounded-2xl bg-white border border-slate-200/80 shadow-sm">
-                <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center text-blue-600 shrink-0">
-                  <ShieldCheck className="w-5 h-5" />
-                </div>
-                <div>
-                  <h4 className="font-bold text-slate-900 text-sm">एडमिन लाइव मॉनिटर</h4>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Razorpay लाइव गेटवे व Email OTP स्टेटस की सीधी रियल-टाइम जांच।
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-3 p-4 rounded-2xl bg-white border border-slate-200/80 shadow-sm">
-                <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center text-indigo-600 shrink-0">
-                  <Users className="w-5 h-5" />
-                </div>
-                <div>
-                  <h4 className="font-bold text-slate-900 text-sm">सदस्य KYC व दस्तावेज</h4>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    लाइव कैमरा फोटो, आधार कार्ड व पैन कार्ड दोनों PDF या JPEG में।
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-3 p-4 rounded-2xl bg-white border border-slate-200/80 shadow-sm">
-                <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-600 shrink-0">
-                  <CreditCard className="w-5 h-5" />
-                </div>
-                <div>
-                  <h4 className="font-bold text-slate-900 text-sm">डिजिटल भुगतान विवरण</h4>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    UPI ID, बैंक खाता व IFSC कोड, और PhonePe/GPay नंबर का सुरक्षित रिकॉर्ड।
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-3 p-4 rounded-2xl bg-white border border-slate-200/80 shadow-sm">
-                <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center text-purple-600 shrink-0">
-                  <FileCheck className="w-5 h-5" />
-                </div>
-                <div>
-                  <h4 className="font-bold text-slate-900 text-sm">त्वरित व्यू, एडिट व डिलीट</h4>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    सदस्यों की सूची में तत्काल सर्च, विवरण दर्शन, संशोधन या स्थायी हटाना।
-                  </p>
-                </div>
-              </div>
+        {/* Notice Card 1: मुख्य ग्रुप नियम */}
+        <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-5">
+          <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
+            <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-200 text-blue-600 flex items-center justify-center font-bold">
+              <FileText className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-lg sm:text-xl font-black text-slate-900">ग्रुप के नियम</h2>
+              <p className="text-xs text-slate-500">कृपया सभी 6 नियमों का ध्यानपूर्वक पालन करें</p>
             </div>
           </div>
 
-          {/* Right Column: Admin Login Portal Card */}
-          <div className="lg:col-span-5">
-            <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-xl border border-slate-200 relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-40 h-40 bg-blue-500/10 rounded-full blur-3xl -z-10" />
+          <ol className="space-y-3.5 text-xs sm:text-sm text-slate-700 font-medium">
+            <li className="flex items-start gap-3 p-3 rounded-xl bg-slate-50/70 border border-slate-100">
+              <span className="w-6 h-6 rounded-full bg-blue-600 text-white font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">
+                1
+              </span>
+              <span>
+                इस ग्रुप में जो भी सदस्य जुड़ेगा, उसे हर महीने की <b>1 तारीख से 10 तारीख</b> के
+                बीच निर्धारित पैसा जमा करना होगा।
+              </span>
+            </li>
 
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-blue-500/30 font-black text-xl">
-                  DFI
-                </div>
+            <li className="flex items-start gap-3 p-3 rounded-xl bg-slate-50/70 border border-slate-100">
+              <span className="w-6 h-6 rounded-full bg-blue-600 text-white font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">
+                2
+              </span>
+              <span>
+                पैसा सभी को अपने <b>UPI के माध्यम से ऑनलाइन</b> जमा करना है।
+              </span>
+            </li>
+
+            <li className="flex items-start gap-3 p-3 rounded-xl bg-slate-50/70 border border-slate-100">
+              <span className="w-6 h-6 rounded-full bg-blue-600 text-white font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">
+                3
+              </span>
+              <span>
+                शुरू के <b>2 महीने तक कोई भी पैसा नहीं निकाल सकेगा</b>।
+              </span>
+            </li>
+
+            <li className="flex items-start gap-3 p-3 rounded-xl bg-slate-50/70 border border-slate-100">
+              <span className="w-6 h-6 rounded-full bg-blue-600 text-white font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">
+                4
+              </span>
+              <span>
+                2 महीने के बाद, जमा किया हुआ पैसा आप अपने किसी भी जरूरी काम के लिए ले सकते हैं और
+                उपयोग कर सकते हैं।
+              </span>
+            </li>
+
+            <li className="flex items-start gap-3 p-3 rounded-xl bg-slate-50/70 border border-slate-100">
+              <span className="w-6 h-6 rounded-full bg-blue-600 text-white font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">
+                5
+              </span>
+              <span>
+                लिए गए पैसे पर <b>1% प्रति माह (1% p.m.)</b> ब्याज लगेगा।
+              </span>
+            </li>
+
+            <li className="flex items-start gap-3 p-3 rounded-xl bg-slate-50/70 border border-slate-100">
+              <span className="w-6 h-6 rounded-full bg-blue-600 text-white font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">
+                6
+              </span>
+              <span>
+                जरूरत पड़ने पर SMS करके, आपने जितना पैसा जमा किया है उसमें से, आपको जितनी जरूरत
+                है उतना पैसा निकाल सकते हैं।
+              </span>
+            </li>
+          </ol>
+
+          <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs sm:text-sm font-bold flex items-center gap-2">
+            <PhoneCall className="w-4 h-4 text-amber-700 shrink-0" />
+            <span>जो भी इस ग्रुप में जुड़ना चाहता है, वह कृपया SMS करें।</span>
+          </div>
+        </div>
+
+        {/* Notice Card 2: विशेष सूचना */}
+        <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white rounded-3xl p-6 sm:p-8 shadow-xl space-y-5 border border-slate-800">
+          <div className="flex items-center gap-3 pb-3 border-b border-white/10">
+            <div className="w-10 h-10 rounded-xl bg-white/10 text-yellow-400 flex items-center justify-center font-bold">
+              <AlertCircle className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-lg sm:text-xl font-black text-yellow-400">
+                जुनेद भाई के लिए जरूरी सूचना - DFI ग्रुप
+              </h2>
+              <p className="text-xs text-slate-300">सभी सदस्यों के लिए आवश्यक दिशा-निर्देश</p>
+            </div>
+          </div>
+
+          <p className="text-xs sm:text-sm text-slate-200 font-semibold">
+            सभी सदस्यों को सूचित किया जाता है कि:
+          </p>
+
+          <ol className="space-y-3 text-xs sm:text-sm text-slate-300 font-medium">
+            <li className="flex items-start gap-3 p-3 rounded-xl bg-white/5 border border-white/10">
+              <span className="w-6 h-6 rounded-full bg-yellow-400 text-slate-900 font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">
+                1
+              </span>
+              <span>
+                हर महीने 1 तारीख से 10 तारीख के बीच में सभी लोग <b>वोट करके एक तारीख तय करेंगे</b>।
+              </span>
+            </li>
+
+            <li className="flex items-start gap-3 p-3 rounded-xl bg-white/5 border border-white/10">
+              <span className="w-6 h-6 rounded-full bg-yellow-400 text-slate-900 font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">
+                2
+              </span>
+              <span>
+                जिस तारीख पर सबसे ज्यादा वोट आएगा, उसी तारीख को सभी को पैसा जमा करना होगा।
+              </span>
+            </li>
+
+            <li className="flex items-start gap-3 p-3 rounded-xl bg-white/5 border border-white/10">
+              <span className="w-6 h-6 rounded-full bg-yellow-400 text-slate-900 font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">
+                3
+              </span>
+              <span>
+                तय तारीख के बाद पैसा जमा करने के लिए <b>2 दिन का अतिरिक्त समय</b> मिलेगा।
+              </span>
+            </li>
+
+            <li className="flex items-start gap-3 p-3 rounded-xl bg-white/5 border border-white/10">
+              <span className="w-6 h-6 rounded-full bg-yellow-400 text-slate-900 font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">
+                4
+              </span>
+              <span>
+                यदि कोई सदस्य तय तारीख पर पैसा जमा नहीं कर पाता है और <b>2 बार उसका पैसा बाउंस करता है</b>,
+                तो उसे ग्रुप से निकाल दिया जाएगा।
+              </span>
+            </li>
+
+            <li className="flex items-start gap-3 p-3 rounded-xl bg-white/5 border border-white/10">
+              <span className="w-6 h-6 rounded-full bg-yellow-400 text-slate-900 font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">
+                5
+              </span>
+              <span>
+                यदि 2 दिन बीत जाने के बाद भी जिसका पैसा बाउंस करता है, तो उसको <b>₹20 जुर्माना (Fine)</b>{" "}
+                लगेगा।
+              </span>
+            </li>
+          </ol>
+        </div>
+
+        {/* Second CTA Button at bottom for convenience */}
+        <div className="text-center pt-2 pb-6">
+          <button
+            onClick={handleGoToDashboardClick}
+            className="inline-flex items-center justify-center gap-3 px-8 sm:px-12 py-4 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black text-base sm:text-lg shadow-lg shadow-blue-600/30 transition transform hover:-translate-y-0.5"
+          >
+            <span>Go to Dashboard (डैशबोर्ड पर जाएं)</span>
+            <ArrowRight className="w-5 h-5" />
+          </button>
+        </div>
+      </main>
+
+      {/* ======================================================== */}
+      {/* LOGIN MODAL (Email OTP Gateway)                          */}
+      {/* ======================================================== */}
+      {showLoginModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl border border-slate-200 relative animate-in fade-in zoom-in duration-200">
+            <button
+              onClick={() => {
+                setShowLoginModal(false);
+                setOtpSent(false);
+                setOtpCode("");
+                setErrorMsg("");
+                setStatusMsg("");
+              }}
+              className="absolute top-5 right-5 p-2 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-black text-xl flex items-center justify-center shadow-md shadow-blue-500/20">
+                DFI
+              </div>
+              <div>
+                <h3 className="text-lg font-black text-slate-900">डैशबोर्ड लॉगिन (Email OTP)</h3>
+                <p className="text-xs text-slate-500">एडमिन एवं सदस्य सुरक्षित प्रमाणीकरण</p>
+              </div>
+            </div>
+
+            {errorMsg && (
+              <div className="mb-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold">
+                {errorMsg}
+              </div>
+            )}
+
+            {statusMsg && (
+              <div className="mb-4 p-3 rounded-xl bg-blue-50 border border-blue-200 text-blue-700 text-xs font-semibold">
+                {statusMsg}
+              </div>
+            )}
+
+            {!otpSent ? (
+              /* Step 1: Enter Email */
+              <form onSubmit={handleSendOtp} className="space-y-4">
                 <div>
-                  <h3 className="text-xl font-black text-slate-900">एडमिन लॉगिन गेटवे</h3>
-                  <p className="text-xs font-semibold text-slate-500">
-                    Email OTP आधारित सुरक्षित प्रमाणीकरण
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wider">
+                    अपना ईमेल दर्ज करें (Email ID)
+                  </label>
+                  <div className="relative">
+                    <Mail className="w-5 h-5 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="email"
+                      required
+                      value={emailInput}
+                      onChange={(e) => setEmailInput(e.target.value)}
+                      placeholder="name@example.com"
+                      className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
+                    />
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-1.5">
+                    * एडमिन या सदस्य अपना पंजीकृत ईमेल दर्ज करें।
                   </p>
                 </div>
-              </div>
 
-              {/* Already Logged In Banner */}
-              {isAdminLoggedIn ? (
-                <div className="space-y-4 py-4">
-                  <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm flex items-center gap-3">
-                    <CheckCircle2 className="w-6 h-6 text-emerald-600 shrink-0" />
-                    <div>
-                      <p className="font-bold">सत्यापित एडमिन सत्र सक्रिय है!</p>
-                      <p className="text-xs text-emerald-700 mt-0.5">
-                        आप पहले से मुख्य एडमिन के रूप में लॉग इन हैं।
-                      </p>
-                    </div>
+                <button
+                  type="submit"
+                  disabled={loadingOtp}
+                  className="w-full flex items-center justify-center gap-2 py-3.5 px-6 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm shadow-md shadow-blue-600/25 transition disabled:opacity-50"
+                >
+                  {loadingOtp ? (
+                    <span>OTP भेजा जा रहा है (Brevo API)...</span>
+                  ) : (
+                    <>
+                      <KeyRound className="w-4 h-4" />
+                      <span>OTP भेजें (Send OTP)</span>
+                    </>
+                  )}
+                </button>
+              </form>
+            ) : (
+              /* Step 2: Enter 6-digit OTP */
+              <form onSubmit={handleVerifyOtp} className="space-y-4">
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                      6-अंकीय OTP दर्ज करें
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setOtpSent(false);
+                        setOtpCode("");
+                      }}
+                      className="text-xs text-blue-600 hover:underline font-semibold"
+                    >
+                      ईमेल बदलें
+                    </button>
                   </div>
 
-                  <Link
-                    href="/admin"
-                    className="w-full flex items-center justify-center gap-2 py-3.5 px-6 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-lg shadow-blue-600/30 transition transform hover:-translate-y-0.5"
-                  >
-                    <span>एडमिन डैशबोर्ड पर जाएं</span>
-                    <ArrowRight className="w-5 h-5" />
-                  </Link>
+                  <div className="relative">
+                    <Lock className="w-5 h-5 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      required
+                      maxLength={6}
+                      value={otpCode}
+                      onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ""))}
+                      placeholder="123456"
+                      className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 text-lg font-mono font-bold tracking-widest text-center focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
+                    />
+                  </div>
+
+                  {backupOtp && (
+                    <div className="mt-2.5 p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs">
+                      <span className="font-bold">त्वरित स्क्रीन OTP: </span>
+                      <span className="font-mono font-black text-sm text-blue-700 bg-white px-2 py-0.5 rounded border border-amber-300">
+                        {backupOtp}
+                      </span>
+                    </div>
+                  )}
                 </div>
-              ) : (
-                /* Login Form */
-                <div className="space-y-5">
-                  {errorMsg && (
-                    <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold">
-                      {errorMsg}
-                    </div>
-                  )}
 
-                  {statusMsg && (
-                    <div className="p-3.5 rounded-xl bg-blue-50 border border-blue-200 text-blue-700 text-xs font-semibold">
-                      {statusMsg}
-                    </div>
-                  )}
-
-                  {!otpSent ? (
-                    /* Step 1: Enter Admin Email */
-                    <form onSubmit={handleSendOtp} className="space-y-4">
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wider">
-                          एडमिन ईमेल आईडी (Admin Email)
-                        </label>
-                        <div className="relative">
-                          <Mail className="w-5 h-5 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                          <input
-                            type="email"
-                            required
-                            value={adminEmail}
-                            onChange={(e) => setAdminEmail(e.target.value)}
-                            placeholder="admin@gmail.com"
-                            className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
-                          />
-                        </div>
-                        <p className="text-[11px] text-slate-500 mt-1.5">
-                          * सिस्टम में सेट किया गया एडमिन ईमेल दर्ज करें।
-                        </p>
-                      </div>
-
-                      <button
-                        type="submit"
-                        disabled={loading}
-                        className="w-full flex items-center justify-center gap-2 py-3 px-6 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm shadow-md shadow-blue-600/25 transition disabled:opacity-50"
-                      >
-                        {loading ? (
-                          <span>OTP भेजा जा रहा है...</span>
-                        ) : (
-                          <>
-                            <KeyRound className="w-4 h-4" />
-                            <span>सुरक्षित OTP प्राप्त करें</span>
-                          </>
-                        )}
-                      </button>
-                    </form>
+                <button
+                  type="submit"
+                  disabled={verifyingOtp}
+                  className="w-full flex items-center justify-center gap-2 py-3.5 px-6 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm shadow-md shadow-emerald-600/25 transition disabled:opacity-50"
+                >
+                  {verifyingOtp ? (
+                    <span>सत्यापन किया जा रहा है...</span>
                   ) : (
-                    /* Step 2: Enter 6-digit OTP */
-                    <form onSubmit={handleVerifyOtp} className="space-y-4">
-                      <div>
-                        <div className="flex items-center justify-between mb-1.5">
-                          <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
-                            6-अंकीय OTP (One Time Password)
-                          </label>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setOtpSent(false);
-                              setOtpCode("");
-                            }}
-                            className="text-xs text-blue-600 hover:underline font-semibold"
-                          >
-                            ईमेल बदलें
-                          </button>
-                        </div>
-
-                        <div className="relative">
-                          <Lock className="w-5 h-5 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                          <input
-                            type="text"
-                            required
-                            maxLength={6}
-                            value={otpCode}
-                            onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ""))}
-                            placeholder="123456"
-                            className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 text-lg font-mono font-bold tracking-widest text-center focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
-                          />
-                        </div>
-
-                        {backupOtp && (
-                          <div className="mt-2 p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs">
-                            <span className="font-bold">त्वरित परीक्षण OTP: </span>
-                            <span className="font-mono font-black text-sm text-blue-700 bg-white px-2 py-0.5 rounded border border-amber-300">
-                              {backupOtp}
-                            </span>
-                            <span className="block text-[11px] text-amber-600 mt-0.5">
-                              (ईमेल के अलावा स्क्रीन पर भी सुरक्षित बैकअप उपलब्ध कराया गया है)
-                            </span>
-                          </div>
-                        )}
-                      </div>
-
-                      <button
-                        type="submit"
-                        disabled={verifying}
-                        className="w-full flex items-center justify-center gap-2 py-3 px-6 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm shadow-md shadow-emerald-600/25 transition disabled:opacity-50"
-                      >
-                        {verifying ? (
-                          <span>सत्यापित किया जा रहा है...</span>
-                        ) : (
-                          <>
-                            <CheckCircle2 className="w-4 h-4" />
-                            <span>लॉगिन करें व डैशबोर्ड खोलें</span>
-                          </>
-                        )}
-                      </button>
-
-                      <div className="text-center pt-1">
-                        <button
-                          type="button"
-                          onClick={handleSendOtp}
-                          disabled={loading}
-                          className="text-xs font-semibold text-slate-500 hover:text-blue-600 transition"
-                        >
-                          OTP नहीं मिला? पुनः भेजें (Resend)
-                        </button>
-                      </div>
-                    </form>
+                    <>
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>लॉगिन करें (Verify & Login)</span>
+                    </>
                   )}
-                </div>
-              )}
-            </div>
-          </div>
-
-        </div>
-      </section>
-
-      {/* Footer Info Strip */}
-      <section className="bg-white border-t border-slate-200 py-6 px-4">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
-          <div className="flex items-center gap-2">
-            <Server className="w-4 h-4 text-blue-600" />
-            <span className="font-semibold text-slate-700">DFI Core Engine:</span>
-            <span>Astra DB Serverless • Razorpay Live • Multi-Channel OTP</span>
-          </div>
-          <div className="text-slate-400">
-            सुरक्षित एन्क्रिप्शन AES-256 एवं JWT प्रमाणीकरण द्वारा रक्षित
+                </button>
+              </form>
+            )}
           </div>
         </div>
-      </section>
+      )}
     </div>
   );
 }

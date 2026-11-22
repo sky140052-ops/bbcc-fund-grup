@@ -1,17 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyToken } from "../../../lib/auth";
 import {
-  dbGetActiveGroup,
-  dbFindGroupById,
   dbFindContributions,
   dbInsertContribution,
-  dbFindGroupMembers,
-  dbFindUsers,
+  dbFindMembers,
+  dbFindMemberById,
 } from "../../../lib/astra";
 import { sanitize } from "../../../lib/crypto";
 import { Contribution } from "../../../lib/types";
-import { sendPaymentAlertToAll } from "../../../lib/email";
+import Razorpay from "razorpay";
 
+function getRazorpayInstance() {
+  const key_id = process.env.RAZORPAY_KEY_ID;
+  const key_secret = process.env.RAZORPAY_KEY_SECRET;
+  if (!key_id || !key_secret || key_id.includes("placeholder")) {
+    return null;
+  }
+  return new Razorpay({ key_id, key_secret });
+}
+
+// GET: Returns list of contributions, community total, and member's total
 export async function GET(req: NextRequest) {
   const token = req.cookies.get("bbcc_session")?.value;
   const session = token ? verifyToken(token) : null;
@@ -20,10 +28,42 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const contributions = await dbFindContributions();
-  return NextResponse.json({ contributions });
+  try {
+    const url = new URL(req.url);
+    const memberId = url.searchParams.get("member_id");
+
+    const allContributions = await dbFindContributions();
+
+    // Sort newest first
+    allContributions.sort((a, b) => new Date(b.paid_at).getTime() - new Date(a.paid_at).getTime());
+
+    // Calculate community total
+    const totalCommunityPool = allContributions
+      .filter((c) => c.status === "paid")
+      .reduce((sum, c) => sum + (Number(c.amount) || 0), 0);
+
+    // Calculate member's total
+    const targetMemberId = memberId || (session.role === "member" ? session.userId : null);
+    const memberContributions = targetMemberId
+      ? allContributions.filter((c) => (c.member_id === targetMemberId || (c as any).user_id === targetMemberId) && c.status === "paid")
+      : [];
+
+    const memberTotalDeposited = memberContributions.reduce((sum, c) => sum + (Number(c.amount) || 0), 0);
+
+    return NextResponse.json({
+      success: true,
+      contributions: allContributions,
+      total_community_pool: totalCommunityPool,
+      member_total_deposited: memberTotalDeposited,
+      member_contributions: memberContributions,
+    });
+  } catch (err: any) {
+    console.error("Contributions GET error:", err);
+    return NextResponse.json({ error: "जमा सूची लोड करने में विफल।" }, { status: 500 });
+  }
 }
 
+// POST: Create Razorpay Order or Save Confirmed Deposit
 export async function POST(req: NextRequest) {
   const token = req.cookies.get("bbcc_session")?.value;
   const session = token ? verifyToken(token) : null;
@@ -33,83 +73,78 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { group_id, amount, razorpay_payment_id } = await req.json();
+    const body = await req.json();
+    const action = body.action || "save_deposit";
 
-    const activeGroup = await dbGetActiveGroup();
-    if (!activeGroup) {
-      return NextResponse.json({ error: "सक्रिय ग्रुप नहीं मिला।" }, { status: 404 });
+    // Action 1: Create Razorpay Order
+    if (action === "create_order") {
+      const amount = Math.max(1, Number(body.amount) || 100);
+      const razorpay = getRazorpayInstance();
+
+      if (!razorpay) {
+        // Mock order ID if keys are missing
+        const mockOrderId = `order_mock_${Date.now()}`;
+        return NextResponse.json({
+          success: true,
+          order_id: mockOrderId,
+          amount: amount * 100,
+          currency: "INR",
+          key_id: process.env.RAZORPAY_KEY_ID || "rzp_test_mock",
+          is_mock: true,
+        });
+      }
+
+      const options = {
+        amount: Math.round(amount * 100), // In Paise
+        currency: "INR",
+        receipt: `rcpt_${session.userId.slice(-6)}_${Date.now()}`,
+        notes: {
+          member_id: session.userId,
+          member_name: session.name,
+        },
+      };
+
+      const order = await razorpay.orders.create(options);
+      return NextResponse.json({
+        success: true,
+        order_id: order.id,
+        amount: order.amount,
+        currency: order.currency,
+        key_id: process.env.RAZORPAY_KEY_ID,
+      });
     }
 
-    const targetGroupId = group_id || activeGroup._id;
+    // Action 2: Save Confirmed Deposit
+    const amount = Math.max(1, Number(body.amount) || 100);
+    const targetMemberId = body.member_id || session.userId;
+    const targetMemberName = body.member_name || session.name;
+    const targetMemberMobile = body.member_mobile || session.mobile || "";
 
-    // Check if already paid for this cycle
-    const contributions = await dbFindContributions(targetGroupId);
-    const existingPayment = contributions.find(
-      (c) =>
-        c.user_id === session.userId &&
-        c.cycle_month === activeGroup.current_cycle_month &&
-        c.status === "paid"
-    );
+    const currentMonth = new Date().toISOString().slice(0, 7); // e.g. "2026-11"
 
-    if (existingPayment) {
-      return NextResponse.json({ error: "आप इस महीने का अंशदान पहले ही जमा कर चुके हैं।" }, { status: 400 });
-    }
-
-    const paymentAmount = Math.max(1, Number(amount) || activeGroup.monthly_amount);
-
-    const newPayment: Contribution = {
-      _id: `pay_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
-      group_id: targetGroupId,
-      user_id: session.userId,
-      user_name: session.name,
-      cycle_month: activeGroup.current_cycle_month,
-      amount: paymentAmount,
-      razorpay_order_id: `order_${Date.now()}`,
-      razorpay_payment_id: sanitize(razorpay_payment_id) || `rzp_live_${Date.now()}`,
+    const newContribution: Contribution = {
+      _id: `cntr_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+      member_id: targetMemberId,
+      member_name: targetMemberName,
+      member_mobile: targetMemberMobile,
+      amount,
+      month: body.month || currentMonth,
       status: "paid",
+      razorpay_order_id: body.razorpay_order_id || "",
+      razorpay_payment_id: body.razorpay_payment_id || `pay_manual_${Date.now()}`,
       paid_at: new Date().toISOString(),
+      note: sanitize(body.note || "DFI मासिक अंशदान जमा"),
     };
 
-    await dbInsertContribution(newPayment);
-
-    // Send Broadcast Email to All Group Members & Admin
-    try {
-      const groupMemberships = await dbFindGroupMembers(targetGroupId);
-      const allUsers = await dbFindUsers();
-      const recipientEmails = allUsers
-        .filter(
-          (u) =>
-            u.email &&
-            (groupMemberships.some((gm) => gm.user_id === u._id) ||
-              u.role === "admin" ||
-              u.role === "founder")
-        )
-        .map((u) => u.email);
-
-      const paymentDateStr = new Date().toLocaleDateString("hi-IN", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-      });
-
-      sendPaymentAlertToAll({
-        groupName: activeGroup.name,
-        payerName: session.name,
-        amount: paymentAmount,
-        paymentDate: paymentDateStr,
-        recipientEmails,
-      }).catch((err) => console.warn("Failed sending deposit broadcast email:", err));
-    } catch (broadcastErr) {
-      console.warn("Broadcast error on payment:", broadcastErr);
-    }
+    await dbInsertContribution(newContribution);
 
     return NextResponse.json({
       success: true,
-      contribution: newPayment,
-      message: `मासिक अंशदान ₹${paymentAmount.toLocaleString()} सफलतापूर्वक Astra DB में दर्ज हुआ!`,
+      message: `₹${amount} की राशि सफलतापूर्वक जमा कर दी गई है!`,
+      contribution: newContribution,
     });
-  } catch (error) {
-    console.error("Payment error:", error);
-    return NextResponse.json({ error: "अंशदान दर्ज करने में त्रुटि हुई।" }, { status: 500 });
+  } catch (err: any) {
+    console.error("Contribution POST error:", err);
+    return NextResponse.json({ error: "जमा राशि सुरक्षित करने में त्रुटि।" }, { status: 500 });
   }
 }

@@ -73,6 +73,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
 
     const name = sanitize(body.name || "").trim();
+    const email = sanitize(body.email || "").trim().toLowerCase();
     const mobile = sanitize(body.mobile || "").replace(/\D/g, "");
 
     if (!name) {
@@ -89,6 +90,7 @@ export async function POST(req: NextRequest) {
     const newMember: Member = {
       _id: `dfi_mem_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
       name,
+      email: email || `${mobile}@dfi.local`,
       mobile,
       photo: body.photo || "",
       aadhaar_number,
@@ -143,6 +145,7 @@ export async function PUT(req: NextRequest) {
     const updates: Partial<Member> = {};
 
     if (body.name !== undefined) updates.name = sanitize(body.name).trim();
+    if (body.email !== undefined) updates.email = sanitize(body.email).trim().toLowerCase();
     if (body.mobile !== undefined) updates.mobile = sanitize(body.mobile).replace(/\D/g, "");
     if (body.photo !== undefined) updates.photo = body.photo;
     if (body.aadhaar_number !== undefined) updates.aadhaar_number = sanitize(body.aadhaar_number).replace(/\D/g, "");

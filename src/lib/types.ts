@@ -1,52 +1,12 @@
-export type UserRole = "admin" | "client" | "founder" | "member";
+export type UserRole = "admin" | "founder" | "member" | "client";
 
 export interface SessionPayload {
   userId: string;
   name: string;
-  email?: string;
+  email: string;
   role: UserRole;
   mobile: string;
   aadhaar?: string;
-}
-
-export interface User {
-  _id: string;
-  name: string;
-  email: string; // Registered Gmail / Email
-  mobile: string;
-  dob: string; // YYYY-MM-DD or DDMMYYYY
-  role: UserRole;
-  aadhaar_last4: string; // Only last 4 digits stored for display
-  aadhaar_hash: string; // Secure HMAC-SHA256 for zero-knowledge search
-  pan: string;
-  bank_details?: {
-    account_number: string;
-    ifsc: string;
-    upi_id: string;
-  };
-  // Loan-Grade KYC Details
-  father_name?: string;
-  gender?: string;
-  marital_status?: string;
-  address?: string;
-  city?: string;
-  pincode?: string;
-  occupation?: string;
-  monthly_income?: string;
-  nominee_name?: string;
-  nominee_relation?: string;
-  nominee_mobile?: string;
-  // Documents & Live Photos (Base64 Data)
-  photo_live?: string; // Live webcam / camera photo
-  aadhaar_front?: string; // Aadhaar card front image
-  aadhaar_back?: string; // Aadhaar card back image
-  pan_type?: "physical" | "epan";
-  pan_document?: string; // PAN card image or e-PAN file
-  epan_password?: string; // Password if e-PAN uploaded
-  password_hash?: string; // bcrypt hash for custom password
-  otp_code?: string; // 6-digit OTP for password reset / login
-  otp_expires_at?: string; // Expiration timestamp
-  created_at: string;
 }
 
 // ==========================================
@@ -55,6 +15,7 @@ export interface User {
 export interface Member {
   _id: string;
   name: string;
+  email: string; // Member's unique email for OTP login
   mobile: string;
   photo?: string; // Base64 data URL (Live Camera Selfie or JPEG/PNG)
   aadhaar_number: string; // 12-digit Aadhaar number
@@ -71,8 +32,103 @@ export interface Member {
   ifsc?: string;
   bank_name?: string;
   wallet_number?: string; // PhonePe / Google Pay / Paytm mobile number
+  otp_code?: string;
+  otp_expires_at?: string;
   created_at: string;
   updated_at?: string;
+}
+
+// ==========================================
+// DFI CONTRIBUTION TYPE (Monthly Deposit)
+// ==========================================
+export interface Contribution {
+  _id: string;
+  member_id: string;
+  member_name: string;
+  member_mobile: string;
+  amount: number; // e.g. ₹100
+  month: string; // e.g. "2026-11"
+  status: "paid" | "pending" | "failed";
+  razorpay_order_id?: string;
+  razorpay_payment_id?: string;
+  paid_at: string;
+  note?: string;
+  group_id?: string;
+  user_id?: string;
+  user_name?: string;
+  cycle_month?: number;
+}
+
+// ==========================================
+// DFI LOAN TYPE
+// ==========================================
+export interface Loan {
+  _id: string;
+  member_id: string;
+  member_name: string;
+  member_mobile: string;
+  member_upi?: string;
+  member_wallet?: string;
+  member_account?: string;
+  member_ifsc?: string;
+  requested_amount: number; // Member requested amount (max 90% of total deposit)
+  processing_fee_percent: number; // Flat 10%
+  processing_fee_amount: number; // requested_amount * 0.10
+  disbursed_amount: number; // requested_amount * 0.90 (Net amount admin sends)
+  interest_rate_monthly: number; // 1% per month (1% p.m.)
+  status: "pending" | "approved" | "disbursed" | "repaid" | "rejected";
+  requested_at: string;
+  reason?: string;
+  // Disbursal by Admin
+  disbursed_at?: string;
+  transaction_utr?: string;
+  payment_screenshot?: string; // Screenshot proof visible to all members
+  admin_notes?: string;
+  // Repayment by Member
+  interest_accumulated?: number;
+  total_payable?: number;
+  total_repaid?: number;
+  repaid_at?: string;
+  repayment_razorpay_id?: string;
+}
+
+// Legacy user interface for backward compatibility
+export interface User {
+  _id: string;
+  name: string;
+  email: string;
+  mobile: string;
+  dob?: string;
+  role: UserRole;
+  aadhaar_last4?: string;
+  aadhaar_hash?: string;
+  pan?: string;
+  father_name?: string;
+  gender?: string;
+  marital_status?: string;
+  address?: string;
+  city?: string;
+  pincode?: string;
+  occupation?: string;
+  monthly_income?: string;
+  nominee_name?: string;
+  nominee_relation?: string;
+  nominee_mobile?: string;
+  photo_live?: string;
+  aadhaar_front?: string;
+  aadhaar_back?: string;
+  pan_type?: "physical" | "epan";
+  pan_document?: string;
+  epan_password?: string;
+  password_hash?: string;
+  bank_details?: {
+    account_number: string;
+    ifsc: string;
+    upi_id: string;
+  };
+  otp_code?: string;
+  otp_expires_at?: string;
+  created_at: string;
 }
 
 export interface FundGroup {
@@ -99,19 +155,6 @@ export interface GroupMember {
   status?: "pending" | "approved" | "rejected";
   has_received_payout: boolean;
   received_in_month?: number | null;
-}
-
-export interface Contribution {
-  _id: string;
-  group_id: string;
-  user_id: string;
-  user_name: string;
-  cycle_month: number;
-  amount: number;
-  razorpay_order_id?: string;
-  razorpay_payment_id?: string;
-  status: "paid" | "pending" | "failed";
-  paid_at?: string;
 }
 
 export interface WithdrawalRequest {

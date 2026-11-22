@@ -1,5 +1,5 @@
 import { DataAPIClient, Db } from "@datastax/astra-db-ts";
-import { User, Member, FundGroup, GroupMember, Contribution, WithdrawalRequest, Vote, PayoutDisbursal } from "./types";
+import { User, Member, FundGroup, GroupMember, Contribution, WithdrawalRequest, Vote, PayoutDisbursal, Loan } from "./types";
 
 let dbInstance: Db | null = null;
 const initializedCollections = new Set<string>();
@@ -54,6 +54,7 @@ declare global {
     groups: FundGroup[];
     group_members: GroupMember[];
     contributions: Contribution[];
+    loans: Loan[];
     withdrawal_requests: WithdrawalRequest[];
     votes: Vote[];
     payouts: PayoutDisbursal[];
@@ -68,6 +69,7 @@ export function getCleanStore() {
       groups: [],
       group_members: [],
       contributions: [],
+      loans: [],
       withdrawal_requests: [],
       votes: [],
       payouts: [],
@@ -390,6 +392,16 @@ export async function dbFindMemberById(id: string): Promise<Member | null> {
   return store.members.find((m) => m._id === id) || null;
 }
 
+export async function dbFindMemberByEmail(email: string): Promise<Member | null> {
+  const cleanEmail = email.trim().toLowerCase();
+  const col = await getCollection<Member>("members");
+  if (col) {
+    return await col.findOne({ email: cleanEmail });
+  }
+  const store = getCleanStore();
+  return store.members.find((m) => m.email?.toLowerCase() === cleanEmail) || null;
+}
+
 export async function dbInsertMember(member: Member): Promise<Member> {
   const col = await getCollection<Member>("members");
   if (col) {
@@ -430,4 +442,51 @@ export async function dbDeleteMember(memberId: string): Promise<boolean> {
     return true;
   }
   return false;
+}
+
+// ==========================================
+// DFI LOANS OPERATIONS
+// ==========================================
+export async function dbFindLoans(filter: Record<string, any> = {}): Promise<Loan[]> {
+  const col = await getCollection<Loan>("loans");
+  if (col) {
+    return await col.find(filter).toArray();
+  }
+  const store = getCleanStore();
+  return store.loans.filter((l) => {
+    return Object.entries(filter).every(([k, v]) => (l as any)[k] === v);
+  });
+}
+
+export async function dbFindLoanById(id: string): Promise<Loan | null> {
+  const col = await getCollection<Loan>("loans");
+  if (col) {
+    return await col.findOne({ _id: id });
+  }
+  const store = getCleanStore();
+  return store.loans.find((l) => l._id === id) || null;
+}
+
+export async function dbInsertLoan(loan: Loan): Promise<Loan> {
+  const col = await getCollection<Loan>("loans");
+  if (col) {
+    await col.insertOne(loan as any);
+    return loan;
+  }
+  const store = getCleanStore();
+  store.loans.push(loan);
+  return loan;
+}
+
+export async function dbUpdateLoan(loanId: string, updates: Partial<Loan>): Promise<void> {
+  const col = await getCollection<Loan>("loans");
+  if (col) {
+    await col.updateOne({ _id: loanId } as any, { $set: updates as any });
+    return;
+  }
+  const store = getCleanStore();
+  const idx = store.loans.findIndex((l) => l._id === loanId);
+  if (idx !== -1) {
+    store.loans[idx] = { ...store.loans[idx], ...updates };
+  }
 }

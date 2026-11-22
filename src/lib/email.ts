@@ -15,22 +15,22 @@ interface SendLoginAlertOptions {
   role?: string;
 }
 
-// Check Email Provider Connection Status
+// Check Email Provider Connection Status (Brevo API prioritized)
 export function getEmailServiceStatus(): {
   connected: boolean;
-  provider: "resend" | "gmail_smtp" | "brevo" | "none";
+  provider: "brevo" | "gmail_smtp" | "resend" | "none";
   details: string;
 } {
-  const resendApiKey = process.env.RESEND_API_KEY;
+  const brevoApiKey = process.env.BREVO_API_KEY;
   const smtpEmail = process.env.SMTP_EMAIL;
   const smtpPassword = process.env.SMTP_PASSWORD;
-  const brevoApiKey = process.env.BREVO_API_KEY;
+  const resendApiKey = process.env.RESEND_API_KEY;
 
-  if (resendApiKey && !resendApiKey.includes("placeholder")) {
+  if (brevoApiKey && !brevoApiKey.includes("placeholder")) {
     return {
       connected: true,
-      provider: "resend",
-      details: `Resend API Active (Key: ${resendApiKey.slice(0, 6)}...${resendApiKey.slice(-4)})`,
+      provider: "brevo",
+      details: `Brevo SMTP API सक्रिय (300 फ्री ईमेल/दिन - Key: ${brevoApiKey.slice(0, 8)}...)`,
     };
   }
 
@@ -38,22 +38,22 @@ export function getEmailServiceStatus(): {
     return {
       connected: true,
       provider: "gmail_smtp",
-      details: `Gmail SMTP Active (${smtpEmail})`,
+      details: `Gmail SMTP सक्रिय (500 फ्री ईमेल/दिन - ${smtpEmail})`,
     };
   }
 
-  if (brevoApiKey && !brevoApiKey.includes("placeholder")) {
+  if (resendApiKey && !resendApiKey.includes("placeholder")) {
     return {
       connected: true,
-      provider: "brevo",
-      details: "Brevo SMTP API Active (300 Free/Day)",
+      provider: "resend",
+      details: `Resend API सक्रिय (Key: ${resendApiKey.slice(0, 6)}...${resendApiKey.slice(-4)})`,
     };
   }
 
   return {
     connected: false,
     provider: "none",
-    details: "कोई ईमेल सेवा कॉन्फ़िगर नहीं है (No Email Provider Configured)",
+    details: "कोई ईमेल सेवा कॉन्फ़िगर नहीं है (Brevo API Key दर्ज करें)",
   };
 }
 
@@ -67,15 +67,15 @@ export async function sendOtpEmail({
     purpose === "password_reset"
       ? "🔐 DFI - पासवर्ड रीसेट हेतु OTP"
       : purpose === "test"
-      ? "🧪 DFI - ईमेल सत्यापन व OTP टेस्ट"
-      : "🔐 DFI - एडमिन लॉगिन सत्यापन OTP";
+      ? "🧪 DFI - Brevo ईमेल सत्यापन व OTP टेस्ट"
+      : "🔐 DFI इमरजेंसी सेवा - लॉगिन सत्यापन OTP";
 
   const purposeText =
     purpose === "password_reset"
       ? "आपके खाते का पासवर्ड रीसेट करने के लिए यह OTP भेजा गया है:"
       : purpose === "test"
-      ? "यह DFI ईमेल सेवा की जांच के लिए भेजा गया परीक्षण OTP है:"
-      : "DFI एडमिन पोर्टल में सुरक्षित लॉगिन हेतु 6-अंकीय OTP:";
+      ? "यह DFI Brevo ईमेल सेवा की जांच के लिए भेजा गया परीक्षण OTP है:"
+      : "DFI इमरजेंसी सेवा पोर्टल में सुरक्षित लॉगिन हेतु 6-अंकीय OTP:";
 
   const htmlContent = `
     <!DOCTYPE html>
@@ -84,20 +84,20 @@ export async function sendOtpEmail({
         <meta charset="utf-8">
         <style>
           body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f1f5f9; padding: 20px; }
-          .card { max-width: 500px; margin: 0 auto; background: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 14px rgba(0,0,0,0.06); }
-          .header { background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding: 26px 20px; text-align: center; color: #ffffff; }
-          .logo-badge { display: inline-block; background: #3b82f6; color: #ffffff; font-weight: 900; font-size: 22px; padding: 6px 18px; border-radius: 8px; letter-spacing: 2px; margin-bottom: 8px; }
-          .body { padding: 32px 24px; text-align: center; }
-          .otp-badge { display: inline-block; font-size: 34px; font-weight: 800; letter-spacing: 8px; color: #0284c7; background: #f0f9ff; border: 2px dashed #0284c7; padding: 14px 30px; border-radius: 12px; margin: 22px 0; }
-          .footer { background: #f8fafc; padding: 16px; font-size: 12px; color: #64748b; text-align: center; border-top: 1px solid #e2e8f0; }
+          .card { max-width: 520px; margin: 0 auto; background: #ffffff; border-radius: 20px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.06); }
+          .header { background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding: 28px 24px; text-align: center; color: #ffffff; }
+          .logo-badge { display: inline-block; background: #2563eb; color: #ffffff; font-weight: 900; font-size: 22px; padding: 6px 20px; border-radius: 10px; letter-spacing: 2px; margin-bottom: 10px; }
+          .body { padding: 32px 26px; text-align: center; }
+          .otp-badge { display: inline-block; font-size: 36px; font-weight: 800; letter-spacing: 8px; color: #0284c7; background: #f0f9ff; border: 2px dashed #0284c7; padding: 14px 32px; border-radius: 14px; margin: 24px 0; }
+          .footer { background: #f8fafc; padding: 18px; font-size: 12px; color: #64748b; text-align: center; border-top: 1px solid #e2e8f0; }
         </style>
       </head>
       <body>
         <div class="card">
           <div class="header">
             <div class="logo-badge">DFI</div>
-            <h2 style="margin: 0; font-size: 18px; font-weight: 600;">Digital Fund Infrastructure</h2>
-            <p style="margin: 4px 0 0 0; font-size: 12px; color: #94a3b8;">सुरक्षित एवं पारदर्शी डिजिटल वित्तीय प्रणाली</p>
+            <h2 style="margin: 0; font-size: 20px; font-weight: 700;">इमरजेंसी सेवा ग्रुप - DFI 🙏</h2>
+            <p style="margin: 6px 0 0 0; font-size: 13px; color: #94a3b8;">पारदर्शी बचत, सहयोग एवं वित्तीय सहायता पोर्टल</p>
           </div>
           <div class="body">
             <h3 style="margin: 0 0 8px 0; color: #1e293b; font-size: 18px;">नमस्ते, ${userName}</h3>
@@ -108,14 +108,44 @@ export async function sendOtpEmail({
             </p>
           </div>
           <div class="footer">
-            यह एक सुरक्षित स्वचालित प्रणाली ईमेल है। © 2026 DFI. सर्वाधिकार सुरक्षित।
+            यह एक सुरक्षित स्वचालित प्रणाली ईमेल है। © 2026 DFI इमरजेंसी सेवा ग्रुप.
           </div>
         </div>
       </body>
     </html>
   `;
 
-  // 1. Try Gmail SMTP / Nodemailer (Highest deliverability, 500 free/day)
+  // 1. PRIORITY 1: Brevo SMTP API (https://app.brevo.com/settings/keys/api)
+  const brevoApiKey = process.env.BREVO_API_KEY;
+  if (brevoApiKey && !brevoApiKey.includes("placeholder")) {
+    try {
+      const senderEmail = process.env.BREVO_SENDER_EMAIL || process.env.FOUNDER_EMAIL || "sky140052@gmail.com";
+      const brevoRes = await fetch("https://api.brevo.com/v3/smtp/email", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "api-key": brevoApiKey.trim(),
+        },
+        body: JSON.stringify({
+          sender: { name: "DFI इमरजेंसी सेवा", email: senderEmail },
+          to: [{ email: toEmail, name: userName }],
+          subject,
+          htmlContent,
+        }),
+      });
+
+      if (brevoRes.ok) {
+        return { success: true, provider: "brevo", otp };
+      } else {
+        const errorText = await brevoRes.text();
+        console.warn("Brevo API warning response:", errorText);
+      }
+    } catch (err: any) {
+      console.warn("Brevo API call failed:", err?.message);
+    }
+  }
+
+  // 2. PRIORITY 2: Gmail SMTP / Nodemailer
   const smtpEmail = process.env.SMTP_EMAIL;
   const smtpPassword = process.env.SMTP_PASSWORD;
 
@@ -130,7 +160,7 @@ export async function sendOtpEmail({
       });
 
       await transporter.sendMail({
-        from: `"DFI Admin Portal" <${smtpEmail}>`,
+        from: `"DFI इमरजेंसी सेवा" <${smtpEmail}>`,
         to: toEmail,
         subject,
         html: htmlContent,
@@ -142,7 +172,7 @@ export async function sendOtpEmail({
     }
   }
 
-  // 2. Try Resend API (3,000 free/month)
+  // 3. PRIORITY 3: Resend API
   const resendApiKey = process.env.RESEND_API_KEY;
   if (resendApiKey && !resendApiKey.includes("placeholder")) {
     try {
@@ -154,40 +184,11 @@ export async function sendOtpEmail({
         html: htmlContent,
       });
 
-      if (res.error) {
-        console.warn("Resend email warning:", res.error);
-      } else {
+      if (!res.error) {
         return { success: true, provider: "resend", otp };
       }
     } catch (err: any) {
       console.warn("Resend email failed:", err?.message);
-    }
-  }
-
-  // 3. Try Brevo API (300 free/day)
-  const brevoApiKey = process.env.BREVO_API_KEY;
-  if (brevoApiKey && !brevoApiKey.includes("placeholder")) {
-    try {
-      const brevoSender = process.env.BREVO_SENDER_EMAIL || "sky140052@gmail.com";
-      const brevoRes = await fetch("https://api.brevo.com/v3/smtp/email", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "api-key": brevoApiKey,
-        },
-        body: JSON.stringify({
-          sender: { name: "DFI Portal", email: brevoSender },
-          to: [{ email: toEmail }],
-          subject,
-          htmlContent,
-        }),
-      });
-
-      if (brevoRes.ok) {
-        return { success: true, provider: "brevo", otp };
-      }
-    } catch (err: any) {
-      console.warn("Brevo API email failed:", err?.message);
     }
   }
 
@@ -211,7 +212,7 @@ export async function sendLoginAlertEmail({
   const roleText =
     role === "founder" || role === "admin"
       ? "👑 मुख्य एडमिन (Administrator)"
-      : "👤 सदस्य / क्लाइंट";
+      : "👤 DFI सदस्य";
 
   const htmlContent = `
     <!DOCTYPE html>
@@ -256,68 +257,51 @@ export async function sendLoginAlertEmail({
               </div>
             </div>
             <p style="font-size: 12px; color: #64748b; margin: 0;">
-              यदि यह लॉगिन आपने नहीं किया है, तो तुरंत अपने सिस्टम की सुरक्षा जांच करें।
+              यदि यह लॉगिन आपने नहीं किया है, तो तुरंत अपने एडमिन से संपर्क करें।
             </p>
           </div>
           <div class="footer">
-            सुरक्षा एवं अनुपालन डेस्क • © 2026 DFI
+            DFI सुरक्षा डेस्क • © 2026 DFI इमरजेंसी सेवा
           </div>
         </div>
       </body>
     </html>
   `;
 
-  const smtpEmail = process.env.SMTP_EMAIL;
-  const smtpPassword = process.env.SMTP_PASSWORD;
-
-  if (smtpEmail && smtpPassword && !smtpEmail.includes("placeholder")) {
+  // Brevo
+  const brevoApiKey = process.env.BREVO_API_KEY;
+  if (brevoApiKey && !brevoApiKey.includes("placeholder")) {
     try {
-      const transporter = nodemailer.createTransport({
-        service: "gmail",
-        auth: { user: smtpEmail, pass: smtpPassword },
+      const senderEmail = process.env.BREVO_SENDER_EMAIL || process.env.FOUNDER_EMAIL || "sky140052@gmail.com";
+      await fetch("https://api.brevo.com/v3/smtp/email", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "api-key": brevoApiKey.trim(),
+        },
+        body: JSON.stringify({
+          sender: { name: "DFI सुरक्षा", email: senderEmail },
+          to: [{ email: toEmail, name: userName }],
+          subject,
+          htmlContent,
+        }),
       });
-      await transporter.sendMail({
-        from: `"DFI Security Alert" <${smtpEmail}>`,
-        to: toEmail,
-        subject,
-        html: htmlContent,
-      });
-      return { success: true, provider: "gmail_smtp" };
-    } catch {
-      // Continue to next provider
-    }
-  }
-
-  const resendApiKey = process.env.RESEND_API_KEY;
-  if (resendApiKey && !resendApiKey.includes("placeholder")) {
-    try {
-      const resend = new Resend(resendApiKey);
-      await resend.emails.send({
-        from: process.env.RESEND_FROM_EMAIL || "DFI <onboarding@resend.dev>",
-        to: toEmail,
-        subject,
-        html: htmlContent,
-      });
-      return { success: true, provider: "resend" };
-    } catch {
-      // Fallback
-    }
+      return { success: true, provider: "brevo" };
+    } catch {}
   }
 
   return { success: true, provider: "system_generated" };
 }
 
-// Payment Alert Broadcast
+// Stubs for broadcast alerts
 export async function sendPaymentAlertToAll(params: any): Promise<void> {
   console.log(`[DFI Broadcast] Payment Alert:`, params);
 }
 
-// Loan Request Alert Broadcast
 export async function sendLoanRequestAlertToAll(params: any): Promise<void> {
   console.log(`[DFI Broadcast] Loan Request:`, params);
 }
 
-// Loan Disbursed Alert Broadcast
 export async function sendLoanDisbursedAlertToAll(params: any): Promise<void> {
   console.log(`[DFI Broadcast] Loan Disbursed:`, params);
 }
