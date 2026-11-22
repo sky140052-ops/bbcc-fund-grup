@@ -13,6 +13,21 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ authenticated: false, user: null }, { status: 401 });
   }
 
+  // Master Admin & Founder Check
+  if (payload.role === "admin" || payload.role === "founder") {
+    const user = await dbFindUser({ _id: payload.userId });
+    return NextResponse.json({
+      authenticated: true,
+      user: {
+        _id: payload.userId,
+        name: user?.name || payload.name || "DFI मुख्य एडमिन",
+        email: payload.email,
+        role: "admin",
+        mobile: user?.mobile || payload.mobile,
+      },
+    });
+  }
+
   // Check if member
   let member = await dbFindMemberById(payload.userId);
   if (!member && payload.email) {

@@ -252,7 +252,7 @@ export default function JoinPage() {
   if (linkActive === false) {
     return (
       <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-white rounded-3xl shadow-2xl p-8 text-center space-y-6 border border-slate-200">
+        <div className="max-w-md w-full bg-white rounded-3xl shadow-2xl p-8 text-center space-y-6 border border-slate-200 animate-scale-in glass-panel">
           <div className="w-16 h-16 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto border border-rose-200">
             <Lock className="w-8 h-8" />
           </div>
@@ -283,23 +283,23 @@ export default function JoinPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 py-8 px-4 sm:px-6">
-      <div className="max-w-2xl mx-auto space-y-6">
+      <div className="max-w-2xl mx-auto space-y-6 animate-fade-in-up">
         {/* Navigation & Header */}
         <div className="flex items-center justify-between">
           <Link
             href="/"
-            className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-bold text-slate-600 hover:text-blue-600 transition"
+            className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-bold text-slate-600 hover:text-blue-600 transition hover-lift"
           >
             <ArrowLeft className="w-4 h-4" />
             <span>होम पेज पर वापस जाएं</span>
           </Link>
-          <span className="text-xs font-bold text-blue-700 bg-blue-100 px-3 py-1 rounded-full">
+          <span className="text-xs font-bold text-blue-700 bg-blue-100 px-3 py-1 rounded-full animate-float">
             DFI सदस्य आमंत्रण पोर्टल
           </span>
         </div>
 
         {/* Main Card */}
-        <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-xl border border-slate-200 space-y-6">
+        <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-xl border border-slate-200 space-y-6 hover-lift transition-all">
           <div className="text-center space-y-2 pb-4 border-b border-slate-100">
             <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-black text-xl flex items-center justify-center mx-auto shadow-md">
               DFI

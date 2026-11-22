@@ -3,6 +3,7 @@ import {
   dbFindMemberByEmail,
   dbInsertMember,
   dbGetSystemSettings,
+  dbCheckDuplicateMember,
 } from "../../../../lib/astra";
 import { sendOtpEmail, sendLoginAlertEmail } from "../../../../lib/email";
 import { sanitize } from "../../../../lib/crypto";
@@ -38,22 +39,27 @@ export async function POST(req: NextRequest) {
 
     // Step 1: Send Registration OTP to Email
     if (action === "send_otp") {
-      const existingMember = await dbFindMemberByEmail(cleanEmail);
-      if (existingMember) {
-        return NextResponse.json(
-          { error: "यह ईमेल पहले से ही पंजीकृत सदस्य है। कृपया होम पेज पर जाकर लॉगिन करें।" },
-          { status: 400 }
-        );
-      }
-
       const name = sanitize(body.name || "").trim();
       const mobile = sanitize(body.mobile || "").replace(/\D/g, "");
+      const aadhaar_number = sanitize(body.aadhaar_number || "").replace(/\D/g, "");
+      const pan_number = sanitize(body.pan_number || "").toUpperCase().trim();
 
       if (!name) {
         return NextResponse.json({ error: "कृपया अपना नाम दर्ज करें।" }, { status: 400 });
       }
       if (mobile.length < 10) {
         return NextResponse.json({ error: "कृपया 10-अंकीय मोबाइल नंबर दर्ज करें।" }, { status: 400 });
+      }
+
+      // Strictly check duplicate member across email, mobile, Aadhaar, and PAN
+      const dupCheck = await dbCheckDuplicateMember({
+        email: cleanEmail,
+        mobile,
+        aadhaar_number,
+        pan_number,
+      });
+      if (dupCheck.isDuplicate) {
+        return NextResponse.json({ error: dupCheck.message }, { status: 400 });
       }
 
       const otp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -106,6 +112,18 @@ export async function POST(req: NextRequest) {
       const mobile = sanitize(data.mobile || "").replace(/\D/g, "");
       const aadhaar_number = sanitize(data.aadhaar_number || "").replace(/\D/g, "");
       const pan_number = sanitize(data.pan_number || "").toUpperCase().trim();
+
+      // Final duplicate check before database insertion
+      const dupCheck = await dbCheckDuplicateMember({
+        email: cleanEmail,
+        mobile,
+        aadhaar_number,
+        pan_number,
+      });
+      if (dupCheck.isDuplicate) {
+        delete global.__dfi_reg_cache![cleanEmail];
+        return NextResponse.json({ error: dupCheck.message }, { status: 400 });
+      }
 
       const newMember: Member = {
         _id: `dfi_mem_${Date.now()}_${Math.floor(Math.random() * 1000)}`,

@@ -147,11 +147,11 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-slate-50/50 flex flex-col justify-between">
       {/* Hero & Official Notice Section */}
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-8 sm:py-14 w-full space-y-6 sm:space-y-8">
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-8 sm:py-14 w-full space-y-6 sm:space-y-8 animate-fade-in-up">
         
         {/* Top Header Card */}
         <div className="text-center space-y-3">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-100/80 border border-blue-200 text-blue-800 text-xs sm:text-sm font-black tracking-wide">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-100/80 border border-blue-200 text-blue-800 text-xs sm:text-sm font-black tracking-wide animate-float">
             <Sparkles className="w-4 h-4 text-blue-600" />
             <span>DFI इमरजेंसी सेवा • आधिकारिक पोर्टल</span>
           </div>
@@ -173,7 +173,7 @@ export default function HomePage() {
           <div className="pt-2 sm:pt-4 pb-2 flex flex-col sm:flex-row items-center justify-center gap-3">
             <button
               onClick={handleGoToDashboardClick}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-3 px-8 sm:px-10 py-3.5 sm:py-4 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-black text-sm sm:text-base shadow-xl shadow-blue-500/25 transition transform active:scale-95"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-3 px-8 sm:px-10 py-3.5 sm:py-4 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-black text-sm sm:text-base shadow-xl shadow-blue-500/25 transition hover-lift active-press animate-pulse-glow"
             >
               <span>Go to Dashboard (डैशबोर्ड पर जाएं)</span>
               <ArrowRight className="w-5 h-5" />
@@ -181,7 +181,7 @@ export default function HomePage() {
 
             <button
               onClick={() => router.push("/join")}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 sm:py-4 rounded-2xl bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-sm shadow-sm transition active:scale-95"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 sm:py-4 rounded-2xl bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-sm shadow-sm transition hover-lift active-press"
             >
               <UserPlus className="w-4 h-4 text-blue-600" />
               <span>नए सदस्य स्वयं जुड़ें (Self Registration)</span>
@@ -193,7 +193,7 @@ export default function HomePage() {
         </div>
 
         {/* Notice Card 1: मुख्य ग्रुप नियम */}
-        <div className="bg-white rounded-3xl p-5 sm:p-8 border border-slate-200 shadow-sm space-y-4 sm:space-y-5">
+        <div className="bg-white rounded-3xl p-5 sm:p-8 border border-slate-200 shadow-sm space-y-4 sm:space-y-5 hover-lift transition-all">
           <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
             <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-200 text-blue-600 flex items-center justify-center font-bold">
               <FileText className="w-5 h-5" />
@@ -270,7 +270,7 @@ export default function HomePage() {
         </div>
 
         {/* Notice Card 2: विशेष सूचना */}
-        <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white rounded-3xl p-5 sm:p-8 shadow-xl space-y-4 sm:space-y-5 border border-slate-800">
+        <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white rounded-3xl p-5 sm:p-8 shadow-xl space-y-4 sm:space-y-5 border border-slate-800 hover-lift transition-all">
           <div className="flex items-center gap-3 pb-3 border-b border-white/10">
             <div className="w-10 h-10 rounded-xl bg-white/10 text-yellow-400 flex items-center justify-center font-bold">
               <AlertCircle className="w-5 h-5" />
@@ -341,7 +341,7 @@ export default function HomePage() {
         <div className="text-center pt-2 pb-6">
           <button
             onClick={handleGoToDashboardClick}
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-3 px-8 sm:px-12 py-3.5 sm:py-4 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black text-sm sm:text-base shadow-lg shadow-blue-600/30 transition transform active:scale-95"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-3 px-8 sm:px-12 py-3.5 sm:py-4 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black text-sm sm:text-base shadow-lg shadow-blue-600/30 transition hover-lift active-press"
           >
             <span>Go to Dashboard (डैशबोर्ड पर जाएं)</span>
             <ArrowRight className="w-5 h-5" />
@@ -353,8 +353,8 @@ export default function HomePage() {
       {/* LOGIN MODAL (Pure Email OTP Gateway - NO ON-SCREEN OTP)  */}
       {/* ======================================================== */}
       {showLoginModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl border border-slate-200 relative animate-in fade-in zoom-in duration-200">
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl border border-slate-200 relative animate-scale-in glass-panel">
             <button
               onClick={() => {
                 setShowLoginModal(false);

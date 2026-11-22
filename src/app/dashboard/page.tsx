@@ -425,11 +425,11 @@ export default function MemberDashboardPage() {
       {/* TAB 1: ACTIVE FUND & MONTHLY DEPOSIT (₹100)               */}
       {/* ======================================================== */}
       {activeTab === "my_fund" && (
-        <div className="space-y-6">
+        <div className="space-y-6 animate-fade-in">
           {/* Summary Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
             {/* Card 1: Monthly Deposit Window */}
-            <div className="p-6 rounded-3xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white shadow-lg space-y-4">
+            <div className="p-6 rounded-3xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white shadow-lg space-y-4 hover-lift transition-all">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold uppercase tracking-wider text-blue-200">
                   मासिक निर्धारित अंशदान
@@ -480,7 +480,7 @@ export default function MemberDashboardPage() {
             </div>
 
             {/* Card 2: My Total Deposited */}
-            <div className="p-6 rounded-3xl bg-white border border-slate-200 shadow-sm space-y-4">
+            <div className="p-6 rounded-3xl bg-white border border-slate-200 shadow-sm space-y-4 hover-lift transition-all">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block">
                 मेरी कुल जमा राशि
               </span>
@@ -497,7 +497,7 @@ export default function MemberDashboardPage() {
             </div>
 
             {/* Card 3: Community Total Pool */}
-            <div className="p-6 rounded-3xl bg-white border border-slate-200 shadow-sm space-y-4">
+            <div className="p-6 rounded-3xl bg-white border border-slate-200 shadow-sm space-y-4 hover-lift transition-all">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block">
                 ग्रुप कुल जमा फंड (Community Pool)
               </span>
@@ -576,7 +576,7 @@ export default function MemberDashboardPage() {
       {/* TAB 2: LOAN APPLICATION & REPAYMENT                       */}
       {/* ======================================================== */}
       {activeTab === "loan" && (
-        <div className="space-y-6">
+        <div className="space-y-6 animate-fade-in">
           {/* Active Loan Status Card */}
           {activeLoan ? (
             <div className="p-6 sm:p-8 rounded-3xl bg-white border-2 border-indigo-500 shadow-xl space-y-6">
@@ -876,8 +876,8 @@ export default function MemberDashboardPage() {
       {/* TAB 3: MY PROFILE & KYC (READ-ONLY VIEW)                  */}
       {/* ======================================================== */}
       {activeTab === "my_profile" && (
-        <div className="max-w-3xl mx-auto space-y-6">
-          <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-6">
+        <div className="max-w-3xl mx-auto space-y-6 animate-fade-in">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-6 hover-lift transition-all">
             <div className="flex items-center gap-4 pb-6 border-b border-slate-100">
               {member?.photo ? (
                 <img
@@ -989,7 +989,7 @@ export default function MemberDashboardPage() {
       {/* TAB 4: COMMUNITY TRANSPARENCY (ALL MEMBERS & ALL HISTORY) */}
       {/* ======================================================== */}
       {activeTab === "transparency" && (
-        <div className="space-y-8">
+        <div className="space-y-8 animate-fade-in">
           {/* Section 1: All Group Members Directory */}
           <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
             <div className="flex items-center justify-between">
@@ -1005,7 +1005,7 @@ export default function MemberDashboardPage() {
               {allMembers.map((m) => (
                 <div
                   key={m._id}
-                  className="flex items-center gap-3 p-3.5 rounded-2xl bg-slate-50 border border-slate-200"
+                  className="flex items-center gap-3 p-3.5 rounded-2xl bg-slate-50 border border-slate-200 hover-lift transition-all"
                 >
                   {m.photo ? (
                     <img
@@ -1145,11 +1145,11 @@ export default function MemberDashboardPage() {
       )}
 
       {/* Mobile App Bottom Navigation Dock */}
-      <div className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 py-2 px-3 flex items-center justify-around shadow-2xl">
+      <div className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 py-2 px-3 flex items-center justify-around shadow-2xl glass-panel">
         <button
           onClick={() => setActiveTab("my_fund")}
-          className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition ${
-            activeTab === "my_fund" ? "text-blue-600 font-black" : "text-slate-500 font-semibold"
+          className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition active-press ${
+            activeTab === "my_fund" ? "text-blue-600 font-black scale-105" : "text-slate-500 font-semibold"
           }`}
         >
           <CreditCard className="w-5 h-5" />
@@ -1158,8 +1158,8 @@ export default function MemberDashboardPage() {
 
         <button
           onClick={() => setActiveTab("loan")}
-          className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition ${
-            activeTab === "loan" ? "text-blue-600 font-black" : "text-slate-500 font-semibold"
+          className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition active-press ${
+            activeTab === "loan" ? "text-blue-600 font-black scale-105" : "text-slate-500 font-semibold"
           }`}
         >
           <DollarSign className="w-5 h-5" />
@@ -1168,8 +1168,8 @@ export default function MemberDashboardPage() {
 
         <button
           onClick={() => setActiveTab("my_profile")}
-          className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition ${
-            activeTab === "my_profile" ? "text-blue-600 font-black" : "text-slate-500 font-semibold"
+          className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition active-press ${
+            activeTab === "my_profile" ? "text-blue-600 font-black scale-105" : "text-slate-500 font-semibold"
           }`}
         >
           <User className="w-5 h-5" />
@@ -1178,8 +1178,8 @@ export default function MemberDashboardPage() {
 
         <button
           onClick={() => setActiveTab("transparency")}
-          className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition ${
-            activeTab === "transparency" ? "text-blue-600 font-black" : "text-slate-500 font-semibold"
+          className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition active-press ${
+            activeTab === "transparency" ? "text-blue-600 font-black scale-105" : "text-slate-500 font-semibold"
           }`}
         >
           <Users className="w-5 h-5" />
@@ -1189,8 +1189,8 @@ export default function MemberDashboardPage() {
 
       {/* Screenshot Zoom Modal */}
       {previewScreenshot && (
-        <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-xl w-full p-6 shadow-2xl space-y-4">
+        <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-xl w-full p-6 shadow-2xl space-y-4 animate-scale-in glass-panel">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
               <h4 className="font-bold text-slate-900 text-sm">
                 एडमिन द्वारा लोन भुगतान स्क्रीनशॉट प्रमाण

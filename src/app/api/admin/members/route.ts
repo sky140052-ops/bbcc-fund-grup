@@ -6,6 +6,7 @@ import {
   dbUpdateMember,
   dbDeleteMember,
   dbFindMemberById,
+  dbCheckDuplicateMember,
 } from "../../../../lib/astra";
 import { sanitize } from "../../../../lib/crypto";
 import { Member } from "../../../../lib/types";
@@ -86,11 +87,23 @@ export async function POST(req: NextRequest) {
 
     const aadhaar_number = sanitize(body.aadhaar_number || "").replace(/\D/g, "");
     const pan_number = sanitize(body.pan_number || "").toUpperCase().trim();
+    const effectiveEmail = email || `${mobile}@dfi.local`;
+
+    // Strictly check for duplicate members across email, mobile, Aadhaar, and PAN
+    const dupCheck = await dbCheckDuplicateMember({
+      email: effectiveEmail,
+      mobile,
+      aadhaar_number,
+      pan_number,
+    });
+    if (dupCheck.isDuplicate) {
+      return NextResponse.json({ error: dupCheck.message }, { status: 400 });
+    }
 
     const newMember: Member = {
       _id: `dfi_mem_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
       name,
-      email: email || `${mobile}@dfi.local`,
+      email: effectiveEmail,
       mobile,
       photo: body.photo || "",
       aadhaar_number,
@@ -165,6 +178,23 @@ export async function PUT(req: NextRequest) {
     if (body.ifsc !== undefined) updates.ifsc = sanitize(body.ifsc).toUpperCase().trim();
     if (body.bank_name !== undefined) updates.bank_name = sanitize(body.bank_name).trim();
     if (body.wallet_number !== undefined) updates.wallet_number = sanitize(body.wallet_number).replace(/\D/g, "");
+
+    // Strictly check for duplicates on updated fields (excluding this member ID)
+    const checkEmail = updates.email || existing.email;
+    const checkMobile = updates.mobile || existing.mobile;
+    const checkAadhaar = updates.aadhaar_number !== undefined ? updates.aadhaar_number : existing.aadhaar_number;
+    const checkPan = updates.pan_number !== undefined ? updates.pan_number : existing.pan_number;
+
+    const dupCheck = await dbCheckDuplicateMember({
+      email: checkEmail,
+      mobile: checkMobile,
+      aadhaar_number: checkAadhaar,
+      pan_number: checkPan,
+      excludeMemberId: id,
+    });
+    if (dupCheck.isDuplicate) {
+      return NextResponse.json({ error: dupCheck.message }, { status: 400 });
+    }
 
     await dbUpdateMember(id, updates);
 

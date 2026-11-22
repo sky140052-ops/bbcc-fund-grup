@@ -682,7 +682,7 @@ export default function AdminPage() {
       {/* TAB 1: SYSTEM INTEGRATIONS (BREVO & RAZORPAY)             */}
       {/* ======================================================== */}
       {activeTab === "status" && (
-        <div className="space-y-6">
+        <div className="space-y-6 animate-fade-in">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Admin Profile */}
             <div className="p-6 rounded-3xl bg-white border border-slate-200 shadow-sm space-y-3">
@@ -1046,7 +1046,7 @@ export default function AdminPage() {
       {/* TAB 2: MEMBER LIST & SEARCH                              */}
       {/* ======================================================== */}
       {activeTab === "members" && (
-        <div className="space-y-6">
+        <div className="space-y-6 animate-fade-in">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 rounded-2xl bg-white border border-slate-200 shadow-sm">
             <div className="relative w-full sm:w-96">
               <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -1170,8 +1170,8 @@ export default function AdminPage() {
       {/* TAB 3: ADD NEW MEMBER                                     */}
       {/* ======================================================== */}
       {activeTab === "add_member" && (
-        <div className="max-w-4xl mx-auto">
-          <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-6">
+        <div className="max-w-4xl mx-auto animate-fade-in">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-6 hover-lift transition-all">
             <h2 className="text-xl font-black text-slate-900">नया सदस्य पंजीकृत करें</h2>
             {formMsg && (
               <div
@@ -1369,7 +1369,7 @@ export default function AdminPage() {
       {/* TAB 4: TRANSACTIONS / CONTRIBUTIONS                      */}
       {/* ======================================================== */}
       {activeTab === "transactions" && (
-        <div className="space-y-6">
+        <div className="space-y-6 animate-fade-in">
           <div className="p-6 rounded-3xl bg-white border border-slate-200 shadow-sm flex items-center justify-between">
             <div>
               <h3 className="text-xl font-black text-slate-900">कुल जमा फंड</h3>
@@ -1417,7 +1417,7 @@ export default function AdminPage() {
       {/* TAB 5: LOANS APPROVAL & DISBURSAL                        */}
       {/* ======================================================== */}
       {activeTab === "loans" && (
-        <div className="space-y-6">
+        <div className="space-y-6 animate-fade-in">
           <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
             <h3 className="text-xl font-black text-slate-900">
               लोन आवेदन एवं डिस्बर्सल प्रबंधन
@@ -1499,8 +1499,8 @@ export default function AdminPage() {
       {/* MODAL: DISBURSE LOAN WITH SCREENSHOT PROOF               */}
       {/* ======================================================== */}
       {disburseModalLoan && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 border border-slate-200">
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 border border-slate-200 animate-scale-in glass-panel">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
               <h3 className="font-black text-slate-900 text-base">
                 लोन डिस्बर्सल एवं पेमेंट स्क्रीनशॉट अपलोड
@@ -1588,10 +1588,310 @@ export default function AdminPage() {
         </div>
       )}
 
+      {/* ======================================================== */}
+      {/* MODAL: VIEW MEMBER DETAILS                               */}
+      {/* ======================================================== */}
+      {viewMember && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-8 shadow-2xl space-y-6 border border-slate-200 animate-scale-in glass-panel max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <h3 className="text-lg font-black text-slate-900">सदस्य प्रोफाइल व दस्तावेज</h3>
+              <button
+                onClick={() => setViewMember(null)}
+                className="p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="flex items-center gap-4">
+              {viewMember.photo ? (
+                <img
+                  src={viewMember.photo}
+                  alt={viewMember.name}
+                  className="w-20 h-20 rounded-2xl object-cover border-2 border-blue-500 shadow-md shrink-0"
+                />
+              ) : (
+                <div className="w-20 h-20 rounded-2xl bg-blue-100 text-blue-700 font-black text-2xl flex items-center justify-center shrink-0">
+                  {viewMember.name.charAt(0)}
+                </div>
+              )}
+              <div>
+                <h4 className="text-xl font-black text-slate-900">{viewMember.name}</h4>
+                <p className="text-xs text-slate-500 font-mono mt-0.5">📞 {viewMember.mobile}</p>
+                <p className="text-xs text-slate-500 font-mono">✉️ {viewMember.email}</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+                <span className="text-slate-400 block text-[10px] uppercase font-bold">आधार नंबर</span>
+                <span className="font-mono font-bold text-slate-900 text-sm">
+                  {viewMember.aadhaar_number || "—"}
+                </span>
+                {viewMember.aadhaar_file && (
+                  <div className="mt-2">
+                    <a
+                      href={viewMember.aadhaar_file}
+                      download={viewMember.aadhaar_file_name || "aadhaar_doc"}
+                      className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-600 hover:underline"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>आधार फाइल डाउनलोड</span>
+                    </a>
+                  </div>
+                )}
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+                <span className="text-slate-400 block text-[10px] uppercase font-bold">पैन कार्ड नंबर</span>
+                <span className="font-mono font-bold text-slate-900 text-sm">
+                  {viewMember.pan_number || "—"}
+                </span>
+                {viewMember.pan_file && (
+                  <div className="mt-2">
+                    <a
+                      href={viewMember.pan_file}
+                      download={viewMember.pan_file_name || "pan_doc"}
+                      className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-600 hover:underline"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>पैन फाइल डाउनलोड</span>
+                    </a>
+                  </div>
+                )}
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+                <span className="text-slate-400 block text-[10px] uppercase font-bold">UPI / Wallet</span>
+                <span className="font-mono font-bold text-slate-900 text-sm">
+                  {viewMember.upi_id || viewMember.wallet_number || "—"}
+                </span>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+                <span className="text-slate-400 block text-[10px] uppercase font-bold">बैंक खाता व IFSC</span>
+                <span className="font-mono font-bold text-slate-900 text-sm block">
+                  {viewMember.account_number || "—"}
+                </span>
+                <span className="font-mono text-slate-500 text-[11px]">
+                  {viewMember.bank_name ? `${viewMember.bank_name} • ` : ""}
+                  {viewMember.ifsc || ""}
+                </span>
+              </div>
+            </div>
+
+            <div className="pt-2 flex justify-end">
+              <button
+                onClick={() => setViewMember(null)}
+                className="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-md transition"
+              >
+                बंद करें
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* MODAL: EDIT MEMBER DETAILS                               */}
+      {/* ======================================================== */}
+      {editMember && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-8 shadow-2xl space-y-5 border border-slate-200 animate-scale-in glass-panel max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <h3 className="text-lg font-black text-slate-900">सदस्य विवरण एडिट करें</h3>
+              <button
+                onClick={() => setEditMember(null)}
+                className="p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {editMsg && (
+              <div
+                className={`p-3 rounded-xl text-xs font-bold ${
+                  editMsg.type === "success"
+                    ? "bg-emerald-50 border border-emerald-200 text-emerald-800"
+                    : "bg-rose-50 border border-rose-200 text-rose-800"
+                }`}
+              >
+                {editMsg.text}
+              </div>
+            )}
+
+            <form onSubmit={handleSaveEdit} className="space-y-4 text-xs">
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">नाम *</label>
+                <input
+                  type="text"
+                  required
+                  value={editForm.name || ""}
+                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-semibold"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">ईमेल (लॉगिन हेतु) *</label>
+                  <input
+                    type="email"
+                    required
+                    value={editForm.email || ""}
+                    onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-semibold"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">मोबाइल नंबर *</label>
+                  <input
+                    type="tel"
+                    required
+                    maxLength={10}
+                    value={editForm.mobile || ""}
+                    onChange={(e) => setEditForm({ ...editForm, mobile: e.target.value.replace(/\D/g, "") })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-semibold font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">आधार नंबर (12 अंक)</label>
+                  <input
+                    type="text"
+                    maxLength={12}
+                    value={editForm.aadhaar_number || ""}
+                    onChange={(e) => setEditForm({ ...editForm, aadhaar_number: e.target.value.replace(/\D/g, "") })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-semibold font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">पैन कार्ड नंबर (10 अंक/अक्षर)</label>
+                  <input
+                    type="text"
+                    maxLength={10}
+                    value={editForm.pan_number || ""}
+                    onChange={(e) => setEditForm({ ...editForm, pan_number: e.target.value.toUpperCase() })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-semibold font-mono uppercase"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">UPI ID</label>
+                  <input
+                    type="text"
+                    value={editForm.upi_id || ""}
+                    onChange={(e) => setEditForm({ ...editForm, upi_id: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-semibold"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">PhonePe / Google Pay Number</label>
+                  <input
+                    type="tel"
+                    maxLength={10}
+                    value={editForm.wallet_number || ""}
+                    onChange={(e) => setEditForm({ ...editForm, wallet_number: e.target.value.replace(/\D/g, "") })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-semibold font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">बैंक खाता नंबर</label>
+                  <input
+                    type="text"
+                    value={editForm.account_number || ""}
+                    onChange={(e) => setEditForm({ ...editForm, account_number: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">IFSC कोड</label>
+                  <input
+                    type="text"
+                    value={editForm.ifsc || ""}
+                    onChange={(e) => setEditForm({ ...editForm, ifsc: e.target.value.toUpperCase() })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono uppercase"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">बैंक नाम</label>
+                  <input
+                    type="text"
+                    value={editForm.bank_name || ""}
+                    onChange={(e) => setEditForm({ ...editForm, bank_name: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-semibold"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setEditMember(null)}
+                  className="px-4 py-2.5 rounded-xl border border-slate-300 text-slate-700 font-bold hover:bg-slate-50 transition"
+                >
+                  रद्द करें
+                </button>
+                <button
+                  type="submit"
+                  disabled={updatingMember}
+                  className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold transition disabled:opacity-50"
+                >
+                  {updatingMember ? "अपडेट हो रहा है..." : "विवरण सेव करें"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* MODAL: DELETE CONFIRMATION                               */}
+      {/* ======================================================== */}
+      {deleteMemberId && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl space-y-4 border border-slate-200 text-center animate-scale-in glass-panel">
+            <div className="w-14 h-14 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto border border-rose-200">
+              <Trash2 className="w-7 h-7" />
+            </div>
+            <div>
+              <h4 className="text-base font-black text-slate-900">सदस्य को हटाएं?</h4>
+              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                क्या आप वाकई इस सदस्य को हटाना चाहते हैं? यह कार्रवाई अपरिवर्तनीय है।
+              </p>
+            </div>
+            <div className="flex items-center gap-2.5 pt-2">
+              <button
+                onClick={() => setDeleteMemberId(null)}
+                disabled={deleting}
+                className="flex-1 py-2.5 rounded-xl border border-slate-300 font-bold text-xs text-slate-700 hover:bg-slate-50 transition"
+              >
+                रद्द करें
+              </button>
+              <button
+                onClick={handleDeleteMember}
+                disabled={deleting}
+                className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 font-bold text-xs text-white shadow-md transition disabled:opacity-50"
+              >
+                {deleting ? "हटाया जा रहा है..." : "हाँ, हटाएं"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Screenshot Zoom Modal */}
       {previewScreenshot && (
-        <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-xl w-full p-6 shadow-2xl space-y-4">
+        <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-xl w-full p-6 shadow-2xl space-y-4 animate-scale-in glass-panel">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
               <h4 className="font-bold text-slate-900 text-sm">लोन भुगतान स्क्रीनशॉट प्रमाण</h4>
               <button onClick={() => setPreviewScreenshot(null)} className="text-xs text-slate-500 font-bold">

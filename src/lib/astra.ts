@@ -415,7 +415,138 @@ export async function dbFindMemberByEmail(email: string): Promise<Member | null>
   return store.members.find((m) => m.email?.toLowerCase() === cleanEmail) || null;
 }
 
+export async function dbFindMemberByMobile(mobile: string): Promise<Member | null> {
+  const cleanMobile = mobile.replace(/\D/g, "");
+  if (!cleanMobile) return null;
+  const col = await getCollection<Member>("members");
+  if (col) {
+    const doc = await col.findOne({ mobile: cleanMobile });
+    if (doc) return doc;
+  }
+  const store = getCleanStore();
+  return store.members.find((m) => m.mobile?.replace(/\D/g, "") === cleanMobile) || null;
+}
+
+export async function dbFindMemberByAadhaar(aadhaar: string): Promise<Member | null> {
+  const cleanAadhaar = aadhaar.replace(/\D/g, "");
+  if (cleanAadhaar.length < 12) return null;
+  const col = await getCollection<Member>("members");
+  if (col) {
+    const doc = await col.findOne({ aadhaar_number: cleanAadhaar });
+    if (doc) return doc;
+  }
+  const store = getCleanStore();
+  return store.members.find((m) => m.aadhaar_number?.replace(/\D/g, "") === cleanAadhaar) || null;
+}
+
+export async function dbFindMemberByPan(pan: string): Promise<Member | null> {
+  const cleanPan = pan.trim().toUpperCase();
+  if (cleanPan.length < 10) return null;
+  const col = await getCollection<Member>("members");
+  if (col) {
+    const doc = await col.findOne({ pan_number: cleanPan });
+    if (doc) return doc;
+  }
+  const store = getCleanStore();
+  return store.members.find((m) => m.pan_number?.trim().toUpperCase() === cleanPan) || null;
+}
+
+export interface DuplicateCheckResult {
+  isDuplicate: boolean;
+  field?: "email" | "mobile" | "aadhaar_number" | "pan_number";
+  message?: string;
+}
+
+export async function dbCheckDuplicateMember(params: {
+  email?: string;
+  mobile?: string;
+  aadhaar_number?: string;
+  pan_number?: string;
+  excludeMemberId?: string;
+}): Promise<DuplicateCheckResult> {
+  const allMembers = await dbFindMembers();
+
+  const cleanEmail = params.email ? params.email.trim().toLowerCase() : "";
+  const cleanMobile = params.mobile ? params.mobile.replace(/\D/g, "") : "";
+  const cleanAadhaar = params.aadhaar_number ? params.aadhaar_number.replace(/\D/g, "") : "";
+  const cleanPan = params.pan_number ? params.pan_number.trim().toUpperCase() : "";
+
+  // Prevent member from using Founder/Admin email
+  const envFounderEmail = (process.env.FOUNDER_EMAIL || "sky140052@gmail.com").trim().toLowerCase();
+  if (cleanEmail && cleanEmail === envFounderEmail) {
+    return {
+      isDuplicate: true,
+      field: "email",
+      message: "यह ईमेल मुख्य एडमिन के लिए आरक्षित है। सदस्य के रूप में इस ईमेल का उपयोग नहीं किया जा सकता।",
+    };
+  }
+
+  for (const m of allMembers) {
+    if (params.excludeMemberId && m._id === params.excludeMemberId) {
+      continue;
+    }
+
+    // 1. Email check
+    if (cleanEmail && m.email && m.email.trim().toLowerCase() === cleanEmail) {
+      return {
+        isDuplicate: true,
+        field: "email",
+        message: `यह ईमेल (${cleanEmail}) पहले से ही सदस्य '${m.name}' के खाते में पंजीकृत है। कृपया अलग ईमेल का उपयोग करें।`,
+      };
+    }
+
+    // 2. Mobile check
+    if (cleanMobile && cleanMobile.length >= 10 && m.mobile) {
+      const mMobile = m.mobile.replace(/\D/g, "");
+      if (mMobile === cleanMobile) {
+        return {
+          isDuplicate: true,
+          field: "mobile",
+          message: `यह मोबाइल नंबर (${cleanMobile}) पहले से ही सदस्य '${m.name}' के खाते में पंजीकृत है।`,
+        };
+      }
+    }
+
+    // 3. Aadhaar check
+    if (cleanAadhaar && cleanAadhaar.length === 12 && m.aadhaar_number) {
+      const mAadhaar = m.aadhaar_number.replace(/\D/g, "");
+      if (mAadhaar === cleanAadhaar) {
+        return {
+          isDuplicate: true,
+          field: "aadhaar_number",
+          message: `यह आधार नंबर (${cleanAadhaar.slice(0, 4)} **** ${cleanAadhaar.slice(-4)}) पहले से ही सदस्य '${m.name}' के रिकॉर्ड में पंजीकृत है।`,
+        };
+      }
+    }
+
+    // 4. PAN check
+    if (cleanPan && cleanPan.length >= 10 && m.pan_number) {
+      const mPan = m.pan_number.trim().toUpperCase();
+      if (mPan === cleanPan) {
+        return {
+          isDuplicate: true,
+          field: "pan_number",
+          message: `यह पैन कार्ड नंबर (${cleanPan}) पहले से ही सदस्य '${m.name}' के रिकॉर्ड में पंजीकृत है।`,
+        };
+      }
+    }
+  }
+
+  return { isDuplicate: false };
+}
+
 export async function dbInsertMember(member: Member): Promise<Member> {
+  // Safety check before insertion to ensure NO duplicate enters DB
+  const dupCheck = await dbCheckDuplicateMember({
+    email: member.email,
+    mobile: member.mobile,
+    aadhaar_number: member.aadhaar_number,
+    pan_number: member.pan_number,
+  });
+  if (dupCheck.isDuplicate) {
+    throw new Error(dupCheck.message || "डुप्लीकेट सदस्य: यह विवरण पहले से पंजीकृत है।");
+  }
+
   const col = await getCollection<Member>("members");
   if (col) {
     await col.insertOne(member as any);
