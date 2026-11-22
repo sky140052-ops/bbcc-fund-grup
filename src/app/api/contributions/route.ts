@@ -5,6 +5,7 @@ import {
   dbInsertContribution,
   dbFindMembers,
   dbFindMemberById,
+  dbGetSystemSettings,
 } from "../../../lib/astra";
 import { sanitize } from "../../../lib/crypto";
 import { Contribution } from "../../../lib/types";
@@ -73,6 +74,17 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    // Check monthly deposit window (1st to 10th of month, or admin override)
+    const currentDay = new Date().getDate();
+    const settings = await dbGetSystemSettings();
+    const isDepositAllowed = (currentDay >= 1 && currentDay <= 10) || settings.allow_deposit_after_10th || session.role === "admin";
+    if (!isDepositAllowed) {
+      return NextResponse.json(
+        { error: "इस माह की निर्धारित जमा अवधि (1-10 तारीख) समाप्त हो चुकी है। 10 तारीख के बाद जमा बंद है।" },
+        { status: 403 }
+      );
+    }
+
     const body = await req.json();
     const action = body.action || "save_deposit";
 

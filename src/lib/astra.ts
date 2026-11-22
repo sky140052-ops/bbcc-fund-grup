@@ -1,5 +1,5 @@
 import { DataAPIClient, Db } from "@datastax/astra-db-ts";
-import { User, Member, FundGroup, GroupMember, Contribution, WithdrawalRequest, Vote, PayoutDisbursal, Loan } from "./types";
+import { User, Member, FundGroup, GroupMember, Contribution, WithdrawalRequest, Vote, PayoutDisbursal, Loan, SystemSettings } from "./types";
 
 let dbInstance: Db | null = null;
 const initializedCollections = new Set<string>();
@@ -58,8 +58,17 @@ declare global {
     withdrawal_requests: WithdrawalRequest[];
     votes: Vote[];
     payouts: PayoutDisbursal[];
+    settings?: SystemSettings;
   } | undefined;
 }
+
+const DEFAULT_SYSTEM_SETTINGS: SystemSettings = {
+  _id: "dfi_system_settings",
+  registration_link_active: true,
+  allow_deposit_after_10th: false,
+  allow_loan_repay_after_15th: false,
+  updated_at: new Date().toISOString(),
+};
 
 export function getCleanStore() {
   if (!global.__bbcc_clean_store) {
@@ -73,7 +82,11 @@ export function getCleanStore() {
       withdrawal_requests: [],
       votes: [],
       payouts: [],
+      settings: { ...DEFAULT_SYSTEM_SETTINGS },
     };
+  }
+  if (!global.__bbcc_clean_store.settings) {
+    global.__bbcc_clean_store.settings = { ...DEFAULT_SYSTEM_SETTINGS };
   }
   return global.__bbcc_clean_store;
 }
@@ -489,4 +502,49 @@ export async function dbUpdateLoan(loanId: string, updates: Partial<Loan>): Prom
   if (idx !== -1) {
     store.loans[idx] = { ...store.loans[idx], ...updates };
   }
+}
+
+// ==========================================
+// DFI SYSTEM SETTINGS & DATE CONTROLS
+// ==========================================
+export async function dbGetSystemSettings(): Promise<SystemSettings> {
+  const col = await getCollection<SystemSettings>("system_settings");
+  if (col) {
+    try {
+      const doc = await col.findOne({ _id: "dfi_system_settings" });
+      if (doc) return doc;
+      await col.insertOne(DEFAULT_SYSTEM_SETTINGS as any);
+      return DEFAULT_SYSTEM_SETTINGS;
+    } catch (err) {
+      console.warn("Astra DB get settings error, fallback to memory:", err);
+    }
+  }
+  const store = getCleanStore();
+  return store.settings || DEFAULT_SYSTEM_SETTINGS;
+}
+
+export async function dbUpdateSystemSettings(updates: Partial<SystemSettings>): Promise<SystemSettings> {
+  const current = await dbGetSystemSettings();
+  const updated: SystemSettings = {
+    ...current,
+    ...updates,
+    updated_at: new Date().toISOString(),
+  };
+
+  const col = await getCollection<SystemSettings>("system_settings");
+  if (col) {
+    try {
+      await col.updateOne(
+        { _id: "dfi_system_settings" } as any,
+        { $set: updated as any },
+        { upsert: true }
+      );
+    } catch (err) {
+      console.warn("Astra DB update settings error, fallback to memory:", err);
+    }
+  }
+
+  const store = getCleanStore();
+  store.settings = updated;
+  return updated;
 }

@@ -23,8 +23,9 @@ import {
   Image as ImageIcon,
   Check,
   ExternalLink,
+  Lock,
 } from "lucide-react";
-import { Member, Contribution, Loan } from "../../lib/types";
+import { Member, Contribution, Loan, SystemSettings } from "../../lib/types";
 
 // Declare Razorpay on window
 declare global {
@@ -65,6 +66,10 @@ export default function MemberDashboardPage() {
 
   // Screenshot viewer modal
   const [previewScreenshot, setPreviewScreenshot] = useState<string | null>(null);
+
+  // System Settings & Date Controls
+  const [systemSettings, setSystemSettings] = useState<SystemSettings | null>(null);
+  const [currentDay, setCurrentDay] = useState<number>(new Date().getDate());
 
   // Load Razorpay Script
   useEffect(() => {
@@ -118,6 +123,16 @@ export default function MemberDashboardPage() {
       if (resMembers.ok) {
         const dataMembers = await resMembers.json();
         setAllMembers(dataMembers.members || []);
+      }
+
+      // 5. Fetch System Settings & Current Date Window
+      const resSettings = await fetch("/api/admin/settings");
+      if (resSettings.ok) {
+        const dataSettings = await resSettings.json();
+        setSystemSettings(dataSettings.settings || null);
+        if (typeof dataSettings.currentDay === "number") {
+          setCurrentDay(dataSettings.currentDay);
+        }
       }
     } catch (err) {
       console.error("Dashboard fetch error:", err);
@@ -419,21 +434,49 @@ export default function MemberDashboardPage() {
                 <span className="text-xs font-bold uppercase tracking-wider text-blue-200">
                   मासिक निर्धारित अंशदान
                 </span>
-                <span className="px-2.5 py-0.5 rounded-full bg-white/20 text-white text-xs font-bold">
-                  1-10 तारीख
+                <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                  ((currentDay >= 1 && currentDay <= 10) || Boolean(systemSettings?.allow_deposit_after_10th))
+                    ? "bg-white/20 text-white"
+                    : "bg-rose-500 text-white"
+                }`}>
+                  {currentDay >= 1 && currentDay <= 10
+                    ? "1-10 तारीख (सक्रिय)"
+                    : systemSettings?.allow_deposit_after_10th
+                    ? "एडमिन अनुमति द्वारा सक्रिय"
+                    : "अवधि समाप्त (10 के बाद बंद)"}
                 </span>
               </div>
               <div>
                 <h3 className="text-3xl font-black">₹100</h3>
                 <p className="text-xs text-blue-100 mt-1">प्रति माह UPI/Razorpay द्वारा देय</p>
               </div>
-              <button
-                onClick={handlePayMonthlyDeposit}
-                disabled={payingDeposit}
-                className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-white text-blue-700 font-bold text-xs sm:text-sm hover:bg-blue-50 transition shadow-md disabled:opacity-50"
-              >
-                {payingDeposit ? "भुगतान चालू है..." : "Pay Now (ऑनलाइन जमा करें)"}
-              </button>
+
+              {((currentDay >= 1 && currentDay <= 10) || Boolean(systemSettings?.allow_deposit_after_10th)) ? (
+                <div className="space-y-1.5">
+                  <button
+                    onClick={handlePayMonthlyDeposit}
+                    disabled={payingDeposit}
+                    className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-white text-blue-700 font-bold text-xs sm:text-sm hover:bg-blue-50 transition shadow-md disabled:opacity-50"
+                  >
+                    {payingDeposit ? "भुगतान चालू है..." : "Pay Now (ऑनलाइन जमा करें)"}
+                  </button>
+                  {currentDay > 10 && systemSettings?.allow_deposit_after_10th && (
+                    <p className="text-[10px] text-emerald-200 font-bold text-center">
+                      ★ एडमिन विशेष अनुमति द्वारा 10 तारीख के बाद भी जमा खुला है
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div className="p-3 rounded-2xl bg-black/20 border border-white/10 space-y-1 text-center">
+                  <div className="flex items-center justify-center gap-1.5 text-xs font-bold text-amber-200">
+                    <Lock className="w-3.5 h-3.5" />
+                    <span>जमा अवधि समाप्त (1-10 तारीख)</span>
+                  </div>
+                  <p className="text-[11px] text-blue-100 leading-snug">
+                    आज {currentDay} तारीख है। 10 तारीख के बाद जमा बंद है। एडमिन द्वारा सक्रिय (Enable) करने पर ही बटन खुलेगा।
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Card 2: My Total Deposited */}
@@ -553,13 +596,34 @@ export default function MemberDashboardPage() {
                 </div>
 
                 {activeLoan.status === "disbursed" && (
-                  <button
-                    onClick={handleRepayLoan}
-                    disabled={payingLoan}
-                    className="flex items-center gap-2 px-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm shadow-lg shadow-emerald-600/25 transition disabled:opacity-50"
-                  >
-                    <span>लोन चुकता करें (Pay ₹{activeLoan.total_payable})</span>
-                  </button>
+                  <div>
+                    {((currentDay <= 15) || Boolean(systemSettings?.allow_loan_repay_after_15th)) ? (
+                      <div className="flex flex-col items-end gap-1">
+                        <button
+                          onClick={handleRepayLoan}
+                          disabled={payingLoan}
+                          className="flex items-center gap-2 px-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm shadow-lg shadow-emerald-600/25 transition disabled:opacity-50"
+                        >
+                          <span>लोन चुकता करें (Pay ₹{activeLoan.total_payable})</span>
+                        </button>
+                        {currentDay > 15 && systemSettings?.allow_loan_repay_after_15th && (
+                          <span className="text-[10px] text-emerald-600 font-bold">
+                            ★ एडमिन विशेष अनुमति द्वारा 15 तारीख के बाद भी भुगतान सक्रिय
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs space-y-1 max-w-sm">
+                        <div className="flex items-center gap-1.5 font-bold text-amber-800">
+                          <Lock className="w-4 h-4 text-amber-600 shrink-0" />
+                          <span>लोन चुकता करने की तारीख समाप्त (15 तारीख)</span>
+                        </div>
+                        <p className="text-[11px] text-slate-600 leading-snug">
+                          आज {currentDay} तारीख है। 15 तारीख के बाद लोन चुकता बटन स्वतः बंद रहता है। कृपया एडमिन से संपर्क करके इसे चालू (Enable) करवाएं।
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
 

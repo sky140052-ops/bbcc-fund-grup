@@ -92,6 +92,17 @@ export interface Loan {
   repayment_razorpay_id?: string;
 }
 
+// ==========================================
+// DFI SYSTEM SETTINGS & DATE CONTROLS
+// ==========================================
+export interface SystemSettings {
+  _id: string;
+  registration_link_active: boolean; // Admin can enable/disable self-registration link
+  allow_deposit_after_10th: boolean; // Default false (deposit button visible only 1-10, admin can activate after 10th)
+  allow_loan_repay_after_15th: boolean; // Default false (loan repay button visible only up to 15th, admin can re-enable)
+  updated_at: string;
+}
+
 // Legacy user interface for backward compatibility
 export interface User {
   _id: string;

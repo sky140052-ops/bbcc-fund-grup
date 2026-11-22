@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   dbFindMemberByEmail,
   dbInsertMember,
+  dbGetSystemSettings,
 } from "../../../../lib/astra";
 import { sendOtpEmail, sendLoginAlertEmail } from "../../../../lib/email";
 import { sanitize } from "../../../../lib/crypto";
@@ -19,6 +20,14 @@ if (!global.__dfi_reg_cache) {
 
 export async function POST(req: NextRequest) {
   try {
+    const settings = await dbGetSystemSettings();
+    if (!settings.registration_link_active) {
+      return NextResponse.json(
+        { error: "सदस्य पंजीकरण लिंक वर्तमान में एडमिन द्वारा बंद (Disabled) कर दिया गया है। कृपया एडमिन से संपर्क करें।" },
+        { status: 403 }
+      );
+    }
+
     const body = await req.json();
     const action = body.action || "send_otp";
     const cleanEmail = sanitize(body.email || "").trim().toLowerCase();

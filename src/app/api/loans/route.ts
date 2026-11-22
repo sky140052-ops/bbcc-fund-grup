@@ -7,6 +7,7 @@ import {
   dbUpdateLoan,
   dbFindContributions,
   dbFindMemberById,
+  dbGetSystemSettings,
 } from "../../../lib/astra";
 import { sanitize } from "../../../lib/crypto";
 import { Loan } from "../../../lib/types";
@@ -233,6 +234,16 @@ export async function PUT(req: NextRequest) {
 
     // Action 2: Member Repays Loan via Razorpay
     if (action === "member_repay") {
+      const currentDay = new Date().getDate();
+      const settings = await dbGetSystemSettings();
+      const isRepayAllowed = (currentDay <= 15) || settings.allow_loan_repay_after_15th || session.role === "admin";
+      if (!isRepayAllowed) {
+        return NextResponse.json(
+          { error: "लोन चुकता करने की निर्धारित तारीख (15 तारीख) निकल चुकी है। कृपया एडमिन से इसे पुनः सक्रिय (Enable) करवाएं।" },
+          { status: 403 }
+        );
+      }
+
       const calc = calculateLoanInterest(loan);
       const totalAmountPaid = Number(body.amount) || calc.totalPayable;
       const razorpayId = sanitize(body.razorpay_payment_id || `repay_${Date.now()}`);

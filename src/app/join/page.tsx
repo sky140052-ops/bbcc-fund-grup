@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -23,6 +23,28 @@ import {
 
 export default function JoinPage() {
   const router = useRouter();
+
+  // Settings State: Check whether Admin has activated the registration link
+  const [linkActive, setLinkActive] = useState<boolean | null>(null);
+  const [checkingSettings, setCheckingSettings] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/admin/settings")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data && data.settings) {
+          setLinkActive(Boolean(data.settings.registration_link_active));
+        } else {
+          setLinkActive(true);
+        }
+      })
+      .catch(() => {
+        setLinkActive(true);
+      })
+      .finally(() => {
+        setCheckingSettings(false);
+      });
+  }, []);
 
   // Step: 1 = Fill Form, 2 = Enter OTP
   const [step, setStep] = useState<1 | 2>(1);
@@ -215,6 +237,49 @@ export default function JoinPage() {
       setLoading(false);
     }
   };
+
+  if (checkingSettings) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <div className="text-center space-y-3">
+          <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p className="text-xs font-bold text-slate-500">पंजीकरण स्थिति की जांच हो रही है...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (linkActive === false) {
+    return (
+      <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white rounded-3xl shadow-2xl p-8 text-center space-y-6 border border-slate-200">
+          <div className="w-16 h-16 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto border border-rose-200">
+            <Lock className="w-8 h-8" />
+          </div>
+          <div className="space-y-2">
+            <span className="px-3 py-1 rounded-full bg-rose-100 text-rose-700 text-xs font-black uppercase tracking-wider">
+              पंजीकरण बंद (Registration Disabled)
+            </span>
+            <h2 className="text-2xl font-black text-slate-900 mt-2">
+              सदस्य आमंत्रण लिंक निष्क्रिय है
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+              एडमिन द्वारा नए सदस्यों का पंजीकरण वर्तमान में <b>अस्थायी रूप से बंद (Disabled)</b> कर दिया गया है। जब एडमिन इस लिंक को पुनः चालू करेंगे तभी आप अपना विवरण भरकर ग्रुप में जुड़ सकेंगे।
+            </p>
+          </div>
+          <div className="pt-4 border-t border-slate-100">
+            <Link
+              href="/"
+              className="w-full flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs sm:text-sm shadow-md transition"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>होम पेज पर वापस जाएं</span>
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 py-8 px-4 sm:px-6">

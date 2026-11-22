@@ -33,8 +33,13 @@ import {
   X,
   FileCheck,
   Image as ImageIcon,
+  Lock,
+  Unlock,
+  Calendar,
+  ToggleLeft,
+  ToggleRight,
 } from "lucide-react";
-import { Member, Contribution, Loan } from "../../lib/types";
+import { Member, Contribution, Loan, SystemSettings } from "../../lib/types";
 
 export default function AdminPage() {
   const router = useRouter();
@@ -121,6 +126,18 @@ export default function AdminPage() {
   const [inviteLink, setInviteLink] = useState("");
   const [keepAliveUrl, setKeepAliveUrl] = useState("");
 
+  // System Settings & Date Controls States
+  const [settings, setSettings] = useState<SystemSettings>({
+    _id: "dfi_system_settings",
+    registration_link_active: true,
+    allow_deposit_after_10th: false,
+    allow_loan_repay_after_15th: false,
+    updated_at: "",
+  });
+  const [currentDay, setCurrentDay] = useState<number>(new Date().getDate());
+  const [updatingSettingKey, setUpdatingSettingKey] = useState<string | null>(null);
+  const [settingUpdateMsg, setSettingUpdateMsg] = useState<string | null>(null);
+
   useEffect(() => {
     if (typeof window !== "undefined") {
       setInviteLink(`${window.location.origin}/join`);
@@ -128,12 +145,55 @@ export default function AdminPage() {
     }
   }, []);
 
+  // Fetch Settings
+  const fetchSettings = async () => {
+    try {
+      const res = await fetch("/api/admin/settings");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.settings) {
+          setSettings(data.settings);
+        }
+        if (typeof data.currentDay === "number") {
+          setCurrentDay(data.currentDay);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load settings:", err);
+    }
+  };
+
+  // Toggle Setting
+  const handleToggleSetting = async (key: keyof SystemSettings, currentVal: boolean) => {
+    setUpdatingSettingKey(key);
+    setSettingUpdateMsg(null);
+    try {
+      const res = await fetch("/api/admin/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ [key]: !currentVal }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "सेटिंग्स अपडेट करने में विफल।");
+      }
+      setSettings(data.settings);
+      setSettingUpdateMsg("सेटिंग सफलतापूर्वक अपडेट हो गई!");
+      setTimeout(() => setSettingUpdateMsg(null), 3500);
+    } catch (err: any) {
+      alert(err.message || "त्रुटि हुई।");
+    } finally {
+      setUpdatingSettingKey(null);
+    }
+  };
+
   // Initial Fetch
   useEffect(() => {
     fetchAdminStatus();
     fetchMembers();
     fetchTransactions();
     fetchLoans();
+    fetchSettings();
   }, []);
 
   const handleCopy = (text: string, label: string) => {
@@ -537,6 +597,7 @@ export default function AdminPage() {
               fetchMembers(searchQuery);
               fetchTransactions();
               fetchLoans();
+              fetchSettings();
             }}
             className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-50 transition shadow-sm"
           >
@@ -694,6 +755,200 @@ export default function AdminPage() {
             </div>
           </div>
 
+          {/* Row: System Date & Access Control Center */}
+          <div className="p-6 rounded-3xl bg-white border-2 border-slate-300 shadow-md space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-200">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-800 text-[11px] font-black uppercase tracking-wider">
+                    मास्टर टाइमिंग व एक्सेस कंट्रोल
+                  </span>
+                  <span className="text-xs font-bold text-slate-500">
+                    • आज: <b className="text-slate-900">{currentDay} तारीख</b>
+                  </span>
+                </div>
+                <h3 className="text-lg font-black text-slate-900 mt-1">
+                  सिस्टम कंट्रोल व तारीख सेटिंग्स (Date & Access Controls)
+                </h3>
+                <p className="text-xs text-slate-500">
+                  सदस्य आमंत्रण लिंक, 10 तारीख के बाद जमा अनुमति, व 15 तारीख के बाद लोन चुकता अनुमति को यहाँ से नियंत्रित करें
+                </p>
+              </div>
+
+              {settingUpdateMsg && (
+                <div className="px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-800 text-xs font-bold flex items-center gap-1.5 animate-pulse">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  <span>{settingUpdateMsg}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              {/* Control 1: Registration Link */}
+              <div className={`p-5 rounded-2xl border transition-all ${
+                settings.registration_link_active
+                  ? "bg-emerald-50/60 border-emerald-300 shadow-sm"
+                  : "bg-slate-50 border-slate-200"
+              } space-y-3`}>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black uppercase tracking-wider text-slate-500">
+                    कंट्रोल 1
+                  </span>
+                  <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold flex items-center gap-1 ${
+                    settings.registration_link_active
+                      ? "bg-emerald-100 text-emerald-800"
+                      : "bg-rose-100 text-rose-800"
+                  }`}>
+                    {settings.registration_link_active ? (
+                      <>
+                        <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                        <span>पंजीकरण चालू</span>
+                      </>
+                    ) : (
+                      <>
+                        <Lock className="w-3 h-3 text-rose-600" />
+                        <span>पंजीकरण बंद</span>
+                      </>
+                    )}
+                  </span>
+                </div>
+
+                <div>
+                  <h4 className="font-bold text-slate-900 text-sm">सदस्य पंजीकरण लिंक (/join)</h4>
+                  <p className="text-[11px] text-slate-500 mt-1 leading-snug">
+                    जब आप इसे <b>सक्रिय (Active)</b> रखेंगे तभी कोई नया सदस्य लिंक से खुद रजिस्टर हो सकेगा। बंद करने पर लिंक लॉक हो जाता है।
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => handleToggleSetting("registration_link_active", settings.registration_link_active)}
+                  disabled={updatingSettingKey === "registration_link_active"}
+                  className={`w-full py-2.5 px-4 rounded-xl font-bold text-xs transition flex items-center justify-center gap-2 shadow-sm ${
+                    settings.registration_link_active
+                      ? "bg-rose-600 hover:bg-rose-700 text-white"
+                      : "bg-emerald-600 hover:bg-emerald-700 text-white"
+                  } disabled:opacity-50`}
+                >
+                  {updatingSettingKey === "registration_link_active" ? (
+                    "बदलाव हो रहा है..."
+                  ) : settings.registration_link_active ? (
+                    <>
+                      <Lock className="w-3.5 h-3.5" />
+                      <span>लिंक बंद करें (Deactivate)</span>
+                    </>
+                  ) : (
+                    <>
+                      <Unlock className="w-3.5 h-3.5" />
+                      <span>लिंक चालू करें (Activate)</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Control 2: Monthly Deposit After 10th */}
+              <div className={`p-5 rounded-2xl border transition-all ${
+                settings.allow_deposit_after_10th
+                  ? "bg-blue-50/60 border-blue-300 shadow-sm"
+                  : "bg-slate-50 border-slate-200"
+              } space-y-3`}>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black uppercase tracking-wider text-slate-500">
+                    कंट्रोल 2
+                  </span>
+                  <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold flex items-center gap-1 ${
+                    settings.allow_deposit_after_10th
+                      ? "bg-blue-100 text-blue-800"
+                      : "bg-slate-200 text-slate-700"
+                  }`}>
+                    {settings.allow_deposit_after_10th ? "विशेष अनुमति चालू" : "1-10 केवल (डिफ़ॉल्ट)"}
+                  </span>
+                </div>
+
+                <div>
+                  <h4 className="font-bold text-slate-900 text-sm">10 तारीख के बाद जमा अनुमति</h4>
+                  <p className="text-[11px] text-slate-500 mt-1 leading-snug">
+                    सामान्यतः जमा बटन केवल <b>1 से 10 तारीख</b> तक दिखता है। 10 तारीख के बाद यदि किसी सदस्य से जमा लेना हो, तो इसे <b>चालू</b> करें।
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => handleToggleSetting("allow_deposit_after_10th", settings.allow_deposit_after_10th)}
+                  disabled={updatingSettingKey === "allow_deposit_after_10th"}
+                  className={`w-full py-2.5 px-4 rounded-xl font-bold text-xs transition flex items-center justify-center gap-2 shadow-sm ${
+                    settings.allow_deposit_after_10th
+                      ? "bg-slate-800 hover:bg-slate-900 text-white"
+                      : "bg-blue-600 hover:bg-blue-700 text-white"
+                  } disabled:opacity-50`}
+                >
+                  {updatingSettingKey === "allow_deposit_after_10th" ? (
+                    "बदलाव हो रहा है..."
+                  ) : settings.allow_deposit_after_10th ? (
+                    <>
+                      <Lock className="w-3.5 h-3.5" />
+                      <span>10 के बाद जमा बंद करें (डिफ़ॉल्ट नियम)</span>
+                    </>
+                  ) : (
+                    <>
+                      <Unlock className="w-3.5 h-3.5" />
+                      <span>10 के बाद भी जमा अनुमति दें (Enable)</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Control 3: Loan Repayment After 15th */}
+              <div className={`p-5 rounded-2xl border transition-all ${
+                settings.allow_loan_repay_after_15th
+                  ? "bg-indigo-50/60 border-indigo-300 shadow-sm"
+                  : "bg-slate-50 border-slate-200"
+              } space-y-3`}>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black uppercase tracking-wider text-slate-500">
+                    कंट्रोल 3
+                  </span>
+                  <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold flex items-center gap-1 ${
+                    settings.allow_loan_repay_after_15th
+                      ? "bg-indigo-100 text-indigo-800"
+                      : "bg-slate-200 text-slate-700"
+                  }`}>
+                    {settings.allow_loan_repay_after_15th ? "विशेष अनुमति चालू" : "15 तक केवल (डिफ़ॉल्ट)"}
+                  </span>
+                </div>
+
+                <div>
+                  <h4 className="font-bold text-slate-900 text-sm">15 तारीख के बाद लोन चुकता अनुमति</h4>
+                  <p className="text-[11px] text-slate-500 mt-1 leading-snug">
+                    लोन चुकता बटन केवल <b>15 तारीख तक</b> दिखता है। 15 तारीख के बाद किसी सदस्य का लोन क्लियर कराने के लिए इसे <b>चालू</b> करें।
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => handleToggleSetting("allow_loan_repay_after_15th", settings.allow_loan_repay_after_15th)}
+                  disabled={updatingSettingKey === "allow_loan_repay_after_15th"}
+                  className={`w-full py-2.5 px-4 rounded-xl font-bold text-xs transition flex items-center justify-center gap-2 shadow-sm ${
+                    settings.allow_loan_repay_after_15th
+                      ? "bg-slate-800 hover:bg-slate-900 text-white"
+                      : "bg-indigo-600 hover:bg-indigo-700 text-white"
+                  } disabled:opacity-50`}
+                >
+                  {updatingSettingKey === "allow_loan_repay_after_15th" ? (
+                    "बदलाव हो रहा है..."
+                  ) : settings.allow_loan_repay_after_15th ? (
+                    <>
+                      <Lock className="w-3.5 h-3.5" />
+                      <span>15 के बाद लोन चुकता बंद करें (डिफ़ॉल्ट)</span>
+                    </>
+                  ) : (
+                    <>
+                      <Unlock className="w-3.5 h-3.5" />
+                      <span>15 के बाद भी लोन चुकता अनुमति दें (Enable)</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+
           {/* Row 2: Invite Member Link & Anti-Sleep Keep-Alive */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
             {/* Invite Member Link Card */}
@@ -702,8 +957,10 @@ export default function AdminPage() {
                 <span className="text-xs font-black uppercase tracking-wider text-blue-700">
                   सदस्य आमंत्रण लिंक (Shareable Self-Add Link)
                 </span>
-                <span className="px-2 py-0.5 rounded-full bg-blue-600 text-white text-[10px] font-bold">
-                  नया फीचर
+                <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                  settings.registration_link_active ? "bg-emerald-600 text-white" : "bg-rose-600 text-white"
+                }`}>
+                  {settings.registration_link_active ? "सक्रिय (Active)" : "निष्क्रिय (Disabled)"}
                 </span>
               </div>
               <p className="text-xs text-slate-600 leading-relaxed">
@@ -713,6 +970,27 @@ export default function AdminPage() {
               <div className="p-3 bg-white border border-blue-200 rounded-xl text-xs font-mono font-bold text-slate-800 break-all select-all">
                 {inviteLink || "https://your-site/join"}
               </div>
+
+              {/* Status & Quick Toggle */}
+              <div className="p-3 bg-white/70 border border-blue-100 rounded-xl flex items-center justify-between gap-2">
+                <span className="text-xs text-slate-600">
+                  वर्तमान स्थिति: <b className={settings.registration_link_active ? "text-emerald-700" : "text-rose-700"}>
+                    {settings.registration_link_active ? "पंजीकरण चालू है" : "पंजीकरण बंद है"}
+                  </b>
+                </span>
+                <button
+                  onClick={() => handleToggleSetting("registration_link_active", settings.registration_link_active)}
+                  disabled={updatingSettingKey === "registration_link_active"}
+                  className={`text-[11px] font-bold px-3 py-1 rounded-lg transition ${
+                    settings.registration_link_active
+                      ? "bg-rose-100 text-rose-800 hover:bg-rose-200"
+                      : "bg-emerald-600 text-white hover:bg-emerald-700"
+                  }`}
+                >
+                  {settings.registration_link_active ? "लिंक बंद करें" : "लिंक चालू करें"}
+                </button>
+              </div>
+
               <div className="flex flex-wrap gap-2.5">
                 <button
                   onClick={() => handleCopy(inviteLink, "आमंत्रण लिंक")}
