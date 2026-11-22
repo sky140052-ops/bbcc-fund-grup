@@ -58,6 +58,17 @@ export async function POST(req: NextRequest) {
       purpose: "login",
     });
 
+    if (!sendResult.success) {
+      return NextResponse.json(
+        {
+          error:
+            sendResult.error ||
+            "ईमेल पर OTP भेजने में विफल। कृपया एडमिन पोर्टल में Brevo API Key या ईमेल सेवा कॉन्फ़िगर करें।",
+        },
+        { status: 500 }
+      );
+    }
+
     return NextResponse.json({
       success: true,
       message: `ईमेल ${cleanEmail} पर 6-अंकीय OTP भेज दिया गया है। कृपया अपना ईमेल चेक करें।`,

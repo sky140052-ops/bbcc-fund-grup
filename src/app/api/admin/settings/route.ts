@@ -62,6 +62,48 @@ async function handleUpdate(req: NextRequest) {
     if (typeof body.allow_loan_repay_after_15th === "boolean") {
       updates.allow_loan_repay_after_15th = body.allow_loan_repay_after_15th;
     }
+    if (body.brevo_api_key !== undefined) {
+      updates.brevo_api_key = String(body.brevo_api_key).trim();
+      process.env.BREVO_API_KEY = updates.brevo_api_key;
+    }
+    if (body.brevo_sender_email !== undefined) {
+      updates.brevo_sender_email = String(body.brevo_sender_email).trim();
+      process.env.BREVO_SENDER_EMAIL = updates.brevo_sender_email;
+    }
+    if (body.smtp_email !== undefined) {
+      updates.smtp_email = String(body.smtp_email).trim();
+      process.env.SMTP_EMAIL = updates.smtp_email;
+    }
+    if (body.smtp_password !== undefined) {
+      updates.smtp_password = String(body.smtp_password).trim();
+      process.env.SMTP_PASSWORD = updates.smtp_password;
+    }
+
+    try {
+      const fs = await import("fs");
+      const path = await import("path");
+      const envPath = path.resolve(process.cwd(), ".env.local");
+      if (fs.existsSync(envPath)) {
+        let envContent = fs.readFileSync(envPath, "utf8");
+        if (updates.brevo_api_key) {
+          if (envContent.includes("BREVO_API_KEY=")) {
+            envContent = envContent.replace(/BREVO_API_KEY=.*/g, `BREVO_API_KEY=${updates.brevo_api_key}`);
+          } else {
+            envContent += `\nBREVO_API_KEY=${updates.brevo_api_key}`;
+          }
+        }
+        if (updates.brevo_sender_email) {
+          if (envContent.includes("BREVO_SENDER_EMAIL=")) {
+            envContent = envContent.replace(/BREVO_SENDER_EMAIL=.*/g, `BREVO_SENDER_EMAIL=${updates.brevo_sender_email}`);
+          } else {
+            envContent += `\nBREVO_SENDER_EMAIL=${updates.brevo_sender_email}`;
+          }
+        }
+        fs.writeFileSync(envPath, envContent.trim() + "\n", "utf8");
+      }
+    } catch (fsErr) {
+      console.warn("Could not write to .env.local:", fsErr);
+    }
 
     const updatedSettings = await dbUpdateSystemSettings(updates);
     const currentDay = new Date().getDate();

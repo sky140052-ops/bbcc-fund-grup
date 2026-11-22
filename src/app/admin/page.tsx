@@ -40,6 +40,7 @@ import {
   ToggleRight,
 } from "lucide-react";
 import { Member, Contribution, Loan, SystemSettings } from "../../lib/types";
+import { compressImage } from "../../lib/compress";
 
 export default function AdminPage() {
   const router = useRouter();
@@ -56,9 +57,14 @@ export default function AdminPage() {
   const [emailData, setEmailData] = useState<any>(null);
   const [databaseData, setDatabaseData] = useState<any>(null);
 
-  // Diagnostic Test states
+  // Diagnostic Test & Brevo Settings states
   const [testingEmail, setTestingEmail] = useState(false);
   const [emailTestResult, setEmailTestResult] = useState<string | null>(null);
+  const [testEmailInput, setTestEmailInput] = useState("sky140052@gmail.com");
+  const [brevoKeyInput, setBrevoKeyInput] = useState("");
+  const [brevoSenderInput, setBrevoSenderInput] = useState("sky140052@gmail.com");
+  const [savingBrevo, setSavingBrevo] = useState(false);
+  const [brevoSaveMsg, setBrevoSaveMsg] = useState<string | null>(null);
   const [testingRazorpay, setTestingRazorpay] = useState(false);
   const [razorpayTestResult, setRazorpayTestResult] = useState<string | null>(null);
 
@@ -300,18 +306,52 @@ export default function AdminPage() {
       const res = await fetch("/api/admin/status", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "test_email" }),
+        body: JSON.stringify({
+          action: "test_email",
+          to_email: testEmailInput || adminData?.email || "sky140052@gmail.com",
+        }),
       });
       const data = await res.json();
       if (res.ok && data.success) {
-        setEmailTestResult(`${data.message} (Test OTP: ${data.test_otp})`);
+        setEmailTestResult(`🟢 ${data.message} (Test OTP: ${data.test_otp})`);
       } else {
-        setEmailTestResult(data.error || "ईमेल भेजने में विफल।");
+        setEmailTestResult(`🔴 ${data.error || "ईमेल भेजने में विफल।"}`);
       }
     } catch {
-      setEmailTestResult("सर्वर से संपर्क नहीं हो सका।");
+      setEmailTestResult("🔴 सर्वर से संपर्क नहीं हो सका।");
     } finally {
       setTestingEmail(false);
+    }
+  };
+
+  // Save Brevo API Key & Sender Email
+  const handleSaveBrevo = async () => {
+    if (!brevoKeyInput.trim()) {
+      setBrevoSaveMsg("🔴 कृपया Brevo API Key (xkeysib-...) दर्ज करें।");
+      return;
+    }
+    setSavingBrevo(true);
+    setBrevoSaveMsg(null);
+    try {
+      const res = await fetch("/api/admin/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          brevo_api_key: brevoKeyInput.trim(),
+          brevo_sender_email: (brevoSenderInput || adminData?.email || "sky140052@gmail.com").trim(),
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setBrevoSaveMsg("🟢 Brevo API Key व प्रेषक ईमेल सफलतापूर्वक सुरक्षित हो गए!");
+        fetchAdminStatus();
+      } else {
+        setBrevoSaveMsg(`🔴 ${data.error || "सहेजने में विफल।"}`);
+      }
+    } catch {
+      setBrevoSaveMsg("🔴 सर्वर से संपर्क नहीं हो सका।");
+    } finally {
+      setSavingBrevo(false);
     }
   };
 
@@ -342,7 +382,7 @@ export default function AdminPage() {
     setCameraActive(false);
   };
 
-  const capturePhoto = () => {
+  const capturePhoto = async () => {
     if (videoRef.current && canvasRef.current) {
       const video = videoRef.current;
       const canvas = canvasRef.current;
@@ -351,28 +391,34 @@ export default function AdminPage() {
       const ctx = canvas.getContext("2d");
       if (ctx) {
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
-        setFormPhoto(dataUrl);
+        const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
+        // Auto-compress selfie/photo to max 360x360 at 0.70 quality (~8-12KB)
+        const compressed = await compressImage(dataUrl, { maxWidth: 360, maxHeight: 360, quality: 0.7 });
+        setFormPhoto(compressed);
         stopCamera();
       }
     }
   };
 
-  const handleFileUpload = (
+  const handleFileUpload = async (
     file: File,
     setFile: (base64: string) => void,
     setType: (t: "pdf" | "image") => void,
     setName: (n: string) => void
   ) => {
-    const isPdf = file.type === "application/pdf" || file.name.endsWith(".pdf");
+    const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
     setType(isPdf ? "pdf" : "image");
     setName(file.name);
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      setFile(e.target?.result as string);
-    };
-    reader.readAsDataURL(file);
+    if (isPdf) {
+      const reader = new FileReader();
+      reader.onload = (e) => setFile(e.target?.result as string);
+      reader.readAsDataURL(file);
+    } else {
+      // Auto-compress document scan/photo to max 1200x1200px at 0.75 quality (~40-60KB)
+      const compressed = await compressImage(file, { maxWidth: 1200, maxHeight: 1200, quality: 0.75 });
+      setFile(compressed);
+    }
   };
 
   // Add Member
@@ -384,8 +430,38 @@ export default function AdminPage() {
       setFormMsg({ type: "error", text: "कृपया सदस्य का नाम दर्ज करें।" });
       return;
     }
+    if (!formEmail.trim() || !formEmail.includes("@")) {
+      setFormMsg({ type: "error", text: "कृपया सदस्य का वैध ईमेल (Gmail) आईडी दर्ज करें।" });
+      return;
+    }
     if (formMobile.replace(/\D/g, "").length < 10) {
       setFormMsg({ type: "error", text: "कृपया 10-अंकीय मोबाइल नंबर दर्ज करें।" });
+      return;
+    }
+    if (!formPhoto) {
+      setFormMsg({ type: "error", text: "कृपया सदस्य की लाइव सेल्फी या फोटो अवश्य लें/अपलोड करें।" });
+      return;
+    }
+    const cleanAadhaar = formAadhaarNumber.replace(/\D/g, "");
+    if (cleanAadhaar.length !== 12) {
+      setFormMsg({ type: "error", text: "कृपया 12-अंकों का आधार कार्ड नंबर दर्ज करें।" });
+      return;
+    }
+    if (!formAadhaarFile) {
+      setFormMsg({ type: "error", text: "कृपया आधार कार्ड का फोटो या पीडीएफ दस्तावेज अवश्य अपलोड करें।" });
+      return;
+    }
+    const cleanPan = formPanNumber.trim().toUpperCase();
+    if (!cleanPan || cleanPan.length < 10) {
+      setFormMsg({ type: "error", text: "कृपया 10-अंकों का वैध पैन कार्ड नंबर दर्ज करें।" });
+      return;
+    }
+    if (!formPanFile) {
+      setFormMsg({ type: "error", text: "कृपया पैन कार्ड का फोटो या पीडीएफ दस्तावेज अवश्य अपलोड करें।" });
+      return;
+    }
+    if (!formUpiId.trim() && (!formAccountNumber.trim() || !formIfsc.trim()) && !formWalletNumber.trim()) {
+      setFormMsg({ type: "error", text: "कृपया बैंक खाता/IFSC, UPI आईडी या फोनपे/जीपे वॉलेट नंबर दर्ज करें।" });
       return;
     }
 
@@ -713,30 +789,88 @@ export default function AdminPage() {
               </div>
             </div>
 
-            {/* Brevo Email Status */}
+            {/* Brevo Email Status & Configuration */}
             <div className="p-6 rounded-3xl bg-white border border-slate-200 shadow-sm space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
                   Brevo ईमेल OTP API
                 </span>
-                <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-bold">
+                <span className={`flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold ${emailData?.connected ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`}>
                   <CheckCircle2 className="w-3 h-3" />
-                  <span>सक्रिय</span>
+                  <span>{emailData?.connected ? "सक्रिय" : "कॉन्फ़िगर करें"}</span>
                 </span>
               </div>
               <p className="text-xs text-slate-600">{emailData?.details}</p>
-              <button
-                onClick={handleTestEmail}
-                disabled={testingEmail}
-                className="w-full py-2 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs transition disabled:opacity-50"
-              >
-                {testingEmail ? "OTP भेजा जा रहा है..." : "Brevo ईमेल OTP टेस्ट करें"}
-              </button>
-              {emailTestResult && (
-                <div className="p-2 rounded-lg bg-blue-50 text-[11px] font-semibold text-blue-900">
-                  {emailTestResult}
+
+              {/* Configure Brevo API Key form */}
+              <div className="space-y-2 pt-2 border-t border-slate-100">
+                <label className="block text-[11px] font-bold text-slate-700">
+                  Brevo API Key (xkeysib-...)
+                </label>
+                <input
+                  type="password"
+                  value={brevoKeyInput}
+                  onChange={(e) => setBrevoKeyInput(e.target.value)}
+                  placeholder="xkeysib-..."
+                  className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-xl font-mono focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
+                <div className="flex gap-2">
+                  <input
+                    type="email"
+                    value={brevoSenderInput}
+                    onChange={(e) => setBrevoSenderInput(e.target.value)}
+                    placeholder="Brevo में सत्यापित प्रेषक ईमेल"
+                    className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleSaveBrevo}
+                    disabled={savingBrevo}
+                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shrink-0 transition disabled:opacity-50"
+                  >
+                    {savingBrevo ? "सहेज रहे..." : "सेव करें"}
+                  </button>
                 </div>
-              )}
+                {brevoSaveMsg && (
+                  <p className="text-[11px] font-semibold text-slate-700">{brevoSaveMsg}</p>
+                )}
+                <a
+                  href="https://app.brevo.com/settings/keys/api"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-[11px] text-blue-600 hover:underline block font-semibold"
+                >
+                  🔗 Brevo API Key प्राप्त करें (app.brevo.com)
+                </a>
+              </div>
+
+              {/* Test Email Section */}
+              <div className="space-y-2 pt-2 border-t border-slate-100">
+                <label className="block text-[11px] font-bold text-slate-700">
+                  परीक्षण ईमेल दर्ज करें (Test Recipient)
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="email"
+                    value={testEmailInput}
+                    onChange={(e) => setTestEmailInput(e.target.value)}
+                    placeholder="member@gmail.com"
+                    className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                  <button
+                    onClick={handleTestEmail}
+                    disabled={testingEmail}
+                    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs shrink-0 transition disabled:opacity-50"
+                  >
+                    {testingEmail ? "भेज रहे..." : "OTP भेजें"}
+                  </button>
+                </div>
+                {emailTestResult && (
+                  <div className="p-2 rounded-lg bg-blue-50 text-[11px] font-semibold text-blue-900 break-words">
+                    {emailTestResult}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Razorpay Status */}
@@ -1333,14 +1467,16 @@ export default function AdminPage() {
 
               {/* Photo */}
               <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
-                <label className="block font-bold text-slate-800">फोटो (Live Camera या Upload)</label>
+                <label className="block font-bold text-slate-800">
+                  सदस्य फोटो (Live Camera या File Upload) *
+                </label>
                 {cameraActive ? (
                   <div className="space-y-2">
                     <video ref={videoRef} className="w-64 aspect-video rounded-xl object-cover bg-black" autoPlay playsInline />
                     <canvas ref={canvasRef} className="hidden" />
                     <div className="flex gap-2">
                       <button type="button" onClick={capturePhoto} className="px-3 py-1.5 bg-blue-600 text-white rounded-lg font-bold">
-                        फोटो लें
+                        फोटो लें (Auto-Compressed)
                       </button>
                       <button type="button" onClick={stopCamera} className="px-3 py-1.5 bg-slate-200 text-slate-700 rounded-lg font-bold">
                         रद्द करें
@@ -1349,26 +1485,30 @@ export default function AdminPage() {
                   </div>
                 ) : formPhoto ? (
                   <div className="flex items-center gap-3">
-                    <img src={formPhoto} alt="Captured" className="w-16 h-16 rounded-xl object-cover border" />
-                    <button type="button" onClick={() => setFormPhoto("")} className="text-rose-600 font-bold">हटाएं</button>
+                    <img src={formPhoto} alt="Captured" className="w-16 h-16 rounded-xl object-cover border-2 border-emerald-500 shadow-sm" />
+                    <div className="space-y-1">
+                      <span className="text-[11px] font-bold text-emerald-600 flex items-center gap-1">
+                        <CheckCircle2 className="w-3.5 h-3.5" /> फोटो सफलतापूर्वक जोड़ी गई
+                      </span>
+                      <button type="button" onClick={() => setFormPhoto("")} className="text-rose-600 font-bold block hover:underline">हटाएं</button>
+                    </div>
                   </div>
                 ) : (
                   <div className="flex gap-2">
-                    <button type="button" onClick={startCamera} className="px-3 py-1.5 bg-blue-600 text-white rounded-lg font-bold">
-                      📸 कैमरा चालू करें
+                    <button type="button" onClick={startCamera} className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold">
+                      📸 कैमरा चालू करें *
                     </button>
-                    <label className="px-3 py-1.5 bg-white border border-slate-300 rounded-lg font-bold cursor-pointer">
-                      फाइल से चुनें
+                    <label className="px-3 py-1.5 bg-white border border-slate-300 rounded-lg font-bold cursor-pointer hover:bg-slate-50">
+                      गैलरी से चुनें *
                       <input
                         type="file"
                         accept="image/*"
                         className="hidden"
-                        onChange={(e) => {
+                        onChange={async (e) => {
                           const f = e.target.files?.[0];
                           if (f) {
-                            const r = new FileReader();
-                            r.onload = (ev) => setFormPhoto(ev.target?.result as string);
-                            r.readAsDataURL(f);
+                            const compressed = await compressImage(f, { maxWidth: 360, maxHeight: 360, quality: 0.7 });
+                            setFormPhoto(compressed);
                           }
                         }}
                       />
@@ -1380,17 +1520,18 @@ export default function AdminPage() {
               {/* Aadhaar & PAN */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
-                  <label className="block font-bold text-slate-800">आधार संख्या</label>
+                  <label className="block font-bold text-slate-800">आधार संख्या (12 अंक) *</label>
                   <input
                     type="text"
+                    required
                     maxLength={12}
                     value={formAadhaarNumber}
                     onChange={(e) => setFormAadhaarNumber(e.target.value.replace(/\D/g, ""))}
                     placeholder="123456789012"
-                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-mono"
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-mono focus:outline-none focus:ring-1 focus:ring-blue-500"
                   />
-                  <label className="block text-slate-600 cursor-pointer text-[11px] font-semibold">
-                    आधार फाइल (PDF/JPG): {formAadhaarFileName || "फाइल चुनें"}
+                  <label className="block text-slate-600 cursor-pointer text-[11px] font-semibold hover:text-blue-600">
+                    आधार फाइल (PDF/JPG) *: <span className="text-blue-700 font-bold">{formAadhaarFileName || "फाइल चुनें"}</span>
                     <input
                       type="file"
                       accept=".pdf,image/*"
@@ -1404,17 +1545,18 @@ export default function AdminPage() {
                 </div>
 
                 <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
-                  <label className="block font-bold text-slate-800">पैन संख्या</label>
+                  <label className="block font-bold text-slate-800">पैन संख्या (10 अंक) *</label>
                   <input
                     type="text"
+                    required
                     maxLength={10}
                     value={formPanNumber}
                     onChange={(e) => setFormPanNumber(e.target.value.toUpperCase())}
                     placeholder="ABCDE1234F"
-                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-mono uppercase"
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-mono uppercase focus:outline-none focus:ring-1 focus:ring-blue-500"
                   />
-                  <label className="block text-slate-600 cursor-pointer text-[11px] font-semibold">
-                    पैन फाइल (PDF/JPG): {formPanFileName || "फाइल चुनें"}
+                  <label className="block text-slate-600 cursor-pointer text-[11px] font-semibold hover:text-blue-600">
+                    पैन फाइल (PDF/JPG) *: <span className="text-blue-700 font-bold">{formPanFileName || "फाइल चुनें"}</span>
                     <input
                       type="file"
                       accept=".pdf,image/*"
@@ -1694,12 +1836,11 @@ export default function AdminPage() {
                       type="file"
                       accept="image/*"
                       className="hidden"
-                      onChange={(e) => {
+                      onChange={async (e) => {
                         const f = e.target.files?.[0];
                         if (f) {
-                          const r = new FileReader();
-                          r.onload = (ev) => setDisburseScreenshot(ev.target?.result as string);
-                          r.readAsDataURL(f);
+                          const compressed = await compressImage(f, { maxWidth: 1000, maxHeight: 1000, quality: 0.75 });
+                          setDisburseScreenshot(compressed);
                         }
                       }}
                     />

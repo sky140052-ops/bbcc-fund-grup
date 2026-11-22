@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
     : "Not Configured";
 
   // 2. Email Service Check
-  const emailStatus = getEmailServiceStatus();
+  const emailStatus = await getEmailServiceStatus();
 
   // 3. Astra DB Check
   const astraEndpoint = process.env.ASTRA_DB_API_ENDPOINT || "";
@@ -93,22 +93,34 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { action } = await req.json();
+    const body = await req.json();
+    const action = body.action;
     const founderEmail = (process.env.FOUNDER_EMAIL || "sky140052@gmail.com").trim().toLowerCase();
+    const targetEmail = (body.to_email || founderEmail).trim().toLowerCase();
 
     // Action: Test Email
     if (action === "test_email") {
       const testOtp = Math.floor(100000 + Math.random() * 900000).toString();
       const sendResult = await sendOtpEmail({
-        toEmail: founderEmail,
+        toEmail: targetEmail,
         userName: session.name || "मुख्य एडमिन",
         otp: testOtp,
         purpose: "test",
       });
 
+      if (!sendResult.success) {
+        return NextResponse.json(
+          {
+            error: sendResult.error || "ईमेल भेजने में विफल। कृपया Brevo API Key या ईमेल सेटिंग्स जांचें।",
+            provider: sendResult.provider,
+          },
+          { status: 400 }
+        );
+      }
+
       return NextResponse.json({
-        success: sendResult.success,
-        message: `परीक्षण ईमेल ${founderEmail} पर भेजा गया! (Provider: ${sendResult.provider})`,
+        success: true,
+        message: `परीक्षण ईमेल ${targetEmail} पर भेजा गया! (Provider: ${sendResult.provider})`,
         provider: sendResult.provider,
         test_otp: testOtp,
       });

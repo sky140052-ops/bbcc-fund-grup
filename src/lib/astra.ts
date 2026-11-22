@@ -35,7 +35,21 @@ async function getCollection<T extends Record<string, any>>(name: string) {
 
   if (!initializedCollections.has(name)) {
     try {
-      await db.createCollection(name);
+      if (name === "members") {
+        await db.createCollection(name, {
+          indexing: {
+            deny: ["photo", "aadhaar_file", "pan_file"],
+          },
+        });
+      } else if (name === "loans") {
+        await db.createCollection(name, {
+          indexing: {
+            deny: ["payment_screenshot"],
+          },
+        });
+      } else {
+        await db.createCollection(name);
+      }
     } catch {
       // Collection might already exist
     }

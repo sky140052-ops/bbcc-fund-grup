@@ -1,5 +1,6 @@
 import nodemailer from "nodemailer";
 import { Resend } from "resend";
+import { dbGetSystemSettings } from "./astra";
 
 interface SendOtpOptions {
   toEmail: string;
@@ -15,38 +16,78 @@ interface SendLoginAlertOptions {
   role?: string;
 }
 
+// Helper to resolve email credentials from env or database settings
+async function resolveEmailConfig() {
+  let brevoApiKey = (process.env.BREVO_API_KEY || "").trim();
+  let brevoSender = (process.env.BREVO_SENDER_EMAIL || process.env.FOUNDER_EMAIL || "sky140052@gmail.com").trim();
+  let smtpEmail = (process.env.SMTP_EMAIL || "").trim();
+  let smtpPassword = (process.env.SMTP_PASSWORD || "").trim();
+  const resendApiKey = (process.env.RESEND_API_KEY || "").trim();
+  const founderEmail = (process.env.FOUNDER_EMAIL || "sky140052@gmail.com").trim().toLowerCase();
+
+  try {
+    const settings = await dbGetSystemSettings();
+    if (!brevoApiKey && settings.brevo_api_key) {
+      brevoApiKey = settings.brevo_api_key.trim();
+    }
+    if (settings.brevo_sender_email) {
+      brevoSender = settings.brevo_sender_email.trim();
+    }
+    if (!smtpEmail && settings.smtp_email) {
+      smtpEmail = settings.smtp_email.trim();
+      smtpPassword = (settings.smtp_password || "").trim();
+    }
+  } catch (err) {
+    console.warn("Could not load email settings from DB:", err);
+  }
+
+  return {
+    brevoApiKey,
+    brevoSender,
+    smtpEmail,
+    smtpPassword,
+    resendApiKey,
+    founderEmail,
+  };
+}
+
 // Check Email Provider Connection Status (Brevo API prioritized)
-export function getEmailServiceStatus(): {
+export async function getEmailServiceStatus(): Promise<{
   connected: boolean;
   provider: "brevo" | "gmail_smtp" | "resend" | "none";
   details: string;
-} {
-  const brevoApiKey = process.env.BREVO_API_KEY;
-  const smtpEmail = process.env.SMTP_EMAIL;
-  const smtpPassword = process.env.SMTP_PASSWORD;
-  const resendApiKey = process.env.RESEND_API_KEY;
+  sender_email?: string;
+  has_brevo_key?: boolean;
+}> {
+  const config = await resolveEmailConfig();
 
-  if (brevoApiKey && !brevoApiKey.includes("placeholder")) {
+  if (config.brevoApiKey && !config.brevoApiKey.includes("placeholder")) {
     return {
       connected: true,
       provider: "brevo",
-      details: `Brevo SMTP API सक्रिय (300 फ्री ईमेल/दिन - Key: ${brevoApiKey.slice(0, 8)}...)`,
+      details: `Brevo SMTP API सक्रिय (300 फ्री ईमेल/दिन - Key: ${config.brevoApiKey.slice(0, 8)}... - प्रेषक: ${config.brevoSender})`,
+      sender_email: config.brevoSender,
+      has_brevo_key: true,
     };
   }
 
-  if (smtpEmail && smtpPassword && !smtpEmail.includes("placeholder")) {
+  if (config.smtpEmail && config.smtpPassword && !config.smtpEmail.includes("placeholder")) {
     return {
       connected: true,
       provider: "gmail_smtp",
-      details: `Gmail SMTP सक्रिय (500 फ्री ईमेल/दिन - ${smtpEmail})`,
+      details: `Gmail SMTP सक्रिय (500 फ्री ईमेल/दिन - ${config.smtpEmail})`,
+      sender_email: config.smtpEmail,
+      has_brevo_key: false,
     };
   }
 
-  if (resendApiKey && !resendApiKey.includes("placeholder")) {
+  if (config.resendApiKey && !config.resendApiKey.includes("placeholder")) {
     return {
       connected: true,
       provider: "resend",
-      details: `Resend API सक्रिय (Key: ${resendApiKey.slice(0, 6)}...${resendApiKey.slice(-4)})`,
+      details: `Resend API सक्रिय (Key: ${config.resendApiKey.slice(0, 6)}...${config.resendApiKey.slice(-4)}) - केवल एडमिन ईमेल हेतु`,
+      sender_email: "onboarding@resend.dev",
+      has_brevo_key: false,
     };
   }
 
@@ -54,6 +95,8 @@ export function getEmailServiceStatus(): {
     connected: false,
     provider: "none",
     details: "कोई ईमेल सेवा कॉन्फ़िगर नहीं है (Brevo API Key दर्ज करें)",
+    sender_email: config.brevoSender,
+    has_brevo_key: false,
   };
 }
 
@@ -63,6 +106,9 @@ export async function sendOtpEmail({
   otp,
   purpose,
 }: SendOtpOptions): Promise<{ success: boolean; provider: string; error?: string; otp: string }> {
+  const cleanToEmail = toEmail.trim().toLowerCase();
+  const config = await resolveEmailConfig();
+
   const subject =
     purpose === "password_reset"
       ? "🔐 DFI - पासवर्ड रीसेट हेतु OTP"
@@ -116,29 +162,30 @@ export async function sendOtpEmail({
   `;
 
   // 1. PRIORITY 1: Brevo SMTP API (https://app.brevo.com/settings/keys/api)
-  const brevoApiKey = process.env.BREVO_API_KEY;
-  if (brevoApiKey && !brevoApiKey.includes("placeholder")) {
+  if (config.brevoApiKey && !config.brevoApiKey.includes("placeholder")) {
     try {
-      const senderEmail = process.env.BREVO_SENDER_EMAIL || process.env.FOUNDER_EMAIL || "sky140052@gmail.com";
       const brevoRes = await fetch("https://api.brevo.com/v3/smtp/email", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "api-key": brevoApiKey.trim(),
+          "api-key": config.brevoApiKey.trim(),
+          Accept: "application/json",
         },
         body: JSON.stringify({
-          sender: { name: "DFI इमरजेंसी सेवा", email: senderEmail },
-          to: [{ email: toEmail, name: userName }],
+          sender: { name: "DFI इमरजेंसी सेवा", email: config.brevoSender },
+          to: [{ email: cleanToEmail, name: userName }],
           subject,
           htmlContent,
         }),
       });
 
       if (brevoRes.ok) {
+        console.log(`[Brevo OTP Sent] To: ${cleanToEmail} | Provider: Brevo (200 OK)`);
         return { success: true, provider: "brevo", otp };
       } else {
-        const errorText = await brevoRes.text();
-        console.warn("Brevo API warning response:", errorText);
+        const errorJson = await brevoRes.json().catch(() => ({}));
+        const errText = errorJson.message || `Brevo HTTP ${brevoRes.status}`;
+        console.warn("Brevo API warning response:", errText);
       }
     } catch (err: any) {
       console.warn("Brevo API call failed:", err?.message);
@@ -146,58 +193,78 @@ export async function sendOtpEmail({
   }
 
   // 2. PRIORITY 2: Gmail SMTP / Nodemailer
-  const smtpEmail = process.env.SMTP_EMAIL;
-  const smtpPassword = process.env.SMTP_PASSWORD;
-
-  if (smtpEmail && smtpPassword && !smtpEmail.includes("placeholder")) {
+  if (config.smtpEmail && config.smtpPassword && !config.smtpEmail.includes("placeholder")) {
     try {
       const transporter = nodemailer.createTransport({
         service: "gmail",
         auth: {
-          user: smtpEmail,
-          pass: smtpPassword,
+          user: config.smtpEmail,
+          pass: config.smtpPassword,
         },
       });
 
       await transporter.sendMail({
-        from: `"DFI इमरजेंसी सेवा" <${smtpEmail}>`,
-        to: toEmail,
+        from: `"DFI इमरजेंसी सेवा" <${config.smtpEmail}>`,
+        to: cleanToEmail,
         subject,
         html: htmlContent,
       });
 
+      console.log(`[Gmail SMTP OTP Sent] To: ${cleanToEmail}`);
       return { success: true, provider: "gmail_smtp", otp };
     } catch (err: any) {
       console.warn("Gmail SMTP email failed:", err?.message);
     }
   }
 
-  // 3. PRIORITY 3: Resend API
-  const resendApiKey = process.env.RESEND_API_KEY;
-  if (resendApiKey && !resendApiKey.includes("placeholder")) {
-    try {
-      const resend = new Resend(resendApiKey);
-      const res = await resend.emails.send({
-        from: process.env.RESEND_FROM_EMAIL || "DFI <onboarding@resend.dev>",
-        to: toEmail,
-        subject,
-        html: htmlContent,
-      });
+  // 3. PRIORITY 3: Resend API (Allowed for Founder/Admin email)
+  if (config.resendApiKey && !config.resendApiKey.includes("placeholder")) {
+    // Note: Resend's free tier only sends to account owner (founderEmail)
+    const isOwnerEmail = cleanToEmail === config.founderEmail;
 
-      if (!res.error) {
-        return { success: true, provider: "resend", otp };
+    if (isOwnerEmail) {
+      try {
+        const resend = new Resend(config.resendApiKey);
+        const res = await resend.emails.send({
+          from: process.env.RESEND_FROM_EMAIL || "DFI <onboarding@resend.dev>",
+          to: cleanToEmail,
+          subject,
+          html: htmlContent,
+        });
+
+        if (!res.error) {
+          console.log(`[Resend OTP Sent] To Founder: ${cleanToEmail}`);
+          return { success: true, provider: "resend", otp };
+        } else {
+          console.warn("Resend email warning:", res.error);
+        }
+      } catch (err: any) {
+        console.warn("Resend email failed:", err?.message);
       }
-    } catch (err: any) {
-      console.warn("Resend email failed:", err?.message);
     }
   }
 
-  // 4. Fallback / Console
+  // 4. Fallback / Detailed Failure Reporting
   console.log("==========================================");
-  console.log(`[DFI OTP NOTIFICATION] To: ${toEmail} | OTP: ${otp} | Purpose: ${purpose}`);
+  console.log(`[DFI OTP DEBUG LOG] To: ${cleanToEmail} | OTP: ${otp} | Purpose: ${purpose}`);
   console.log("==========================================");
 
-  return { success: true, provider: "system_generated", otp };
+  // If toEmail is a member and Brevo is missing, inform clearly so user knows to add Brevo key
+  if (cleanToEmail !== config.founderEmail && !config.brevoApiKey) {
+    return {
+      success: false,
+      provider: "none",
+      error: "सदस्यों को ईमेल OTP भेजने हेतु Brevo API Key आवश्यक है। कृपया एडमिन पोर्टल ('सिस्टम कनेक्शन') में अपनी Brevo API Key (https://app.brevo.com/settings/keys/api) दर्ज करें।",
+      otp,
+    };
+  }
+
+  return {
+    success: false,
+    provider: "none",
+    error: "ईमेल सेवा से संपर्क नहीं हो सका। कृपया एडमिन पोर्टल में Brevo API Key या ईमेल सेटिंग्स की जांच करें।",
+    otp,
+  };
 }
 
 // Send Login Alert Notification Email
@@ -207,6 +274,8 @@ export async function sendLoginAlertEmail({
   loginTime = new Date().toLocaleString("hi-IN", { timeZone: "Asia/Kolkata" }),
   role,
 }: SendLoginAlertOptions): Promise<{ success: boolean; provider: string }> {
+  const cleanToEmail = toEmail.trim().toLowerCase();
+  const config = await resolveEmailConfig();
   const subject = "🔔 DFI - आपके खाते में नया लॉगिन अलर्ट";
 
   const roleText =
@@ -253,7 +322,7 @@ export async function sendLoginAlertEmail({
               </div>
               <div class="info-row" style="margin-bottom: 0;">
                 <span class="info-label">ईमेल आईडी:</span>
-                <span class="info-val">${toEmail}</span>
+                <span class="info-val">${cleanToEmail}</span>
               </div>
             </div>
             <p style="font-size: 12px; color: #64748b; margin: 0;">
@@ -269,24 +338,53 @@ export async function sendLoginAlertEmail({
   `;
 
   // Brevo
-  const brevoApiKey = process.env.BREVO_API_KEY;
-  if (brevoApiKey && !brevoApiKey.includes("placeholder")) {
+  if (config.brevoApiKey && !config.brevoApiKey.includes("placeholder")) {
     try {
-      const senderEmail = process.env.BREVO_SENDER_EMAIL || process.env.FOUNDER_EMAIL || "sky140052@gmail.com";
-      await fetch("https://api.brevo.com/v3/smtp/email", {
+      const res = await fetch("https://api.brevo.com/v3/smtp/email", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "api-key": brevoApiKey.trim(),
+          "api-key": config.brevoApiKey.trim(),
         },
         body: JSON.stringify({
-          sender: { name: "DFI सुरक्षा", email: senderEmail },
-          to: [{ email: toEmail, name: userName }],
+          sender: { name: "DFI सुरक्षा", email: config.brevoSender },
+          to: [{ email: cleanToEmail, name: userName }],
           subject,
           htmlContent,
         }),
       });
-      return { success: true, provider: "brevo" };
+      if (res.ok) return { success: true, provider: "brevo" };
+    } catch {}
+  }
+
+  // Gmail SMTP
+  if (config.smtpEmail && config.smtpPassword) {
+    try {
+      const transporter = nodemailer.createTransport({
+        service: "gmail",
+        auth: { user: config.smtpEmail, pass: config.smtpPassword },
+      });
+      await transporter.sendMail({
+        from: `"DFI सुरक्षा" <${config.smtpEmail}>`,
+        to: cleanToEmail,
+        subject,
+        html: htmlContent,
+      });
+      return { success: true, provider: "gmail_smtp" };
+    } catch {}
+  }
+
+  // Resend for founder
+  if (cleanToEmail === config.founderEmail && config.resendApiKey) {
+    try {
+      const resend = new Resend(config.resendApiKey);
+      await resend.emails.send({
+        from: process.env.RESEND_FROM_EMAIL || "DFI <onboarding@resend.dev>",
+        to: cleanToEmail,
+        subject,
+        html: htmlContent,
+      });
+      return { success: true, provider: "resend" };
     } catch {}
   }
 

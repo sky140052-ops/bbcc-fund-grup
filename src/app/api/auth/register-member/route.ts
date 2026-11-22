@@ -50,6 +50,28 @@ export async function POST(req: NextRequest) {
       if (mobile.length < 10) {
         return NextResponse.json({ error: "कृपया 10-अंकीय मोबाइल नंबर दर्ज करें।" }, { status: 400 });
       }
+      if (!body.photo) {
+        return NextResponse.json({ error: "कृपया अपनी लाइव फोटो (सेल्फी) अवश्य लें या अपलोड करें।" }, { status: 400 });
+      }
+      if (aadhaar_number.length !== 12) {
+        return NextResponse.json({ error: "कृपया 12-अंकों का आधार नंबर दर्ज करें।" }, { status: 400 });
+      }
+      if (!body.aadhaar_file) {
+        return NextResponse.json({ error: "कृपया आधार कार्ड का फोटो या पीडीएफ दस्तावेज अवश्य अपलोड करें।" }, { status: 400 });
+      }
+      if (!pan_number || pan_number.length < 10) {
+        return NextResponse.json({ error: "कृपया 10-अंकों का वैध पैन कार्ड नंबर दर्ज करें।" }, { status: 400 });
+      }
+      if (!body.pan_file) {
+        return NextResponse.json({ error: "कृपया पैन कार्ड का फोटो या पीडीएफ दस्तावेज अवश्य अपलोड करें।" }, { status: 400 });
+      }
+      const upi = sanitize(body.upi_id || "").trim();
+      const acc = sanitize(body.account_number || "").trim();
+      const ifsc = sanitize(body.ifsc || "").trim();
+      const wallet = sanitize(body.wallet_number || "").trim();
+      if (!upi && (!acc || !ifsc) && !wallet) {
+        return NextResponse.json({ error: "कृपया बैंक खाता/IFSC, UPI आईडी, या वॉलेट नंबर दर्ज करें।" }, { status: 400 });
+      }
 
       // Strictly check duplicate member across email, mobile, Aadhaar, and PAN
       const dupCheck = await dbCheckDuplicateMember({
@@ -73,12 +95,23 @@ export async function POST(req: NextRequest) {
       };
 
       // Send OTP via Brevo API
-      await sendOtpEmail({
+      const sendResult = await sendOtpEmail({
         toEmail: cleanEmail,
         userName: name,
         otp,
         purpose: "login",
       });
+
+      if (!sendResult.success) {
+        return NextResponse.json(
+          {
+            error:
+              sendResult.error ||
+              "ईमेल पर OTP भेजने में विफल। कृपया एडमिन पोर्टल में Brevo API Key या ईमेल सेवा कॉन्फ़िगर करें।",
+          },
+          { status: 500 }
+        );
+      }
 
       return NextResponse.json({
         success: true,

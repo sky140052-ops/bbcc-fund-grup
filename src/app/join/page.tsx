@@ -20,6 +20,7 @@ import {
   X,
   Sparkles,
 } from "lucide-react";
+import { compressImage } from "../../lib/compress";
 
 export default function JoinPage() {
   const router = useRouter();
@@ -106,7 +107,7 @@ export default function JoinPage() {
     setCameraActive(false);
   };
 
-  const capturePhoto = () => {
+  const capturePhoto = async () => {
     if (videoRef.current && canvasRef.current) {
       const video = videoRef.current;
       const canvas = canvasRef.current;
@@ -115,28 +116,34 @@ export default function JoinPage() {
       const ctx = canvas.getContext("2d");
       if (ctx) {
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
-        setPhoto(dataUrl);
+        const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
+        // Auto-compress selfie/photo to max 360x360 at 0.70 quality (~8-12KB)
+        const compressed = await compressImage(dataUrl, { maxWidth: 360, maxHeight: 360, quality: 0.7 });
+        setPhoto(compressed);
         stopCamera();
       }
     }
   };
 
-  const handleFileUpload = (
+  const handleFileUpload = async (
     file: File,
     setFile: (base64: string) => void,
     setType: (t: "pdf" | "image") => void,
     setName: (n: string) => void
   ) => {
-    const isPdf = file.type === "application/pdf" || file.name.endsWith(".pdf");
+    const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
     setType(isPdf ? "pdf" : "image");
     setName(file.name);
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      setFile(e.target?.result as string);
-    };
-    reader.readAsDataURL(file);
+    if (isPdf) {
+      const reader = new FileReader();
+      reader.onload = (e) => setFile(e.target?.result as string);
+      reader.readAsDataURL(file);
+    } else {
+      // Auto-compress document scan/photo to max 1200x1200px at 0.75 quality (~40-60KB)
+      const compressed = await compressImage(file, { maxWidth: 1200, maxHeight: 1200, quality: 0.75 });
+      setFile(compressed);
+    }
   };
 
   // Step 1: Send Registration OTP
@@ -146,15 +153,41 @@ export default function JoinPage() {
     setStatusMsg("");
 
     if (!name.trim()) {
-      setErrorMsg("कृपया अपना नाम दर्ज करें।");
+      setErrorMsg("कृपया अपना पूरा नाम दर्ज करें।");
       return;
     }
     if (!email.trim() || !email.includes("@")) {
-      setErrorMsg("कृपया मान्य ईमेल आईडी दर्ज करें।");
+      setErrorMsg("कृपया अपना मान्य ईमेल आईडी (Gmail) दर्ज करें।");
       return;
     }
     if (mobile.replace(/\D/g, "").length < 10) {
-      setErrorMsg("कृपया 10-अंकीय मोबाइल नंबर दर्ज करें।");
+      setErrorMsg("कृपया 10-अंकीय वैध मोबाइल नंबर दर्ज करें।");
+      return;
+    }
+    if (!photo) {
+      setErrorMsg("कृपया अपनी लाइव फोटो (सेल्फी) अवश्य लें या गैलरी से अपलोड करें।");
+      return;
+    }
+    const cleanAadhaar = aadhaarNumber.replace(/\D/g, "");
+    if (cleanAadhaar.length !== 12) {
+      setErrorMsg("कृपया 12-अंकों का वैध आधार नंबर दर्ज करें।");
+      return;
+    }
+    if (!aadhaarFile) {
+      setErrorMsg("कृपया आधार कार्ड का फोटो या पीडीएफ दस्तावेज अवश्य अपलोड करें।");
+      return;
+    }
+    const cleanPan = panNumber.trim().toUpperCase();
+    if (!cleanPan || cleanPan.length < 10) {
+      setErrorMsg("कृपया 10-अंकों का वैध पैन कार्ड नंबर दर्ज करें।");
+      return;
+    }
+    if (!panFile) {
+      setErrorMsg("कृपया पैन कार्ड का फोटो या पीडीएफ दस्तावेज अवश्य अपलोड करें।");
+      return;
+    }
+    if (!upiId.trim() && (!accountNumber.trim() || !ifsc.trim()) && !walletNumber.trim()) {
+      setErrorMsg("कृपया बैंक खाता/IFSC, UPI आईडी, या फोनपे/जीपे नंबर दर्ज करें।");
       return;
     }
 
@@ -379,7 +412,7 @@ export default function JoinPage() {
               {/* Photo */}
               <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
                 <label className="block font-bold text-slate-800 uppercase tracking-wider text-[11px]">
-                  2. सदस्य फोटो (Live Camera या File Upload)
+                  2. सदस्य फोटो (Live Camera या File Upload) *
                 </label>
                 {cameraActive ? (
                   <div className="space-y-2">
@@ -387,7 +420,7 @@ export default function JoinPage() {
                     <canvas ref={canvasRef} className="hidden" />
                     <div className="flex justify-center gap-2">
                       <button type="button" onClick={capturePhoto} className="px-4 py-2 bg-blue-600 text-white rounded-xl font-bold">
-                        फोटो खींचें
+                        फोटो खींचें (Auto-Compressed)
                       </button>
                       <button type="button" onClick={stopCamera} className="px-4 py-2 bg-slate-200 text-slate-700 rounded-xl font-bold">
                         रद्द करें
@@ -396,30 +429,34 @@ export default function JoinPage() {
                   </div>
                 ) : photo ? (
                   <div className="flex items-center gap-3">
-                    <img src={photo} alt="Selfie" className="w-16 h-16 rounded-xl object-cover border-2 border-emerald-500" />
-                    <button type="button" onClick={() => setPhoto("")} className="text-xs text-rose-600 font-bold hover:underline">
-                      फोटो हटाएं
-                    </button>
+                    <img src={photo} alt="Selfie" className="w-16 h-16 rounded-xl object-cover border-2 border-emerald-500 shadow-sm" />
+                    <div className="space-y-1">
+                      <span className="text-[11px] font-bold text-emerald-600 flex items-center gap-1">
+                        <CheckCircle2 className="w-3.5 h-3.5" /> फोटो सफलतापूर्वक जोड़ी गई
+                      </span>
+                      <button type="button" onClick={() => setPhoto("")} className="text-xs text-rose-600 font-bold hover:underline block">
+                        फोटो हटाएं
+                      </button>
+                    </div>
                   </div>
                 ) : (
                   <div className="flex flex-wrap gap-2">
-                    <button type="button" onClick={startCamera} className="px-4 py-2 bg-blue-600 text-white rounded-xl font-bold flex items-center gap-1.5">
+                    <button type="button" onClick={startCamera} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold flex items-center gap-1.5 transition">
                       <Camera className="w-4 h-4" />
-                      <span>लाइव कैमरा से फोटो लें</span>
+                      <span>लाइव कैमरा से फोटो लें *</span>
                     </button>
-                    <label className="px-4 py-2 bg-white border border-slate-300 rounded-xl font-bold flex items-center gap-1.5 cursor-pointer hover:bg-slate-50">
+                    <label className="px-4 py-2 bg-white border border-slate-300 rounded-xl font-bold flex items-center gap-1.5 cursor-pointer hover:bg-slate-50 transition">
                       <Upload className="w-4 h-4 text-slate-500" />
-                      <span>गैलरी से चुनें</span>
+                      <span>गैलरी से चुनें *</span>
                       <input
                         type="file"
                         accept="image/*"
                         className="hidden"
-                        onChange={(e) => {
+                        onChange={async (e) => {
                           const f = e.target.files?.[0];
                           if (f) {
-                            const r = new FileReader();
-                            r.onload = (ev) => setPhoto(ev.target?.result as string);
-                            r.readAsDataURL(f);
+                            const compressed = await compressImage(f, { maxWidth: 360, maxHeight: 360, quality: 0.7 });
+                            setPhoto(compressed);
                           }
                         }}
                       />
@@ -431,21 +468,22 @@ export default function JoinPage() {
               {/* Aadhaar & PAN */}
               <div className="space-y-3">
                 <h3 className="font-bold text-slate-800 uppercase tracking-wider text-[11px]">
-                  3. आधार व पैन कार्ड दस्तावेज
+                  3. आधार व पैन कार्ड दस्तावेज (अनिवार्य / Mandatory) *
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
-                    <label className="block font-semibold text-slate-700">आधार संख्या</label>
+                    <label className="block font-bold text-slate-700">आधार संख्या (12 अंक) *</label>
                     <input
                       type="text"
+                      required
                       maxLength={12}
                       value={aadhaarNumber}
                       onChange={(e) => setAadhaarNumber(e.target.value.replace(/\D/g, ""))}
                       placeholder="123456789012"
-                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-mono"
+                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
-                    <label className="block text-slate-600 text-[11px] font-semibold cursor-pointer">
-                      दस्तावेज (PDF/JPG): {aadhaarFileName || "फाइल चुनें"}
+                    <label className="block text-slate-600 text-[11px] font-semibold cursor-pointer hover:text-blue-600 transition">
+                      आधार दस्तावेज (PDF/JPG) *: <span className="text-blue-700 font-bold">{aadhaarFileName || "फाइल अपलोड करें"}</span>
                       <input
                         type="file"
                         accept=".pdf,image/*"
@@ -459,17 +497,18 @@ export default function JoinPage() {
                   </div>
 
                   <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
-                    <label className="block font-semibold text-slate-700">पैन संख्या</label>
+                    <label className="block font-bold text-slate-700">पैन संख्या (10 अंक) *</label>
                     <input
                       type="text"
+                      required
                       maxLength={10}
                       value={panNumber}
                       onChange={(e) => setPanNumber(e.target.value.toUpperCase())}
                       placeholder="ABCDE1234F"
-                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-mono uppercase"
+                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-mono uppercase focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
-                    <label className="block text-slate-600 text-[11px] font-semibold cursor-pointer">
-                      दस्तावेज (PDF/JPG): {panFileName || "फाइल चुनें"}
+                    <label className="block text-slate-600 text-[11px] font-semibold cursor-pointer hover:text-blue-600 transition">
+                      पैन दस्तावेज (PDF/JPG) *: <span className="text-blue-700 font-bold">{panFileName || "फाइल अपलोड करें"}</span>
                       <input
                         type="file"
                         accept=".pdf,image/*"
