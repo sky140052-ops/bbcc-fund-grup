@@ -217,12 +217,12 @@ export async function sendOtpEmail({
     }
   }
 
-  // 3. PRIORITY 3: Resend API (Direct or Admin Forward)
+  // 3. PRIORITY 3: Resend API
   if (config.resendApiKey && !config.resendApiKey.includes("placeholder")) {
     try {
       const resend = new Resend(config.resendApiKey);
 
-      // Attempt 1: Direct send to member/user email
+      // Direct send to the exact email entered
       const directRes = await resend.emails.send({
         from: process.env.RESEND_FROM_EMAIL || "DFI <onboarding@resend.dev>",
         to: cleanToEmail,
@@ -233,45 +233,16 @@ export async function sendOtpEmail({
       if (!directRes.error) {
         console.log(`[Resend OTP Sent Directly] To: ${cleanToEmail}`);
         return { success: true, provider: "resend", otp };
-      }
-
-      // Attempt 2: If Resend domain restriction blocks sending to external member,
-      // deliver the OTP directly to Admin/Founder email so the OTP is securely received!
-      console.warn(`Resend direct send notice for ${cleanToEmail}:`, directRes.error.message);
-
-      const forwardSubject = `🔐 DFI सदस्य OTP: ${userName} (${cleanToEmail}) - कोड: ${otp}`;
-      const forwardHtml = `
-        <!DOCTYPE html>
-        <html>
-          <body style="font-family: sans-serif; background-color: #f1f5f9; padding: 20px;">
-            <div style="max-width: 500px; margin: 0 auto; background: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; padding: 24px;">
-              <h2 style="margin: 0 0 10px 0; color: #0f172a; font-size: 18px;">DFI सदस्य OTP सूचना</h2>
-              <p style="color: #475569; font-size: 13px; line-height: 1.5; margin: 0 0 16px 0;">
-                सदस्य <b>${userName}</b> (ईमेल: <b>${cleanToEmail}</b>) ने DFI पोर्टल में लॉगिन/पंजीकरण के लिए OTP का अनुरोध किया है:
-              </p>
-              <div style="text-align: center; margin: 20px 0;">
-                <span style="font-size: 32px; font-weight: 800; letter-spacing: 8px; color: #0284c7; background: #f0f9ff; border: 2px dashed #0284c7; padding: 12px 28px; border-radius: 12px; display: inline-block;">
-                  ${otp}
-                </span>
-              </div>
-              <p style="color: #e11d48; font-size: 12px; font-weight: 600; margin: 0;">
-                ⚠️ यह OTP केवल 10 मिनट के लिए मान्य है।
-              </p>
-            </div>
-          </body>
-        </html>
-      `;
-
-      const forwardRes = await resend.emails.send({
-        from: process.env.RESEND_FROM_EMAIL || "DFI <onboarding@resend.dev>",
-        to: config.founderEmail,
-        subject: forwardSubject,
-        html: forwardHtml,
-      });
-
-      if (!forwardRes.error) {
-        console.log(`[Resend OTP Delivered to Founder] Member: ${cleanToEmail} | Recipient: ${config.founderEmail}`);
-        return { success: true, provider: "resend", otp };
+      } else {
+        console.warn(`[Resend send failed for ${cleanToEmail}]:`, directRes.error.message);
+        if (cleanToEmail !== config.founderEmail) {
+          return {
+            success: false,
+            provider: "resend",
+            error: "Resend फ़्री टियर केवल एडमिन ईमेल की अनुमति देता है। सदस्यों के ईमेल पर सीधे OTP भेजने हेतु .env.local में BREVO_API_KEY (xkeysib-...) या Gmail App Password दर्ज करें।",
+            otp,
+          };
+        }
       }
     } catch (err: any) {
       console.warn("Resend email failed:", err?.message);
@@ -283,7 +254,12 @@ export async function sendOtpEmail({
   console.log(`[DFI OTP NOTIFICATION] To: ${cleanToEmail} | OTP: ${otp} | Purpose: ${purpose}`);
   console.log("==========================================");
 
-  return { success: true, provider: "resend", otp };
+  return {
+    success: false,
+    provider: "none",
+    error: "ईमेल सेवा से सदस्य के ईमेल पर OTP नहीं भेजा जा सका। कृपया .env.local में BREVO_API_KEY या Gmail App Password दर्ज करें।",
+    otp,
+  };
 }
 
 // Send Login Alert Notification Email
