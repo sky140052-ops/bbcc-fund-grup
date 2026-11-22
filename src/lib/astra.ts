@@ -81,6 +81,8 @@ const DEFAULT_SYSTEM_SETTINGS: SystemSettings = {
   registration_link_active: true,
   allow_deposit_after_10th: false,
   allow_loan_repay_after_15th: false,
+  admin_upi_id: "sky140052@okaxis",
+  admin_upi_name: "DFI इमरजेंसी सेवा",
   updated_at: new Date().toISOString(),
 };
 
@@ -303,6 +305,29 @@ export async function dbInsertContribution(contrib: Contribution): Promise<void>
   }
   const store = getCleanStore();
   store.contributions.push(contrib);
+}
+
+export async function dbFindContributionById(id: string): Promise<Contribution | null> {
+  const col = await getCollection<Contribution>("contributions");
+  if (col) {
+    return await col.findOne({ _id: id } as any);
+  }
+  const store = getCleanStore();
+  return store.contributions.find((c) => c._id === id) || null;
+}
+
+export async function dbUpdateContribution(id: string, updates: Partial<Contribution>): Promise<void> {
+  const col = await getCollection<Contribution>("contributions");
+  const { _id, ...safeUpdates } = updates as any;
+  if (col) {
+    await col.updateOne({ _id: id } as any, { $set: safeUpdates as any });
+    return;
+  }
+  const store = getCleanStore();
+  const idx = store.contributions.findIndex((c) => c._id === id);
+  if (idx !== -1) {
+    store.contributions[idx] = { ...store.contributions[idx], ...safeUpdates };
+  }
 }
 
 // WITHDRAWAL REQUESTS

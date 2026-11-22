@@ -48,7 +48,12 @@ export interface Contribution {
   member_mobile: string;
   amount: number; // e.g. ₹100
   month: string; // e.g. "2026-11"
-  status: "paid" | "pending" | "failed";
+  status: "paid" | "pending" | "rejected" | "failed";
+  payment_screenshot?: string; // Member uploaded payment screenshot
+  submitted_at?: string; // Timestamp when screenshot submitted
+  approved_at?: string; // Timestamp when approved (manual or auto)
+  auto_approved?: boolean; // true if auto-approved after 24 hours
+  rejection_reason?: string;
   razorpay_order_id?: string;
   razorpay_payment_id?: string;
   paid_at: string;
@@ -89,6 +94,10 @@ export interface Loan {
   total_payable?: number;
   total_repaid?: number;
   repaid_at?: string;
+  repayment_screenshot?: string;
+  repayment_submitted_at?: string;
+  repayment_status?: "pending_approval" | "approved" | "rejected";
+  repayment_auto_approved?: boolean;
   repayment_razorpay_id?: string;
 }
 
@@ -100,6 +109,14 @@ export interface SystemSettings {
   registration_link_active: boolean; // Admin can enable/disable self-registration link
   allow_deposit_after_10th: boolean; // Default false (deposit button visible only 1-10, admin can activate after 10th)
   allow_loan_repay_after_15th: boolean; // Default false (loan repay button visible only up to 15th, admin can re-enable)
+  // Direct UPI & QR Code Settings (Replaces 3rd-party Payment Gateway)
+  admin_upi_id?: string; // Admin's UPI ID (e.g. sky140052@okaxis)
+  admin_upi_name?: string; // Receiver Display Name (e.g. DFI इमरजेंसी सेवा)
+  admin_qr_code?: string; // Base64 image of Admin's PhonePe / GPay / Paytm QR code
+  admin_bank_name?: string;
+  admin_account_number?: string;
+  admin_ifsc?: string;
+  admin_account_holder?: string;
   brevo_api_key?: string; // Brevo API key (v3 SMTP API)
   brevo_sender_email?: string; // Verified sender email in Brevo
   smtp_email?: string; // Optional Gmail SMTP address

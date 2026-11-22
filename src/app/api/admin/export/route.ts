@@ -63,8 +63,9 @@ export async function GET(req: NextRequest) {
       "जमा राशि (₹)": Number(c.amount) || 0,
       "माह (Month)": c.month || "",
       "जमा तारीख": c.paid_at ? new Date(c.paid_at).toLocaleString("hi-IN") : "",
-      "पेमेंट रेफरेंस / ID": c.razorpay_payment_id || "",
-      "स्थिति": c.status === "paid" ? "सफल जमा (Paid)" : (c.status || "Paid"),
+      "पेमेंट रेफरेंस / ID": c.razorpay_payment_id || c._id,
+      "स्क्रीनशॉट संलग्न": c.payment_screenshot ? "हाँ (Yes)" : "नहीं",
+      "स्थिति": c.status === "paid" ? `सफल जमा (Paid)${c.auto_approved ? " [स्वतः 24h]" : ""}` : c.status === "pending" ? "लंबित (Pending)" : (c.status || "Paid"),
     }));
 
     // Format Loans Data for Excel

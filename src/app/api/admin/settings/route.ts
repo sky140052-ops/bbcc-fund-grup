@@ -62,6 +62,27 @@ async function handleUpdate(req: NextRequest) {
     if (typeof body.allow_loan_repay_after_15th === "boolean") {
       updates.allow_loan_repay_after_15th = body.allow_loan_repay_after_15th;
     }
+    if (body.admin_upi_id !== undefined) {
+      updates.admin_upi_id = String(body.admin_upi_id).trim();
+    }
+    if (body.admin_upi_name !== undefined) {
+      updates.admin_upi_name = String(body.admin_upi_name).trim();
+    }
+    if (body.admin_qr_code !== undefined) {
+      updates.admin_qr_code = String(body.admin_qr_code).trim();
+    }
+    if (body.admin_bank_name !== undefined) {
+      updates.admin_bank_name = String(body.admin_bank_name).trim();
+    }
+    if (body.admin_account_number !== undefined) {
+      updates.admin_account_number = String(body.admin_account_number).trim();
+    }
+    if (body.admin_ifsc !== undefined) {
+      updates.admin_ifsc = String(body.admin_ifsc).trim().toUpperCase();
+    }
+    if (body.admin_account_holder !== undefined) {
+      updates.admin_account_holder = String(body.admin_account_holder).trim();
+    }
     if (body.brevo_api_key !== undefined) {
       updates.brevo_api_key = String(body.brevo_api_key).trim();
       process.env.BREVO_API_KEY = updates.brevo_api_key;

@@ -49,6 +49,26 @@ export async function GET(req: NextRequest) {
 
     const allLoans = await dbFindLoans();
 
+    // 24-Hour Auto-Approval for pending loan repayments
+    const now = Date.now();
+    for (const l of allLoans) {
+      if (l.repayment_status === "pending_approval" && l.repayment_submitted_at) {
+        const subTime = new Date(l.repayment_submitted_at).getTime();
+        if (now - subTime >= 24 * 60 * 60 * 1000) {
+          l.status = "repaid";
+          l.repayment_status = "approved";
+          l.repayment_auto_approved = true;
+          l.repaid_at = new Date(subTime + 24 * 60 * 60 * 1000).toISOString();
+          await dbUpdateLoan(l._id, {
+            status: "repaid",
+            repayment_status: "approved",
+            repayment_auto_approved: true,
+            repaid_at: l.repaid_at,
+          });
+        }
+      }
+    }
+
     // Attach dynamic interest calculations
     const enrichedLoans = allLoans.map((l) => {
       const calc = calculateLoanInterest(l);
@@ -232,7 +252,7 @@ export async function PUT(req: NextRequest) {
       });
     }
 
-    // Action 2: Member Repays Loan via Razorpay
+    // Action 2: Member Repays Loan via Direct UPI Screenshot
     if (action === "member_repay") {
       const currentDay = new Date().getDate();
       const settings = await dbGetSystemSettings();
@@ -246,20 +266,50 @@ export async function PUT(req: NextRequest) {
 
       const calc = calculateLoanInterest(loan);
       const totalAmountPaid = Number(body.amount) || calc.totalPayable;
-      const razorpayId = sanitize(body.razorpay_payment_id || `repay_${Date.now()}`);
+      const screenshot = body.repayment_screenshot || "";
+
+      const isAdmin = session.role === "admin" || session.role === "founder";
+
+      const updates: Partial<Loan> = {
+        repayment_screenshot: screenshot,
+        repayment_submitted_at: new Date().toISOString(),
+        total_repaid: totalAmountPaid,
+        repayment_status: isAdmin ? "approved" : "pending_approval",
+        status: isAdmin ? "repaid" : loan.status,
+        repaid_at: isAdmin ? new Date().toISOString() : undefined,
+      };
+
+      await dbUpdateLoan(loan_id, updates);
+
+      const msg = isAdmin
+        ? `₹${totalAmountPaid} का लोन चुकता दर्ज कर दिया गया!`
+        : `₹${totalAmountPaid} का पेमेंट स्क्रीनशॉट दर्ज हो गया है! एडमिन द्वारा या 24 घंटे में स्वतः (Auto-Approve) चुकता हो जाएगा।`;
+
+      return NextResponse.json({
+        success: true,
+        message: msg,
+        loan: { ...loan, ...updates },
+      });
+    }
+
+    // Action 2B: Admin Approves Loan Repayment
+    if (action === "admin_approve_repayment") {
+      if (session.role !== "admin" && session.role !== "founder") {
+        return NextResponse.json({ error: "केवल एडमिन ही लोन चुकता स्वीकार कर सकते हैं।" }, { status: 403 });
+      }
 
       const updates: Partial<Loan> = {
         status: "repaid",
+        repayment_status: "approved",
         repaid_at: new Date().toISOString(),
-        total_repaid: totalAmountPaid,
-        repayment_razorpay_id: razorpayId,
+        repayment_auto_approved: false,
       };
 
       await dbUpdateLoan(loan_id, updates);
 
       return NextResponse.json({
         success: true,
-        message: `₹${totalAmountPaid} का लोन ब्याज सहित सफलतापूर्वक चुकता कर दिया गया है!`,
+        message: "लोन चुकता अनुरोध सफलतापूर्वक स्वीकार कर लिया गया!",
         loan: { ...loan, ...updates },
       });
     }

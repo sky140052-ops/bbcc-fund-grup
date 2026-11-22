@@ -24,15 +24,13 @@ import {
   Check,
   ExternalLink,
   Lock,
+  QrCode,
+  Copy,
+  Upload,
+  X,
 } from "lucide-react";
 import { Member, Contribution, Loan, SystemSettings } from "../../lib/types";
-
-// Declare Razorpay on window
-declare global {
-  interface Window {
-    Razorpay: any;
-  }
-}
+import { compressImage } from "../../lib/compress";
 
 export default function MemberDashboardPage() {
   const router = useRouter();
@@ -48,8 +46,19 @@ export default function MemberDashboardPage() {
   const [myContributions, setMyContributions] = useState<Contribution[]>([]);
   const [communityPoolTotal, setCommunityPoolTotal] = useState(0);
   const [myTotalDeposited, setMyTotalDeposited] = useState(0);
-  const [payingDeposit, setPayingDeposit] = useState(false);
   const [depositMsg, setDepositMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  // Direct UPI Screenshot Deposit Modal State
+  const [showDepositModal, setShowDepositModal] = useState(false);
+  const [depositScreenshot, setDepositScreenshot] = useState<string>("");
+  const [submittingDeposit, setSubmittingDeposit] = useState(false);
+
+  // Direct UPI Loan Repayment Modal State
+  const [showRepayModal, setShowRepayModal] = useState(false);
+  const [repayScreenshot, setRepayScreenshot] = useState<string>("");
+  const [submittingRepay, setSubmittingRepay] = useState(false);
+
+  const [copiedUpi, setCopiedUpi] = useState(false);
 
   // Loans
   const [allLoans, setAllLoans] = useState<Loan[]>([]);
@@ -59,7 +68,6 @@ export default function MemberDashboardPage() {
   const [loanReasonInput, setLoanReasonInput] = useState("");
   const [submittingLoan, setSubmittingLoan] = useState(false);
   const [loanMsg, setLoanMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
-  const [payingLoan, setPayingLoan] = useState(false);
 
   // All Members Directory
   const [allMembers, setAllMembers] = useState<Member[]>([]);
@@ -71,16 +79,14 @@ export default function MemberDashboardPage() {
   const [systemSettings, setSystemSettings] = useState<SystemSettings | null>(null);
   const [currentDay, setCurrentDay] = useState<number>(new Date().getDate());
 
-  // Load Razorpay Script
-  useEffect(() => {
-    const script = document.createElement("script");
-    script.src = "https://checkout.razorpay.com/v1/checkout.js";
-    script.async = true;
-    document.body.appendChild(script);
-    return () => {
-      document.body.removeChild(script);
-    };
-  }, []);
+  const adminUpi = systemSettings?.admin_upi_id || "sky140052@okaxis";
+  const adminName = systemSettings?.admin_upi_name || "DFI इमरजेंसी सेवा";
+
+  const handleCopyUpi = () => {
+    navigator.clipboard.writeText(adminUpi);
+    setCopiedUpi(true);
+    setTimeout(() => setCopiedUpi(false), 2000);
+  };
 
   // Fetch Member Profile & Data
   const fetchDashboardData = async () => {
@@ -154,83 +160,105 @@ export default function MemberDashboardPage() {
     }
   };
 
-  // Pay Monthly Deposit (₹100) via Razorpay
-  const handlePayMonthlyDeposit = async () => {
-    setPayingDeposit(true);
-    setDepositMsg(null);
-
-    const depositAmount = 100; // Fixed ₹100 per month as requested
-
+  // Handle Screenshot Upload for Monthly Deposit (Auto-compressed)
+  const handleDepositFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
     try {
-      // 1. Create Order
-      const resOrder = await fetch("/api/contributions", {
+      const compressed = await compressImage(file, { maxWidth: 800, maxHeight: 1000, quality: 0.75 });
+      setDepositScreenshot(compressed);
+    } catch {
+      alert("फ़ोटो लोड करने में त्रुटि। कृपया पुनः प्रयास करें।");
+    }
+  };
+
+  // Submit Monthly Deposit Screenshot
+  const handleSubmitDepositScreenshot = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!depositScreenshot) {
+      alert("कृपया भुगतान का स्क्रीनशॉट अपलोड करें।");
+      return;
+    }
+
+    setSubmittingDeposit(true);
+    try {
+      const res = await fetch("/api/contributions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "create_order", amount: depositAmount }),
+        body: JSON.stringify({
+          amount: 100,
+          payment_screenshot: depositScreenshot,
+        }),
       });
-      const dataOrder = await resOrder.json();
 
-      if (!resOrder.ok) {
-        throw new Error(dataOrder.error || "ऑर्डर बनाने में त्रुटि।");
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "जमा स्क्रीनशॉट दर्ज करने में विफल।");
       }
 
-      // If Razorpay script is not loaded or mock
-      if (!window.Razorpay || dataOrder.is_mock) {
-        // Direct save confirmation
-        const resSave = await fetch("/api/contributions", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            amount: depositAmount,
-            razorpay_payment_id: `pay_direct_${Date.now()}`,
-          }),
-        });
-        const dataSave = await resSave.json();
-        if (dataSave.success) {
-          setDepositMsg({ type: "success", text: "₹100 का मासिक अंशदान सफलतापूर्वक जमा हो गया!" });
-          fetchDashboardData();
-        }
-        return;
-      }
-
-      // Trigger Razorpay Checkout
-      const options = {
-        key: dataOrder.key_id,
-        amount: dataOrder.amount,
-        currency: "INR",
-        name: "DFI इमरजेंसी सेवा",
-        description: "मासिक अंशदान (1-10 तारीख)",
-        order_id: dataOrder.order_id,
-        handler: async function (response: any) {
-          const resSave = await fetch("/api/contributions", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              amount: depositAmount,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_order_id: response.razorpay_order_id,
-            }),
-          });
-          const dataSave = await resSave.json();
-          if (dataSave.success) {
-            setDepositMsg({ type: "success", text: "₹100 का मासिक अंशदान सफलतापूर्वक जमा हो गया!" });
-            fetchDashboardData();
-          }
-        },
-        prefill: {
-          name: member?.name,
-          email: member?.email,
-          contact: member?.mobile,
-        },
-        theme: { color: "#2563eb" },
-      };
-
-      const rzp = new window.Razorpay(options);
-      rzp.open();
+      setDepositMsg({
+        type: "success",
+        text: data.message || "₹100 का स्क्रीनशॉट दर्ज हो गया है! एडमिन द्वारा या 24 घंटे में स्वतः (Auto-Approve) आपके खाते में जुड़ जाएगा।",
+      });
+      setShowDepositModal(false);
+      setDepositScreenshot("");
+      fetchDashboardData();
     } catch (err: any) {
-      setDepositMsg({ type: "error", text: err.message || "भुगतान प्रक्रिया में त्रुटि।" });
+      alert(err.message || "त्रुटि आई।");
     } finally {
-      setPayingDeposit(false);
+      setSubmittingDeposit(false);
+    }
+  };
+
+  // Handle Screenshot Upload for Loan Repay (Auto-compressed)
+  const handleRepayFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const compressed = await compressImage(file, { maxWidth: 800, maxHeight: 1000, quality: 0.75 });
+      setRepayScreenshot(compressed);
+    } catch {
+      alert("फ़ोटो लोड करने में त्रुटि।");
+    }
+  };
+
+  // Submit Loan Repayment Screenshot
+  const handleSubmitRepayScreenshot = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeLoan) return;
+    if (!repayScreenshot) {
+      alert("कृपया भुगतान का स्क्रीनशॉट अपलोड करें।");
+      return;
+    }
+
+    setSubmittingRepay(true);
+    const totalPayable = activeLoan.total_payable || activeLoan.requested_amount;
+
+    try {
+      const res = await fetch("/api/loans", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          loan_id: activeLoan._id,
+          action: "member_repay",
+          amount: totalPayable,
+          repayment_screenshot: repayScreenshot,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "लोन चुकता स्क्रीनशॉट दर्ज करने में विफल।");
+      }
+
+      alert(data.message || "लोन चुकता स्क्रीनशॉट दर्ज हो गया! 24 घंटे में स्वतः (Auto-Approve) चुकता हो जाएगा।");
+      setShowRepayModal(false);
+      setRepayScreenshot("");
+      fetchDashboardData();
+    } catch (err: any) {
+      alert(err.message || "त्रुटि आई।");
+    } finally {
+      setSubmittingRepay(false);
     }
   };
 
@@ -281,40 +309,6 @@ export default function MemberDashboardPage() {
       setLoanMsg({ type: "error", text: err.message || "लोन आवेदन में समस्या आई।" });
     } finally {
       setSubmittingLoan(false);
-    }
-  };
-
-  // Repay Active Loan via Razorpay
-  const handleRepayLoan = async () => {
-    if (!activeLoan) return;
-    setPayingLoan(true);
-
-    const totalPayable = activeLoan.total_payable || activeLoan.requested_amount;
-
-    try {
-      // Mock or direct payment for repayment
-      const res = await fetch("/api/loans", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          loan_id: activeLoan._id,
-          action: "member_repay",
-          amount: totalPayable,
-          razorpay_payment_id: `repay_${Date.now()}`,
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || "लोन चुकता करने में त्रुटि।");
-      }
-
-      alert(`₹${totalPayable} का लोन ब्याज सहित सफलतापूर्वक चुकता कर दिया गया है!`);
-      fetchDashboardData();
-    } catch (err: any) {
-      alert(err.message || "भुगतान विफल रहा।");
-    } finally {
-      setPayingLoan(false);
     }
   };
 
@@ -448,17 +442,20 @@ export default function MemberDashboardPage() {
               </div>
               <div>
                 <h3 className="text-3xl font-black">₹100</h3>
-                <p className="text-xs text-blue-100 mt-1">प्रति माह UPI/Razorpay द्वारा देय</p>
+                <p className="text-xs text-blue-100 mt-1">प्रति माह Direct UPI / QR कोड द्वारा देय</p>
               </div>
 
               {((currentDay >= 1 && currentDay <= 10) || Boolean(systemSettings?.allow_deposit_after_10th)) ? (
                 <div className="space-y-1.5">
                   <button
-                    onClick={handlePayMonthlyDeposit}
-                    disabled={payingDeposit}
-                    className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-white text-blue-700 font-bold text-xs sm:text-sm hover:bg-blue-50 transition shadow-md disabled:opacity-50"
+                    onClick={() => {
+                      setDepositScreenshot("");
+                      setShowDepositModal(true);
+                    }}
+                    className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-white text-blue-700 font-bold text-xs sm:text-sm hover:bg-blue-50 transition shadow-md active-press"
                   >
-                    {payingDeposit ? "भुगतान चालू है..." : "Pay Now (ऑनलाइन जमा करें)"}
+                    <QrCode className="w-4 h-4 text-blue-600" />
+                    <span>₹100 जमा करें (QR कोड / UPI)</span>
                   </button>
                   {currentDay > 10 && systemSettings?.allow_deposit_after_10th && (
                     <p className="text-[10px] text-emerald-200 font-bold text-center">
@@ -540,7 +537,7 @@ export default function MemberDashboardPage() {
                       <th className="py-3 px-4">जमा तारीख</th>
                       <th className="py-3 px-4">माह (Month)</th>
                       <th className="py-3 px-4">जमा राशि</th>
-                      <th className="py-3 px-4">पेमेंट रेफरेंस / ID</th>
+                      <th className="py-3 px-4">स्क्रीनशॉट</th>
                       <th className="py-3 px-4">स्थिति</th>
                     </tr>
                   </thead>
@@ -548,19 +545,38 @@ export default function MemberDashboardPage() {
                     {myContributions.map((c) => (
                       <tr key={c._id}>
                         <td className="py-3 px-4 font-semibold text-slate-700">
-                          {new Date(c.paid_at).toLocaleString("hi-IN")}
+                          {new Date(c.paid_at || c.submitted_at || Date.now()).toLocaleString("hi-IN")}
                         </td>
                         <td className="py-3 px-4 font-bold text-slate-800">{c.month}</td>
                         <td className="py-3 px-4 font-black text-emerald-600 text-sm">
                           ₹{c.amount}
                         </td>
-                        <td className="py-3 px-4 font-mono text-slate-500 text-[11px]">
-                          {c.razorpay_payment_id || "—"}
+                        <td className="py-3 px-4">
+                          {c.payment_screenshot ? (
+                            <button
+                              onClick={() => setPreviewScreenshot(c.payment_screenshot!)}
+                              className="text-xs text-blue-600 font-bold hover:underline"
+                            >
+                              प्रमाण देखें
+                            </button>
+                          ) : (
+                            <span className="text-slate-400 font-mono text-[11px]">—</span>
+                          )}
                         </td>
                         <td className="py-3 px-4">
-                          <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
-                            सफल (Paid)
-                          </span>
+                          {c.status === "paid" ? (
+                            <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
+                              सफल (Paid) {c.auto_approved ? "• स्वतः 24h" : ""}
+                            </span>
+                          ) : c.status === "pending" ? (
+                            <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold animate-pulse">
+                              ⏳ सत्यापनाधीन (24h में स्वतः स्वीकृत)
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 text-[10px] font-bold">
+                              अस्वीकृत (Rejected)
+                            </span>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -597,13 +613,21 @@ export default function MemberDashboardPage() {
 
                 {activeLoan.status === "disbursed" && (
                   <div>
-                    {((currentDay <= 15) || Boolean(systemSettings?.allow_loan_repay_after_15th)) ? (
+                    {activeLoan.repayment_status === "pending_approval" ? (
+                      <div className="p-3 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs font-bold flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-amber-600 animate-spin" />
+                        <span>चुकता स्क्रीनशॉट दर्ज है (24h में स्वतः स्वीकृत)</span>
+                      </div>
+                    ) : ((currentDay <= 15) || Boolean(systemSettings?.allow_loan_repay_after_15th)) ? (
                       <div className="flex flex-col items-end gap-1">
                         <button
-                          onClick={handleRepayLoan}
-                          disabled={payingLoan}
-                          className="flex items-center gap-2 px-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm shadow-lg shadow-emerald-600/25 transition disabled:opacity-50"
+                          onClick={() => {
+                            setRepayScreenshot("");
+                            setShowRepayModal(true);
+                          }}
+                          className="flex items-center gap-2 px-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm shadow-lg shadow-emerald-600/25 transition active-press"
                         >
+                          <QrCode className="w-4 h-4" />
                           <span>लोन चुकता करें (Pay ₹{activeLoan.total_payable})</span>
                         </button>
                         {currentDay > 15 && systemSettings?.allow_loan_repay_after_15th && (
@@ -1049,7 +1073,8 @@ export default function MemberDashboardPage() {
                     <th className="py-3 px-4">जमा तारीख</th>
                     <th className="py-3 px-4">माह</th>
                     <th className="py-3 px-4">राशि</th>
-                    <th className="py-3 px-4">पेमेंट रेफरेंस</th>
+                    <th className="py-3 px-4">स्क्रीनशॉट प्रमाण</th>
+                    <th className="py-3 px-4">स्थिति</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -1057,12 +1082,36 @@ export default function MemberDashboardPage() {
                     <tr key={c._id}>
                       <td className="py-3 px-4 font-bold text-slate-900">{c.member_name}</td>
                       <td className="py-3 px-4 text-slate-600">
-                        {new Date(c.paid_at).toLocaleString("hi-IN")}
+                        {new Date(c.paid_at || c.submitted_at || Date.now()).toLocaleString("hi-IN")}
                       </td>
                       <td className="py-3 px-4 font-semibold text-slate-800">{c.month}</td>
                       <td className="py-3 px-4 font-black text-emerald-600 text-sm">₹{c.amount}</td>
-                      <td className="py-3 px-4 font-mono text-slate-400 text-[11px]">
-                        {c.razorpay_payment_id || "—"}
+                      <td className="py-3 px-4">
+                        {c.payment_screenshot ? (
+                          <button
+                            onClick={() => setPreviewScreenshot(c.payment_screenshot!)}
+                            className="text-xs text-blue-600 font-bold hover:underline"
+                          >
+                            स्क्रीनशॉट देखें
+                          </button>
+                        ) : (
+                          <span className="text-slate-400 font-mono text-[11px]">—</span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4">
+                        {c.status === "paid" ? (
+                          <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
+                            स्वीकृत {c.auto_approved ? "(स्वतः 24h)" : ""}
+                          </span>
+                        ) : c.status === "pending" ? (
+                          <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold animate-pulse">
+                            सत्यापनाधीन (24h में स्वतः स्वीकृत)
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 text-[10px] font-bold">
+                            अस्वीकृत
+                          </span>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -1186,6 +1235,239 @@ export default function MemberDashboardPage() {
           <span className="text-[10px]">समुदाय</span>
         </button>
       </div>
+
+      {/* Direct UPI Monthly Deposit Modal (Only Screenshot Required) */}
+      {showDepositModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl space-y-5 animate-scale-in glass-panel my-8 border border-slate-200">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+                  <QrCode className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="font-black text-slate-900 text-base">मासिक अंशदान जमा (₹100)</h4>
+                  <p className="text-[11px] text-slate-500">सीधे UPI / QR द्वारा भुगतान करें</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowDepositModal(false)}
+                className="p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* QR Code Card */}
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-center space-y-3">
+              <div className="inline-block p-2.5 bg-white rounded-2xl border border-slate-200 shadow-sm">
+                <img
+                  src={
+                    systemSettings?.admin_qr_code ||
+                    `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(
+                      `upi://pay?pa=${adminUpi}&pn=${adminName}&am=100&cu=INR`
+                    )}`
+                  }
+                  alt="Admin Payment QR Code"
+                  className="w-48 h-48 mx-auto object-contain rounded-xl"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">
+                  एडमिन UPI ID
+                </span>
+                <div className="flex items-center justify-center gap-2">
+                  <span className="font-mono font-bold text-slate-800 text-sm">{adminUpi}</span>
+                  <button
+                    onClick={handleCopyUpi}
+                    className="p-1 rounded-lg hover:bg-slate-200 text-slate-500 transition text-xs font-semibold flex items-center gap-1"
+                    title="UPI ID कॉपी करें"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                    <span>{copiedUpi ? "कॉपी हो गया ✓" : "कॉपी"}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Mobile 1-Click Pay App Deep Link */}
+              <a
+                href={`upi://pay?pa=${adminUpi}&pn=${encodeURIComponent(adminName)}&am=100&cu=INR`}
+                className="w-full inline-flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-xs shadow-md shadow-blue-500/20 transition active-press"
+              >
+                <span>📱 PhonePe / GPay से सीधे ₹100 भेजें</span>
+              </a>
+            </div>
+
+            {/* Upload Screenshot (Only Screenshot Required!) */}
+            <form onSubmit={handleSubmitDepositScreenshot} className="space-y-4">
+              <div className="space-y-2">
+                <label className="block text-xs font-bold text-slate-700">
+                  भुगतान का स्क्रीनशॉट चुनें (फ़ोटो/स्क्रीनशॉट) <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  required
+                  onChange={handleDepositFile}
+                  className="w-full text-xs text-slate-500 file:mr-3 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 transition cursor-pointer"
+                />
+
+                {depositScreenshot && (
+                  <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center gap-3">
+                    <img
+                      src={depositScreenshot}
+                      alt="Deposit Proof Preview"
+                      className="w-14 h-14 rounded-lg object-cover border border-emerald-300 shrink-0"
+                    />
+                    <div className="text-xs text-emerald-800 font-bold">
+                      ✓ स्क्रीनशॉट तैयार है
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 24-Hour Auto-Approval Reassurance */}
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 text-xs flex items-start gap-2">
+                <Clock className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <span className="leading-snug">
+                  स्क्रीनशॉट दर्ज होते ही आपका अनुरोध सुरक्षित हो जाएगा। एडमिन द्वारा तुरंत, या <b>24 घंटे में स्वतः (Auto-Approve)</b> आपके खाते में ₹100 जमा दर्ज हो जाएगा।
+                </span>
+              </div>
+
+              <button
+                type="submit"
+                disabled={!depositScreenshot || submittingDeposit}
+                className="w-full flex items-center justify-center gap-2 py-3.5 px-6 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm shadow-lg shadow-emerald-600/25 transition disabled:opacity-50 active-press"
+              >
+                {submittingDeposit ? (
+                  <span>सबमिट हो रहा है...</span>
+                ) : (
+                  <>
+                    <Upload className="w-4 h-4" />
+                    <span>जमा स्क्रीनशॉट सबमिट करें</span>
+                  </>
+                )}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Direct UPI Loan Repayment Modal */}
+      {showRepayModal && activeLoan && (
+        <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl space-y-5 animate-scale-in glass-panel my-8 border border-slate-200">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
+                  <QrCode className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="font-black text-slate-900 text-base">लोन चुकता भुगतान</h4>
+                  <p className="text-[11px] text-slate-500">कुल देय राशि: ₹{activeLoan.total_payable}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowRepayModal(false)}
+                className="p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* QR Card */}
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-center space-y-3">
+              <div className="inline-block p-2.5 bg-white rounded-2xl border border-slate-200 shadow-sm">
+                <img
+                  src={
+                    systemSettings?.admin_qr_code ||
+                    `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(
+                      `upi://pay?pa=${adminUpi}&pn=${adminName}&am=${activeLoan.total_payable}&cu=INR`
+                    )}`
+                  }
+                  alt="Admin Payment QR Code"
+                  className="w-48 h-48 mx-auto object-contain rounded-xl"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">
+                  एडमिन UPI ID
+                </span>
+                <div className="flex items-center justify-center gap-2">
+                  <span className="font-mono font-bold text-slate-800 text-sm">{adminUpi}</span>
+                  <button
+                    onClick={handleCopyUpi}
+                    className="p-1 rounded-lg hover:bg-slate-200 text-slate-500 transition text-xs font-semibold flex items-center gap-1"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                    <span>{copiedUpi ? "कॉपी हो गया ✓" : "कॉपी"}</span>
+                  </button>
+                </div>
+              </div>
+
+              <a
+                href={`upi://pay?pa=${adminUpi}&pn=${encodeURIComponent(adminName)}&am=${activeLoan.total_payable}&cu=INR`}
+                className="w-full inline-flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold text-xs shadow-md shadow-indigo-500/20 transition active-press"
+              >
+                <span>📱 PhonePe / GPay से सीधे ₹{activeLoan.total_payable} भेजें</span>
+              </a>
+            </div>
+
+            {/* Upload Screenshot */}
+            <form onSubmit={handleSubmitRepayScreenshot} className="space-y-4">
+              <div className="space-y-2">
+                <label className="block text-xs font-bold text-slate-700">
+                  भुगतान का स्क्रीनशॉट अपलोड करें <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  required
+                  onChange={handleRepayFile}
+                  className="w-full text-xs text-slate-500 file:mr-3 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 transition cursor-pointer"
+                />
+
+                {repayScreenshot && (
+                  <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center gap-3">
+                    <img
+                      src={repayScreenshot}
+                      alt="Repay Proof Preview"
+                      className="w-14 h-14 rounded-lg object-cover border border-emerald-300 shrink-0"
+                    />
+                    <div className="text-xs text-emerald-800 font-bold">
+                      ✓ स्क्रीनशॉट तैयार है
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 text-xs flex items-start gap-2">
+                <Clock className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <span className="leading-snug">
+                  स्क्रीनशॉट सबमिट करने के बाद <b>24 घंटे में यह अपने आप (Auto-Approve)</b> लोन चुकता के रूप में दर्ज हो जाएगा।
+                </span>
+              </div>
+
+              <button
+                type="submit"
+                disabled={!repayScreenshot || submittingRepay}
+                className="w-full flex items-center justify-center gap-2 py-3.5 px-6 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm shadow-lg shadow-emerald-600/25 transition disabled:opacity-50 active-press"
+              >
+                {submittingRepay ? (
+                  <span>सबमिट हो रहा है...</span>
+                ) : (
+                  <>
+                    <Upload className="w-4 h-4" />
+                    <span>लोन चुकता स्क्रीनशॉट सबमिट करें</span>
+                  </>
+                )}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Screenshot Zoom Modal */}
       {previewScreenshot && (

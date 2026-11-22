@@ -3,24 +3,15 @@ import { verifyToken } from "../../../lib/auth";
 import {
   dbFindContributions,
   dbInsertContribution,
-  dbFindMembers,
-  dbFindMemberById,
+  dbUpdateContribution,
+  dbFindContributionById,
   dbGetSystemSettings,
 } from "../../../lib/astra";
 import { sanitize } from "../../../lib/crypto";
 import { Contribution } from "../../../lib/types";
-import Razorpay from "razorpay";
-
-function getRazorpayInstance() {
-  const key_id = process.env.RAZORPAY_KEY_ID;
-  const key_secret = process.env.RAZORPAY_KEY_SECRET;
-  if (!key_id || !key_secret || key_id.includes("placeholder")) {
-    return null;
-  }
-  return new Razorpay({ key_id, key_secret });
-}
 
 // GET: Returns list of contributions, community total, and member's total
+// Includes 24-hour Auto-Approval check for all pending screenshot contributions
 export async function GET(req: NextRequest) {
   const token = req.cookies.get("bbcc_session")?.value;
   const session = token ? verifyToken(token) : null;
@@ -35,10 +26,29 @@ export async function GET(req: NextRequest) {
 
     const allContributions = await dbFindContributions();
 
-    // Sort newest first
-    allContributions.sort((a, b) => new Date(b.paid_at).getTime() - new Date(a.paid_at).getTime());
+    // 24-Hour Auto-Approval Engine
+    // If admin has not approved/rejected a pending deposit within 24 hours, auto-approve it!
+    const now = Date.now();
+    for (const c of allContributions) {
+      if (c.status === "pending") {
+        const submittedTime = new Date(c.submitted_at || c.paid_at).getTime();
+        if (now - submittedTime >= 24 * 60 * 60 * 1000) {
+          c.status = "paid";
+          c.auto_approved = true;
+          c.approved_at = new Date(submittedTime + 24 * 60 * 60 * 1000).toISOString();
+          await dbUpdateContribution(c._id, {
+            status: "paid",
+            auto_approved: true,
+            approved_at: c.approved_at,
+          });
+        }
+      }
+    }
 
-    // Calculate community total
+    // Sort newest first
+    allContributions.sort((a, b) => new Date(b.paid_at || b.submitted_at || 0).getTime() - new Date(a.paid_at || a.submitted_at || 0).getTime());
+
+    // Calculate community total (only approved / paid contributions)
     const totalCommunityPool = allContributions
       .filter((c) => c.status === "paid")
       .reduce((sum, c) => sum + (Number(c.amount) || 0), 0);
@@ -46,10 +56,12 @@ export async function GET(req: NextRequest) {
     // Calculate member's total
     const targetMemberId = memberId || (session.role === "member" ? session.userId : null);
     const memberContributions = targetMemberId
-      ? allContributions.filter((c) => (c.member_id === targetMemberId || (c as any).user_id === targetMemberId) && c.status === "paid")
+      ? allContributions.filter((c) => (c.member_id === targetMemberId || (c as any).user_id === targetMemberId))
       : [];
 
-    const memberTotalDeposited = memberContributions.reduce((sum, c) => sum + (Number(c.amount) || 0), 0);
+    const memberTotalDeposited = memberContributions
+      .filter((c) => c.status === "paid")
+      .reduce((sum, c) => sum + (Number(c.amount) || 0), 0);
 
     return NextResponse.json({
       success: true,
@@ -64,7 +76,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// POST: Create Razorpay Order or Save Confirmed Deposit
+// POST: Save Direct UPI Screenshot Deposit (Auto-approves in 24h if admin does not act)
 export async function POST(req: NextRequest) {
   const token = req.cookies.get("bbcc_session")?.value;
   const session = token ? verifyToken(token) : null;
@@ -86,53 +98,19 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const action = body.action || "save_deposit";
 
-    // Action 1: Create Razorpay Order
-    if (action === "create_order") {
-      const amount = Math.max(1, Number(body.amount) || 100);
-      const razorpay = getRazorpayInstance();
-
-      if (!razorpay) {
-        // Mock order ID if keys are missing
-        const mockOrderId = `order_mock_${Date.now()}`;
-        return NextResponse.json({
-          success: true,
-          order_id: mockOrderId,
-          amount: amount * 100,
-          currency: "INR",
-          key_id: process.env.RAZORPAY_KEY_ID || "rzp_test_mock",
-          is_mock: true,
-        });
-      }
-
-      const options = {
-        amount: Math.round(amount * 100), // In Paise
-        currency: "INR",
-        receipt: `rcpt_${session.userId.slice(-6)}_${Date.now()}`,
-        notes: {
-          member_id: session.userId,
-          member_name: session.name,
-        },
-      };
-
-      const order = await razorpay.orders.create(options);
-      return NextResponse.json({
-        success: true,
-        order_id: order.id,
-        amount: order.amount,
-        currency: order.currency,
-        key_id: process.env.RAZORPAY_KEY_ID,
-      });
-    }
-
-    // Action 2: Save Confirmed Deposit
     const amount = Math.max(1, Number(body.amount) || 100);
     const targetMemberId = body.member_id || session.userId;
     const targetMemberName = body.member_name || session.name;
     const targetMemberMobile = body.member_mobile || session.mobile || "";
 
     const currentMonth = new Date().toISOString().slice(0, 7); // e.g. "2026-11"
+    const screenshot = body.payment_screenshot || "";
+
+    // If submitted by Admin directly, it is marked 'paid' immediately
+    // If submitted by Member, it is marked 'pending' and auto-approved in 24 hours
+    const isAdmin = session.role === "admin" || session.role === "founder";
+    const initialStatus = isAdmin ? "paid" : "pending";
 
     const newContribution: Contribution = {
       _id: `cntr_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
@@ -141,22 +119,75 @@ export async function POST(req: NextRequest) {
       member_mobile: targetMemberMobile,
       amount,
       month: body.month || currentMonth,
-      status: "paid",
-      razorpay_order_id: body.razorpay_order_id || "",
-      razorpay_payment_id: body.razorpay_payment_id || `pay_manual_${Date.now()}`,
+      status: initialStatus,
+      payment_screenshot: screenshot,
+      submitted_at: new Date().toISOString(),
       paid_at: new Date().toISOString(),
-      note: sanitize(body.note || "DFI मासिक अंशदान जमा"),
+      auto_approved: false,
+      note: sanitize(body.note || "DFI मासिक अंशदान जमा (Direct UPI)"),
     };
 
     await dbInsertContribution(newContribution);
 
+    const message = isAdmin
+      ? `₹${amount} की राशि सफलतापूर्वक दर्ज कर दी गई!`
+      : `₹${amount} का स्क्रीनशॉट दर्ज हो गया है! एडमिन द्वारा तुरंत या 24 घंटे में स्वतः (Auto-Approve) आपके खाते में जुड़ जाएगा।`;
+
     return NextResponse.json({
       success: true,
-      message: `₹${amount} की राशि सफलतापूर्वक जमा कर दी गई है!`,
+      message,
       contribution: newContribution,
     });
   } catch (err: any) {
     console.error("Contribution POST error:", err);
     return NextResponse.json({ error: "जमा राशि सुरक्षित करने में त्रुटि।" }, { status: 500 });
+  }
+}
+
+// PUT: Admin Manual Approval or Rejection
+export async function PUT(req: NextRequest) {
+  const token = req.cookies.get("bbcc_session")?.value;
+  const session = token ? verifyToken(token) : null;
+
+  if (!session || (session.role !== "admin" && session.role !== "founder")) {
+    return NextResponse.json({ error: "अनधिकृत अनुरोध। केवल एडमिन ही यह बदलाव कर सकते हैं।" }, { status: 401 });
+  }
+
+  try {
+    const { contribution_id, action, reason } = await req.json();
+    if (!contribution_id) {
+      return NextResponse.json({ error: "कंट्रीब्यूशन आईडी आवश्यक है।" }, { status: 400 });
+    }
+
+    const contribution = await dbFindContributionById(contribution_id);
+    if (!contribution) {
+      return NextResponse.json({ error: "जमा रिकॉर्ड नहीं मिला।" }, { status: 404 });
+    }
+
+    if (action === "approve") {
+      await dbUpdateContribution(contribution_id, {
+        status: "paid",
+        approved_at: new Date().toISOString(),
+        auto_approved: false,
+      });
+      return NextResponse.json({
+        success: true,
+        message: `सदस्य '${contribution.member_name}' का ₹${contribution.amount} का अंशदान सफलतापूर्वक स्वीकार कर लिया गया!`,
+      });
+    } else if (action === "reject") {
+      await dbUpdateContribution(contribution_id, {
+        status: "rejected",
+        rejection_reason: sanitize(reason || "अमान्य या अपूर्ण स्क्रीनशॉट"),
+      });
+      return NextResponse.json({
+        success: true,
+        message: `सदस्य '${contribution.member_name}' का जमा अनुरोध अस्वीकार कर दिया गया।`,
+      });
+    }
+
+    return NextResponse.json({ error: "अमान्य एक्शन।" }, { status: 400 });
+  } catch (err: any) {
+    console.error("Contribution PUT error:", err);
+    return NextResponse.json({ error: "सत्यापन प्रक्रिया में त्रुटि।" }, { status: 500 });
   }
 }

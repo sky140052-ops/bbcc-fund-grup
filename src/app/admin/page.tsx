@@ -38,6 +38,8 @@ import {
   Calendar,
   ToggleLeft,
   ToggleRight,
+  QrCode,
+  Clock,
 } from "lucide-react";
 import { Member, Contribution, Loan, SystemSettings } from "../../lib/types";
 import { compressImage } from "../../lib/compress";
@@ -139,6 +141,13 @@ export default function AdminPage() {
   const [updatingSettingKey, setUpdatingSettingKey] = useState<string | null>(null);
   const [settingUpdateMsg, setSettingUpdateMsg] = useState<string | null>(null);
 
+  // Direct UPI & QR Code Settings State
+  const [adminUpiInput, setAdminUpiInput] = useState("sky140052@okaxis");
+  const [adminUpiNameInput, setAdminUpiNameInput] = useState("DFI इमरजेंसी सेवा");
+  const [adminQrCodeInput, setAdminQrCodeInput] = useState("");
+  const [savingUpiSettings, setSavingUpiSettings] = useState(false);
+  const [upiSettingsMsg, setUpiSettingsMsg] = useState<string | null>(null);
+
   useEffect(() => {
     if (typeof window !== "undefined") {
       setInviteLink(`${window.location.origin}/join`);
@@ -154,6 +163,9 @@ export default function AdminPage() {
         const data = await res.json();
         if (data.settings) {
           setSettings(data.settings);
+          if (data.settings.admin_upi_id) setAdminUpiInput(data.settings.admin_upi_id);
+          if (data.settings.admin_upi_name) setAdminUpiNameInput(data.settings.admin_upi_name);
+          if (data.settings.admin_qr_code) setAdminQrCodeInput(data.settings.admin_qr_code);
         }
         if (typeof data.currentDay === "number") {
           setCurrentDay(data.currentDay);
@@ -186,6 +198,108 @@ export default function AdminPage() {
     } finally {
       setUpdatingSettingKey(null);
     }
+  };
+
+  // Save Direct UPI and QR Code Settings
+  const handleSaveUpiSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingUpiSettings(true);
+    setUpiSettingsMsg(null);
+    try {
+      const res = await fetch("/api/admin/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          admin_upi_id: adminUpiInput.trim(),
+          admin_upi_name: adminUpiNameInput.trim(),
+          admin_qr_code: adminQrCodeInput,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "UPI सेटिंग्स सेव करने में विफल।");
+      setSettings(data.settings);
+      setUpiSettingsMsg("✓ UPI एवं QR कोड सेटिंग्स सफलतापूर्वक सुरक्षित हो गईं!");
+      setTimeout(() => setUpiSettingsMsg(null), 3500);
+    } catch (err: any) {
+      alert(err.message || "त्रुटि हुई।");
+    } finally {
+      setSavingUpiSettings(false);
+    }
+  };
+
+  // Upload Admin QR Code Photo (Auto-compressed)
+  const handleAdminQrUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const compressed = await compressImage(file, { maxWidth: 600, maxHeight: 600, quality: 0.8 });
+      setAdminQrCodeInput(compressed);
+    } catch {
+      alert("QR कोड लोड करने में विफल।");
+    }
+  };
+
+  // Approve Member Contribution (Deposit)
+  const handleApproveContribution = async (id: string) => {
+    try {
+      const res = await fetch("/api/contributions", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contribution_id: id, action: "approve" }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "स्वीकार करने में त्रुटि।");
+      alert(data.message || "अंशदान स्वीकृत!");
+      fetchTransactions();
+    } catch (err: any) {
+      alert(err.message || "त्रुटि आई।");
+    }
+  };
+
+  // Reject Member Contribution
+  const handleRejectContribution = async (id: string) => {
+    const reason = prompt("अस्वीकार करने का कारण दर्ज करें (वैकल्पिक):", "अमान्य स्क्रीनशॉट");
+    if (reason === null) return;
+    try {
+      const res = await fetch("/api/contributions", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contribution_id: id, action: "reject", reason }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "अस्वीकार करने में त्रुटि।");
+      alert(data.message || "अंशदान अस्वीकृत!");
+      fetchTransactions();
+    } catch (err: any) {
+      alert(err.message || "त्रुटि आई।");
+    }
+  };
+
+  // Approve Loan Repayment
+  const handleApproveLoanRepay = async (loanId: string) => {
+    if (!confirm("क्या आप इस सदस्य का लोन चुकता प्रमाण स्वीकार करना चाहते हैं?")) return;
+    try {
+      const res = await fetch("/api/loans", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ loan_id: loanId, action: "admin_approve_repayment" }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "स्वीकार करने में विफल।");
+      alert(data.message || "लोन चुकता स्वीकृत!");
+      fetchLoans();
+    } catch (err: any) {
+      alert(err.message || "त्रुटि आई।");
+    }
+  };
+
+  // Calculate Remaining Hours until 24h Auto-Approval
+  const calcHoursRemaining = (submittedAt?: string) => {
+    if (!submittedAt) return "24 घंटे";
+    const diffMs = 24 * 60 * 60 * 1000 - (Date.now() - new Date(submittedAt).getTime());
+    if (diffMs <= 0) return "0 घंटे (स्वतः स्वीकृत)";
+    const hours = Math.ceil(diffMs / (60 * 60 * 1000));
+    return `${hours} घंटे शेष`;
   };
 
   // Initial Fetch
@@ -778,29 +892,77 @@ export default function AdminPage() {
               </div>
             </div>
 
-            {/* Razorpay Status */}
-            <div className="p-6 rounded-3xl bg-white border border-slate-200 shadow-sm space-y-3">
+            {/* Direct UPI & QR Code Settings Form (Replaces Razorpay Gateway) */}
+            <div className="p-6 rounded-3xl bg-white border border-slate-200 shadow-sm space-y-4">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                  Razorpay गेटवे
+                  Direct UPI व QR कोड सेटिंग्स
                 </span>
                 <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-bold">
-                  {razorpayData?.mode || "Live"}
+                  0% कमीशन • सीधा बैंक
                 </span>
               </div>
-              <p className="text-xs font-mono text-slate-600">{razorpayData?.key_id_masked}</p>
-              <button
-                onClick={handleTestRazorpay}
-                disabled={testingRazorpay}
-                className="w-full py-2 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs transition disabled:opacity-50"
-              >
-                {testingRazorpay ? "जांच हो रही है..." : "Razorpay लाइव टेस्ट करें"}
-              </button>
-              {razorpayTestResult && (
-                <div className="p-2 rounded-lg bg-slate-100 text-[11px] font-semibold text-slate-800">
-                  {razorpayTestResult}
+
+              <form onSubmit={handleSaveUpiSettings} className="space-y-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    आपका UPI ID (PhonePe/GPay)
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={adminUpiInput}
+                    onChange={(e) => setAdminUpiInput(e.target.value)}
+                    placeholder="sky140052@okaxis"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
                 </div>
-              )}
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    खाताधारक / ग्रुप नाम
+                  </label>
+                  <input
+                    type="text"
+                    value={adminUpiNameInput}
+                    onChange={(e) => setAdminUpiNameInput(e.target.value)}
+                    placeholder="DFI इमरजेंसी सेवा"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    QR कोड फ़ोटो अपलोड करें (वैकल्पिक)
+                  </label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleAdminQrUpload}
+                    className="w-full text-[11px] text-slate-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-[11px] file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
+                  />
+                  {adminQrCodeInput && (
+                    <div className="mt-2 flex items-center gap-2">
+                      <img src={adminQrCodeInput} alt="QR Preview" className="w-12 h-12 object-contain rounded-lg border border-slate-200" />
+                      <span className="text-[10px] text-emerald-600 font-bold">✓ QR कोड लगा हुआ है</span>
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={savingUpiSettings}
+                  className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-xs shadow-md transition disabled:opacity-50"
+                >
+                  {savingUpiSettings ? "सेव हो रहा है..." : "UPI सेटिंग्स सेव करें"}
+                </button>
+
+                {upiSettingsMsg && (
+                  <p className="text-[11px] text-emerald-700 font-bold text-center">
+                    {upiSettingsMsg}
+                  </p>
+                )}
+              </form>
             </div>
           </div>
 
@@ -1553,22 +1715,70 @@ export default function AdminPage() {
                     <th className="py-3 px-4">तारीख</th>
                     <th className="py-3 px-4">माह</th>
                     <th className="py-3 px-4">राशि</th>
-                    <th className="py-3 px-4">पेमेंट ID</th>
-                    <th className="py-3 px-4">स्थिति</th>
+                    <th className="py-3 px-4">स्क्रीनशॉट प्रमाण</th>
+                    <th className="py-3 px-4">स्थिति / 24h ऑटो-अप्रूवल</th>
+                    <th className="py-3 px-4 text-right">एडमिन एक्शन</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {contributions.map((c) => (
                     <tr key={c._id}>
-                      <td className="py-3 px-4 font-bold text-slate-900">{c.member_name}</td>
-                      <td className="py-3 px-4 text-slate-600">{new Date(c.paid_at).toLocaleString("hi-IN")}</td>
+                      <td className="py-3 px-4 font-bold text-slate-900">
+                        <div>{c.member_name}</div>
+                        <div className="text-[10px] text-slate-400 font-mono">{c.member_mobile}</div>
+                      </td>
+                      <td className="py-3 px-4 text-slate-600">
+                        {new Date(c.paid_at || c.submitted_at || Date.now()).toLocaleString("hi-IN")}
+                      </td>
                       <td className="py-3 px-4 font-semibold text-slate-800">{c.month}</td>
                       <td className="py-3 px-4 font-black text-emerald-600">₹{c.amount}</td>
-                      <td className="py-3 px-4 font-mono text-slate-400">{c.razorpay_payment_id || "—"}</td>
                       <td className="py-3 px-4">
-                        <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
-                          Paid
-                        </span>
+                        {c.payment_screenshot ? (
+                          <button
+                            onClick={() => setPreviewScreenshot(c.payment_screenshot!)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 font-bold hover:bg-blue-100 transition text-xs"
+                          >
+                            <ImageIcon className="w-3.5 h-3.5" />
+                            <span>प्रमाण देखें</span>
+                          </button>
+                        ) : (
+                          <span className="text-slate-400 text-xs">—</span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4">
+                        {c.status === "paid" ? (
+                          <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
+                            स्वीकृत {c.auto_approved ? "(24h स्वतः)" : "(एडमिन द्वारा)"}
+                          </span>
+                        ) : c.status === "pending" ? (
+                          <span className="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold animate-pulse">
+                            ⏳ लंबित ({calcHoursRemaining(c.submitted_at)})
+                          </span>
+                        ) : (
+                          <span className="px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-800 text-[10px] font-bold">
+                            अस्वीकृत
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4 text-right">
+                        {c.status === "pending" ? (
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              onClick={() => handleApproveContribution(c._id)}
+                              className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm transition"
+                            >
+                              स्वीकारें
+                            </button>
+                            <button
+                              onClick={() => handleRejectContribution(c._id)}
+                              className="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs transition"
+                            >
+                              अस्वीकारें
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-slate-400 text-xs">पूर्ण</span>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -1652,6 +1862,23 @@ export default function AdminPage() {
                             <Send className="w-3.5 h-3.5" />
                             <span>पैसा भेजें व स्क्रीनशॉट डालें</span>
                           </button>
+                        ) : l.repayment_status === "pending_approval" ? (
+                          <div className="flex items-center justify-end gap-1.5">
+                            {l.repayment_screenshot && (
+                              <button
+                                onClick={() => setPreviewScreenshot(l.repayment_screenshot!)}
+                                className="text-xs text-blue-600 font-bold hover:underline"
+                              >
+                                चुकता प्रमाण
+                              </button>
+                            )}
+                            <button
+                              onClick={() => handleApproveLoanRepay(l._id)}
+                              className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm transition"
+                            >
+                              स्वीकारें
+                            </button>
+                          </div>
                         ) : l.payment_screenshot ? (
                           <button
                             onClick={() => setPreviewScreenshot(l.payment_screenshot!)}
