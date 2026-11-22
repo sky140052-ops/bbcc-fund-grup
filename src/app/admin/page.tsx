@@ -590,7 +590,17 @@ export default function AdminPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <a
+            href="/api/admin/export?type=all"
+            download
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-sm hover-lift active-press"
+            title="सदस्य, जमा लेन-देन और लोन का पूरा डेटा एक्सेल फाइल में डाउनलोड करें"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>एक्सेल फाइल डाउनलोड (.xlsx)</span>
+          </a>
+
           <button
             onClick={() => {
               fetchAdminStatus();
@@ -599,7 +609,7 @@ export default function AdminPage() {
               fetchLoans();
               fetchSettings();
             }}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-50 transition shadow-sm"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-50 transition shadow-sm hover-lift active-press"
           >
             <RefreshCw className="w-3.5 h-3.5 text-slate-500" />
             <span>रिफ्रेश</span>
@@ -607,7 +617,7 @@ export default function AdminPage() {
 
           <button
             onClick={handleLogout}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-rose-50 border border-rose-200 text-xs font-bold text-rose-700 hover:bg-rose-100 transition shadow-sm"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-rose-50 border border-rose-200 text-xs font-bold text-rose-700 hover:bg-rose-100 transition shadow-sm hover-lift active-press"
           >
             <LogOut className="w-3.5 h-3.5" />
             <span>लॉगआउट</span>
@@ -1039,6 +1049,96 @@ export default function AdminPage() {
               </button>
             </div>
           </div>
+
+          {/* Row 3: Excel Data Export Center */}
+          <div className="p-6 rounded-3xl bg-gradient-to-br from-emerald-50 via-teal-50 to-slate-50 border-2 border-emerald-300 shadow-md space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-emerald-200">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="px-2.5 py-0.5 rounded-full bg-emerald-600 text-white text-[11px] font-black uppercase tracking-wider">
+                    डेटा बैकअप व एक्सेल रिपोर्ट
+                  </span>
+                  <span className="text-xs font-bold text-emerald-800">
+                    • Microsoft Excel (.xlsx) कम्पेटिबल
+                  </span>
+                </div>
+                <h3 className="text-lg font-black text-slate-900 mt-1">
+                  DFI डेटा एक्सेल फाइल डाउनलोड केंद्र (Excel Export Center)
+                </h3>
+                <p className="text-xs text-slate-600">
+                  सभी सदस्यों के विवरण, मासिक जमा लेन-देन, तथा लोन इतिहास को एक्सेल स्प्रेडशीट में सुरक्षित डाउनलोड करें
+                </p>
+              </div>
+
+              <a
+                href="/api/admin/export?type=all"
+                download
+                className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs sm:text-sm shadow-md transition hover-lift active-press"
+              >
+                <Download className="w-4 h-4" />
+                <span>मास्टर एक्सेल फाइल (सभी 3 शीट्स एक साथ)</span>
+              </a>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1">
+              {/* Export Option 1: Members */}
+              <div className="p-4 rounded-2xl bg-white border border-emerald-200 shadow-sm space-y-2 hover-lift transition-all">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                  शीट 1: सदस्य डायरेक्टरी
+                </span>
+                <h4 className="font-bold text-slate-900 text-sm">सभी सदस्य विवरण</h4>
+                <p className="text-[11px] text-slate-500 leading-snug">
+                  नाम, मोबाइल, ईमेल, आधार, पैन, बैंक खाता संख्या, IFSC, UPI व पंजीकरण तारीख
+                </p>
+                <a
+                  href="/api/admin/export?type=members"
+                  download
+                  className="w-full inline-flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-xs border border-emerald-200 transition"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>सदस्य एक्सेल डाउनलोड (.xlsx)</span>
+                </a>
+              </div>
+
+              {/* Export Option 2: Transactions */}
+              <div className="p-4 rounded-2xl bg-white border border-emerald-200 shadow-sm space-y-2 hover-lift transition-all">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                  शीट 2: जमा लेन-देन
+                </span>
+                <h4 className="font-bold text-slate-900 text-sm">मासिक जमा रिकॉर्ड्स</h4>
+                <p className="text-[11px] text-slate-500 leading-snug">
+                  सदस्य नाम, जमा तारीख, माह, ₹100 राशि, रेजरपे रेफरेंस ID व पेमेंट स्टेटस
+                </p>
+                <a
+                  href="/api/admin/export?type=contributions"
+                  download
+                  className="w-full inline-flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-xs border border-emerald-200 transition"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>लेन-देन एक्सेल डाउनलोड (.xlsx)</span>
+                </a>
+              </div>
+
+              {/* Export Option 3: Loans */}
+              <div className="p-4 rounded-2xl bg-white border border-emerald-200 shadow-sm space-y-2 hover-lift transition-all">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                  शीट 3: लोन व डिस्बर्सल
+                </span>
+                <h4 className="font-bold text-slate-900 text-sm">लोन एवं रिपेमेंट इतिहास</h4>
+                <p className="text-[11px] text-slate-500 leading-snug">
+                  आवेदन राशि, 10% कटौती, 1% p.m. ब्याज, बैंक UTR, स्टेटस व चुकता विवरण
+                </p>
+                <a
+                  href="/api/admin/export?type=loans"
+                  download
+                  className="w-full inline-flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-xs border border-emerald-200 transition"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>लोन इतिहास एक्सेल डाउनलोड (.xlsx)</span>
+                </a>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
@@ -1081,6 +1181,15 @@ export default function AdminPage() {
                 <Copy className="w-3.5 h-3.5" />
                 <span>लिंक कॉपी</span>
               </button>
+
+              <a
+                href="/api/admin/export?type=members"
+                download
+                className="flex items-center gap-1.5 py-2 px-3.5 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-300 hover:bg-emerald-100 font-bold text-xs transition hover-lift active-press"
+              >
+                <Download className="w-3.5 h-3.5 text-emerald-600" />
+                <span>सदस्य एक्सेल डाउनलोड (.xlsx)</span>
+              </a>
 
               <button
                 onClick={() => setActiveTab("add_member")}
@@ -1370,12 +1479,22 @@ export default function AdminPage() {
       {/* ======================================================== */}
       {activeTab === "transactions" && (
         <div className="space-y-6 animate-fade-in">
-          <div className="p-6 rounded-3xl bg-white border border-slate-200 shadow-sm flex items-center justify-between">
+          <div className="p-6 rounded-3xl bg-white border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h3 className="text-xl font-black text-slate-900">कुल जमा फंड</h3>
               <p className="text-xs text-slate-500">सभी सदस्यों द्वारा जमा कुल राशि</p>
             </div>
-            <span className="text-3xl font-black text-emerald-600">₹{totalPool}</span>
+            <div className="flex items-center gap-4">
+              <span className="text-3xl font-black text-emerald-600">₹{totalPool}</span>
+              <a
+                href="/api/admin/export?type=contributions"
+                download
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm transition hover-lift active-press"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>लेन-देन एक्सेल डाउनलोड (.xlsx)</span>
+              </a>
+            </div>
           </div>
 
           <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
@@ -1419,12 +1538,24 @@ export default function AdminPage() {
       {activeTab === "loans" && (
         <div className="space-y-6 animate-fade-in">
           <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
-            <h3 className="text-xl font-black text-slate-900">
-              लोन आवेदन एवं डिस्बर्सल प्रबंधन
-            </h3>
-            <p className="text-xs text-slate-500">
-              सदस्यों के 90% लोन आवेदन, 10% प्रोसेसिंग फीस कटौती, पैसा भेजने के बाद स्क्रीनशॉट प्रूफ संलग्न करें।
-            </p>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="text-xl font-black text-slate-900">
+                  लोन आवेदन एवं डिस्बर्सल प्रबंधन
+                </h3>
+                <p className="text-xs text-slate-500">
+                  सदस्यों के 90% लोन आवेदन, 10% प्रोसेसिंग फीस कटौती, पैसा भेजने के बाद स्क्रीनशॉट प्रूफ संलग्न करें।
+                </p>
+              </div>
+              <a
+                href="/api/admin/export?type=loans"
+                download
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm transition hover-lift active-press shrink-0"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>लोन इतिहास एक्सेल डाउनलोड (.xlsx)</span>
+              </a>
+            </div>
 
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">

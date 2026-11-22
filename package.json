@@ -30,6 +30,7 @@
     "resend": "^6.38.0",
     "tailwind-merge": "^2.5.4",
     "tailwindcss": "^3.4.4",
-    "typescript": "^5.4.5"
+    "typescript": "^5.4.5",
+    "xlsx": "^0.18.5"
   }
 }

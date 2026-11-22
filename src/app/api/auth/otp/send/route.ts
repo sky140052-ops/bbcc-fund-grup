@@ -33,31 +33,20 @@ export async function POST(req: NextRequest) {
       userName = admin.name || "मुख्य एडमिन";
       await dbUpdateUser(admin._id, { otp_code: otp, otp_expires_at: expiresAt });
     } else {
-      // Check if Member
+      // Check if registered Member
       const member = await dbFindMemberByEmail(cleanEmail);
       if (member) {
         userName = member.name;
         isMember = true;
         await dbUpdateMember(member._id, { otp_code: otp, otp_expires_at: expiresAt });
       } else {
-        // Provisional user record for quick testing
-        let user = await dbFindUser({ email: cleanEmail });
-        if (!user) {
-          user = {
-            _id: `usr_${Date.now()}`,
-            name: cleanEmail.split("@")[0],
-            email: cleanEmail,
-            mobile: "",
-            role: "member",
-            otp_code: otp,
-            otp_expires_at: expiresAt,
-            created_at: new Date().toISOString(),
-          };
-          await dbInsertUser(user);
-        } else {
-          await dbUpdateUser(user._id, { otp_code: otp, otp_expires_at: expiresAt });
-        }
-        userName = user.name || cleanEmail.split("@")[0];
+        // Not in database! Strictly reject with invalid email error
+        return NextResponse.json(
+          {
+            error: "अमान्य ईमेल आईडी! यह ईमेल आईडी डेटाबेस में पंजीकृत नहीं है। कृपया पंजीकृत ईमेल दर्ज करें या पहले सदस्य पंजीकरण फॉर्म भरें।",
+          },
+          { status: 404 }
+        );
       }
     }
 
