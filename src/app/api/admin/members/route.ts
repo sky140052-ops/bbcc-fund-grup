@@ -89,27 +89,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "कृपया 10-अंकों का वैध मोबाइल नंबर दर्ज करें।" }, { status: 400 });
     }
 
-    if (!body.photo) {
-      return NextResponse.json({ error: "कृपया सदस्य की लाइव फोटो या सेल्फी अवश्य लें/अपलोड करें।" }, { status: 400 });
-    }
+    const photo = body.photo || "";
 
     const aadhaar_number = sanitize(body.aadhaar_number || "").replace(/\D/g, "");
     if (aadhaar_number.length !== 12) {
       return NextResponse.json({ error: "कृपया 12-अंकों का आधार कार्ड नंबर दर्ज करें।" }, { status: 400 });
     }
 
-    if (!body.aadhaar_file) {
-      return NextResponse.json({ error: "कृपया आधार कार्ड का फोटो या पीडीएफ दस्तावेज अवश्य अपलोड करें।" }, { status: 400 });
-    }
+    const aadhaar_file = body.aadhaar_file || "";
 
     const pan_number = sanitize(body.pan_number || "").toUpperCase().trim();
-    if (!pan_number || pan_number.length < 10) {
-      return NextResponse.json({ error: "कृपया 10-अंकों का वैध पैन कार्ड नंबर दर्ज करें।" }, { status: 400 });
+    if (pan_number && pan_number.length < 10) {
+      return NextResponse.json({ error: "कृपया 10-अंकों का वैध पैन कार्ड नंबर दर्ज करें अथवा इसे खाली छोड़ें।" }, { status: 400 });
     }
 
-    if (!body.pan_file) {
-      return NextResponse.json({ error: "कृपया पैन कार्ड का फोटो या पीडीएफ दस्तावेज अवश्य अपलोड करें।" }, { status: 400 });
-    }
+    const pan_file = body.pan_file || "";
 
     const upi = sanitize(body.upi_id || "").trim();
     const acc = sanitize(body.account_number || "").trim();

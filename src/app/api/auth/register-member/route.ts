@@ -50,20 +50,11 @@ export async function POST(req: NextRequest) {
       if (mobile.length < 10) {
         return NextResponse.json({ error: "कृपया 10-अंकीय मोबाइल नंबर दर्ज करें।" }, { status: 400 });
       }
-      if (!body.photo) {
-        return NextResponse.json({ error: "कृपया अपनी लाइव फोटो (सेल्फी) अवश्य लें या अपलोड करें।" }, { status: 400 });
-      }
       if (aadhaar_number.length !== 12) {
         return NextResponse.json({ error: "कृपया 12-अंकों का आधार नंबर दर्ज करें।" }, { status: 400 });
       }
-      if (!body.aadhaar_file) {
-        return NextResponse.json({ error: "कृपया आधार कार्ड का फोटो या पीडीएफ दस्तावेज अवश्य अपलोड करें।" }, { status: 400 });
-      }
-      if (!pan_number || pan_number.length < 10) {
-        return NextResponse.json({ error: "कृपया 10-अंकों का वैध पैन कार्ड नंबर दर्ज करें।" }, { status: 400 });
-      }
-      if (!body.pan_file) {
-        return NextResponse.json({ error: "कृपया पैन कार्ड का फोटो या पीडीएफ दस्तावेज अवश्य अपलोड करें।" }, { status: 400 });
+      if (pan_number && pan_number.length < 10) {
+        return NextResponse.json({ error: "कृपया 10-अंकों का वैध पैन कार्ड नंबर दर्ज करें अथवा इसे खाली छोड़ें।" }, { status: 400 });
       }
       const upi = sanitize(body.upi_id || "").trim();
       const acc = sanitize(body.account_number || "").trim();

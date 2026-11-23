@@ -164,26 +164,14 @@ export default function JoinPage() {
       setErrorMsg("कृपया 10-अंकीय वैध मोबाइल नंबर दर्ज करें।");
       return;
     }
-    if (!photo) {
-      setErrorMsg("कृपया अपनी लाइव फोटो (सेल्फी) अवश्य लें या गैलरी से अपलोड करें।");
-      return;
-    }
     const cleanAadhaar = aadhaarNumber.replace(/\D/g, "");
     if (cleanAadhaar.length !== 12) {
       setErrorMsg("कृपया 12-अंकों का वैध आधार नंबर दर्ज करें।");
       return;
     }
-    if (!aadhaarFile) {
-      setErrorMsg("कृपया आधार कार्ड का फोटो या पीडीएफ दस्तावेज अवश्य अपलोड करें।");
-      return;
-    }
     const cleanPan = panNumber.trim().toUpperCase();
-    if (!cleanPan || cleanPan.length < 10) {
-      setErrorMsg("कृपया 10-अंकों का वैध पैन कार्ड नंबर दर्ज करें।");
-      return;
-    }
-    if (!panFile) {
-      setErrorMsg("कृपया पैन कार्ड का फोटो या पीडीएफ दस्तावेज अवश्य अपलोड करें।");
+    if (cleanPan && cleanPan.length < 10) {
+      setErrorMsg("कृपया 10-अंकों का वैध पैन कार्ड नंबर दर्ज करें अथवा इसे खाली छोड़ें।");
       return;
     }
     if (!upiId.trim() && (!accountNumber.trim() || !ifsc.trim()) && !walletNumber.trim()) {
@@ -412,7 +400,7 @@ export default function JoinPage() {
               {/* Photo */}
               <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
                 <label className="block font-bold text-slate-800 uppercase tracking-wider text-[11px]">
-                  2. सदस्य फोटो (Live Camera या File Upload) *
+                  2. सदस्य फोटो (Live Camera या File Upload) <span className="text-slate-400 font-normal lowercase">(वैकल्पिक / optional)</span>
                 </label>
                 {cameraActive ? (
                   <div className="space-y-2">
@@ -443,11 +431,11 @@ export default function JoinPage() {
                   <div className="flex flex-wrap gap-2">
                     <button type="button" onClick={startCamera} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold flex items-center gap-1.5 transition">
                       <Camera className="w-4 h-4" />
-                      <span>लाइव कैमरा से फोटो लें *</span>
+                      <span>लाइव कैमरा से फोटो लें</span>
                     </button>
                     <label className="px-4 py-2 bg-white border border-slate-300 rounded-xl font-bold flex items-center gap-1.5 cursor-pointer hover:bg-slate-50 transition">
                       <Upload className="w-4 h-4 text-slate-500" />
-                      <span>गैलरी से चुनें *</span>
+                      <span>गैलरी से चुनें</span>
                       <input
                         type="file"
                         accept="image/*"
@@ -468,7 +456,7 @@ export default function JoinPage() {
               {/* Aadhaar & PAN */}
               <div className="space-y-3">
                 <h3 className="font-bold text-slate-800 uppercase tracking-wider text-[11px]">
-                  3. आधार व पैन कार्ड दस्तावेज (अनिवार्य / Mandatory) *
+                  3. पहचान दस्तावेज विवरण
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
@@ -483,7 +471,7 @@ export default function JoinPage() {
                       className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                     <label className="block text-slate-600 text-[11px] font-semibold cursor-pointer hover:text-blue-600 transition">
-                      आधार दस्तावेज (PDF/JPG) *: <span className="text-blue-700 font-bold">{aadhaarFileName || "फाइल अपलोड करें"}</span>
+                      आधार दस्तावेज (PDF/JPG) <span className="text-slate-400 font-normal">(वैकल्पिक)</span>: <span className="text-blue-700 font-bold">{aadhaarFileName || "फाइल अपलोड करें"}</span>
                       <input
                         type="file"
                         accept=".pdf,image/*"
@@ -497,10 +485,9 @@ export default function JoinPage() {
                   </div>
 
                   <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
-                    <label className="block font-bold text-slate-700">पैन संख्या (10 अंक) *</label>
+                    <label className="block font-bold text-slate-700">पैन संख्या (10 अंक) <span className="text-slate-400 font-normal text-xs">(वैकल्पिक / Optional)</span></label>
                     <input
                       type="text"
-                      required
                       maxLength={10}
                       value={panNumber}
                       onChange={(e) => setPanNumber(e.target.value.toUpperCase())}
@@ -508,7 +495,7 @@ export default function JoinPage() {
                       className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-mono uppercase focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                     <label className="block text-slate-600 text-[11px] font-semibold cursor-pointer hover:text-blue-600 transition">
-                      पैन दस्तावेज (PDF/JPG) *: <span className="text-blue-700 font-bold">{panFileName || "फाइल अपलोड करें"}</span>
+                      पैन दस्तावेज (PDF/JPG) <span className="text-slate-400 font-normal">(वैकल्पिक)</span>: <span className="text-blue-700 font-bold">{panFileName || "फाइल अपलोड करें"}</span>
                       <input
                         type="file"
                         accept=".pdf,image/*"

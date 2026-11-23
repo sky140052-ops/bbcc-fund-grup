@@ -22,7 +22,7 @@ export interface Member {
   aadhaar_file?: string; // Base64 data URL (PDF or Image)
   aadhaar_file_type?: "pdf" | "image";
   aadhaar_file_name?: string;
-  pan_number: string; // 10-char PAN
+  pan_number?: string; // 10-char PAN (Optional)
   pan_file?: string; // Base64 data URL (PDF or Image)
   pan_file_type?: "pdf" | "image";
   pan_file_name?: string;

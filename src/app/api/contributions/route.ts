@@ -5,10 +5,12 @@ import {
   dbInsertContribution,
   dbUpdateContribution,
   dbFindContributionById,
+  dbFindMemberById,
   dbGetSystemSettings,
 } from "../../../lib/astra";
 import { sanitize } from "../../../lib/crypto";
 import { Contribution } from "../../../lib/types";
+import { sendDepositNotificationEmail } from "../../../lib/email";
 
 // GET: Returns list of contributions, community total, and member's total
 // Includes 24-hour Auto-Approval check for all pending screenshot contributions
@@ -41,6 +43,18 @@ export async function GET(req: NextRequest) {
             auto_approved: true,
             approved_at: c.approved_at,
           });
+          // Send Auto-Approval Email to Member
+          dbFindMemberById(c.member_id).then((m) => {
+            if (m?.email) {
+              sendDepositNotificationEmail({
+                type: "approved",
+                memberName: c.member_name,
+                memberEmail: m.email,
+                amount: c.amount,
+                month: c.month,
+              }).catch(console.warn);
+            }
+          }).catch(console.warn);
         }
       }
     }
@@ -105,29 +119,89 @@ export async function POST(req: NextRequest) {
     const targetMemberMobile = body.member_mobile || session.mobile || "";
 
     const currentMonth = new Date().toISOString().slice(0, 7); // e.g. "2026-11"
+    const targetMonth = body.month || currentMonth;
     const screenshot = body.payment_screenshot || "";
+
+    // Check duplicate: Only one deposit per month.
+    // If pending: block duplicate upload!
+    // If paid: block duplicate upload!
+    // If rejected: allow re-upload (update or insert).
+    const allContributions = await dbFindContributions();
+    const existingContribution = allContributions.find(
+      (c) => (c.member_id === targetMemberId || (c as any).user_id === targetMemberId) && c.month === targetMonth
+    );
+
+    if (existingContribution) {
+      if (existingContribution.status === "paid") {
+        return NextResponse.json(
+          { error: `माह ${targetMonth} का ₹${existingContribution.amount} अंशदान पहले से स्वीकृत (Paid) है। दोबारा जमा करने की आवश्यकता नहीं है।` },
+          { status: 400 }
+        );
+      }
+      if (existingContribution.status === "pending") {
+        return NextResponse.json(
+          { error: `माह ${targetMonth} का स्क्रीनशॉट पहले से जमा है और समीक्षाधीन है (24 घंटे में स्वतः स्वीकृत हो जाएगा)। दोबारा अपलोड नहीं कर सकते।` },
+          { status: 400 }
+        );
+      }
+    }
 
     // If submitted by Admin directly, it is marked 'paid' immediately
     // If submitted by Member, it is marked 'pending' and auto-approved in 24 hours
     const isAdmin = session.role === "admin" || session.role === "founder";
     const initialStatus = isAdmin ? "paid" : "pending";
 
-    const newContribution: Contribution = {
-      _id: `cntr_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
-      member_id: targetMemberId,
-      member_name: targetMemberName,
-      member_mobile: targetMemberMobile,
-      amount,
-      month: body.month || currentMonth,
-      status: initialStatus,
-      payment_screenshot: screenshot,
-      submitted_at: new Date().toISOString(),
-      paid_at: new Date().toISOString(),
-      auto_approved: false,
-      note: sanitize(body.note || "DFI मासिक अंशदान जमा (Direct UPI)"),
-    };
+    let contributionRecord: Contribution;
 
-    await dbInsertContribution(newContribution);
+    if (existingContribution && existingContribution.status === "rejected") {
+      // Re-uploading after rejection: update existing record
+      await dbUpdateContribution(existingContribution._id, {
+        amount,
+        status: initialStatus,
+        payment_screenshot: screenshot,
+        submitted_at: new Date().toISOString(),
+        auto_approved: false,
+        rejection_reason: undefined,
+        note: sanitize(body.note || "DFI मासिक अंशदान जमा (Direct UPI - Re-submitted)"),
+      });
+      contributionRecord = {
+        ...existingContribution,
+        amount,
+        status: initialStatus,
+        payment_screenshot: screenshot,
+        submitted_at: new Date().toISOString(),
+        auto_approved: false,
+      };
+    } else {
+      const newContribution: Contribution = {
+        _id: `cntr_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+        member_id: targetMemberId,
+        member_name: targetMemberName,
+        member_mobile: targetMemberMobile,
+        amount,
+        month: targetMonth,
+        status: initialStatus,
+        payment_screenshot: screenshot,
+        submitted_at: new Date().toISOString(),
+        paid_at: new Date().toISOString(),
+        auto_approved: false,
+        note: sanitize(body.note || "DFI मासिक अंशदान जमा (Direct UPI)"),
+      };
+
+      await dbInsertContribution(newContribution);
+      contributionRecord = newContribution;
+    }
+
+    // Trigger Email Notification to Admin & Member
+    const memberObj = await dbFindMemberById(targetMemberId);
+    sendDepositNotificationEmail({
+      type: initialStatus === "paid" ? "approved" : "pending",
+      memberName: targetMemberName,
+      memberEmail: memberObj?.email,
+      amount,
+      month: targetMonth,
+      screenshotUrl: screenshot,
+    }).catch(console.warn);
 
     const message = isAdmin
       ? `₹${amount} की राशि सफलतापूर्वक दर्ज कर दी गई!`
@@ -136,7 +210,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       message,
-      contribution: newContribution,
+      contribution: contributionRecord,
     });
   } catch (err: any) {
     console.error("Contribution POST error:", err);
@@ -164,21 +238,43 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: "जमा रिकॉर्ड नहीं मिला।" }, { status: 404 });
     }
 
+    const memberObj = await dbFindMemberById(contribution.member_id);
+
     if (action === "approve") {
       await dbUpdateContribution(contribution_id, {
         status: "paid",
         approved_at: new Date().toISOString(),
         auto_approved: false,
       });
+
+      sendDepositNotificationEmail({
+        type: "approved",
+        memberName: contribution.member_name,
+        memberEmail: memberObj?.email,
+        amount: contribution.amount,
+        month: contribution.month,
+      }).catch(console.warn);
+
       return NextResponse.json({
         success: true,
         message: `सदस्य '${contribution.member_name}' का ₹${contribution.amount} का अंशदान सफलतापूर्वक स्वीकार कर लिया गया!`,
       });
     } else if (action === "reject") {
+      const cleanReason = sanitize(reason || "अमान्य या अपूर्ण स्क्रीनशॉट");
       await dbUpdateContribution(contribution_id, {
         status: "rejected",
-        rejection_reason: sanitize(reason || "अमान्य या अपूर्ण स्क्रीनशॉट"),
+        rejection_reason: cleanReason,
       });
+
+      sendDepositNotificationEmail({
+        type: "rejected",
+        memberName: contribution.member_name,
+        memberEmail: memberObj?.email,
+        amount: contribution.amount,
+        month: contribution.month,
+        rejectionReason: cleanReason,
+      }).catch(console.warn);
+
       return NextResponse.json({
         success: true,
         message: `सदस्य '${contribution.member_name}' का जमा अनुरोध अस्वीकार कर दिया गया।`,

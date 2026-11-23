@@ -40,6 +40,7 @@ import {
   ToggleRight,
   QrCode,
   Clock,
+  ExternalLink,
 } from "lucide-react";
 import { Member, Contribution, Loan, SystemSettings } from "../../lib/types";
 import { compressImage } from "../../lib/compress";
@@ -148,9 +149,14 @@ export default function AdminPage() {
   const [savingUpiSettings, setSavingUpiSettings] = useState(false);
   const [upiSettingsMsg, setUpiSettingsMsg] = useState<string | null>(null);
 
+  const [payLink, setPayLink] = useState("");
+  const [loanApplyLink, setLoanApplyLink] = useState("");
+
   useEffect(() => {
     if (typeof window !== "undefined") {
       setInviteLink(`${window.location.origin}/join`);
+      setPayLink(`${window.location.origin}/pay`);
+      setLoanApplyLink(`${window.location.origin}/loan-apply`);
       setKeepAliveUrl(`${window.location.origin}/api/keep-alive`);
     }
   }, []);
@@ -513,26 +519,14 @@ export default function AdminPage() {
       setFormMsg({ type: "error", text: "कृपया 10-अंकीय मोबाइल नंबर दर्ज करें।" });
       return;
     }
-    if (!formPhoto) {
-      setFormMsg({ type: "error", text: "कृपया सदस्य की लाइव सेल्फी या फोटो अवश्य लें/अपलोड करें।" });
-      return;
-    }
     const cleanAadhaar = formAadhaarNumber.replace(/\D/g, "");
     if (cleanAadhaar.length !== 12) {
       setFormMsg({ type: "error", text: "कृपया 12-अंकों का आधार कार्ड नंबर दर्ज करें।" });
       return;
     }
-    if (!formAadhaarFile) {
-      setFormMsg({ type: "error", text: "कृपया आधार कार्ड का फोटो या पीडीएफ दस्तावेज अवश्य अपलोड करें।" });
-      return;
-    }
     const cleanPan = formPanNumber.trim().toUpperCase();
-    if (!cleanPan || cleanPan.length < 10) {
-      setFormMsg({ type: "error", text: "कृपया 10-अंकों का वैध पैन कार्ड नंबर दर्ज करें।" });
-      return;
-    }
-    if (!formPanFile) {
-      setFormMsg({ type: "error", text: "कृपया पैन कार्ड का फोटो या पीडीएफ दस्तावेज अवश्य अपलोड करें।" });
+    if (cleanPan && cleanPan.length < 10) {
+      setFormMsg({ type: "error", text: "कृपया 10-अंकों का वैध पैन कार्ड नंबर दर्ज करें अथवा इसे खाली छोड़ें।" });
       return;
     }
     if (!formUpiId.trim() && (!formAccountNumber.trim() || !formIfsc.trim()) && !formWalletNumber.trim()) {
@@ -1160,8 +1154,100 @@ export default function AdminPage() {
             </div>
           </div>
 
-          {/* Row 2: Invite Member Link & Anti-Sleep Keep-Alive */}
+          {/* Row 2: Shareable Links Hub (Payment /pay, Loan Apply /loan-apply, Join /join, Anti-Sleep) */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+            {/* Card A: Shareable Payment Link (/pay) */}
+            <div className="p-6 rounded-3xl bg-gradient-to-br from-emerald-50 to-teal-50 border-2 border-emerald-300 shadow-sm space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black uppercase tracking-wider text-emerald-800 flex items-center gap-1.5">
+                  <CreditCard className="w-4 h-4 text-emerald-600" />
+                  <span>सदस्य भुगतान लिंक (Shareable Payment Link - /pay)</span>
+                </span>
+                <span className="px-2.5 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] font-bold">
+                  24h Auto-Approve
+                </span>
+              </div>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                यह लिंक WhatsApp पर सदस्यों को भेजें। सदस्य इस लिंक को खोलकर अपना नाम चुनेंगे, एडमिन UPI/QR कोड पर <b>₹100 अंशदान</b> या <b>लोन किश्त</b> का भुगतान करेंगे और स्क्रीनशॉट अपलोड करेंगे। (एडमिन बिना ही 24 घंटे में स्वतः स्वीकृत):
+              </p>
+              <div className="p-3 bg-white border border-emerald-200 rounded-xl text-xs font-mono font-bold text-slate-800 break-all select-all">
+                {payLink || "https://your-site/pay"}
+              </div>
+
+              <div className="flex flex-wrap gap-2.5">
+                <button
+                  onClick={() => handleCopy(payLink, "भुगतान लिंक")}
+                  className="flex-1 min-w-[120px] flex items-center justify-center gap-2 py-2.5 px-3 bg-white border border-emerald-300 hover:bg-emerald-50 text-emerald-800 font-bold rounded-xl text-xs shadow-sm transition"
+                >
+                  <Copy className="w-4 h-4" />
+                  <span>लिंक कॉपी करें</span>
+                </button>
+                <button
+                  onClick={() => {
+                    const msg = `नमस्ते! DFI इमरजेंसी सेवा ग्रुप - मासिक ₹100 अंशदान अथवा लोन किश्त जमा करने हेतु कृपया नीचे दिए गए लिंक पर क्लिक करें और स्क्रीनशॉट अपलोड करें:\n${payLink}`;
+                    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, "_blank");
+                  }}
+                  className="flex-1 min-w-[140px] flex items-center justify-center gap-2 py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs shadow-sm transition"
+                >
+                  <Send className="w-4 h-4" />
+                  <span>WhatsApp शेयर</span>
+                </button>
+                <button
+                  onClick={() => window.open(payLink, "_blank")}
+                  className="py-2.5 px-3 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs shadow-sm transition"
+                  title="पेज खोलें"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Card B: Shareable Loan Apply Link (/loan-apply) */}
+            <div className="p-6 rounded-3xl bg-gradient-to-br from-purple-50 to-indigo-50 border-2 border-purple-300 shadow-sm space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black uppercase tracking-wider text-purple-800 flex items-center gap-1.5">
+                  <CreditCard className="w-4 h-4 text-purple-600" />
+                  <span>लोन आवेदन लिंक (Shareable Loan Apply Link - /loan-apply)</span>
+                </span>
+                <span className="px-2.5 py-0.5 rounded-full bg-purple-600 text-white text-[10px] font-bold">
+                  1% मासिक ब्याज
+                </span>
+              </div>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                यह लिंक सदस्यों को भेजें। सदस्य अपना <b>12-अंकीय आधार नंबर</b> दर्ज करके अपनी कुल संचित बचत, 90% लोन पात्रता देख सकेंगे और 1% ब्याज दर पर तुरंत लोन आवेदन कर सकेंगे:
+              </p>
+              <div className="p-3 bg-white border border-purple-200 rounded-xl text-xs font-mono font-bold text-slate-800 break-all select-all">
+                {loanApplyLink || "https://your-site/loan-apply"}
+              </div>
+
+              <div className="flex flex-wrap gap-2.5">
+                <button
+                  onClick={() => handleCopy(loanApplyLink, "लोन आवेदन लिंक")}
+                  className="flex-1 min-w-[120px] flex items-center justify-center gap-2 py-2.5 px-3 bg-white border border-purple-300 hover:bg-purple-50 text-purple-800 font-bold rounded-xl text-xs shadow-sm transition"
+                >
+                  <Copy className="w-4 h-4" />
+                  <span>लिंक कॉपी करें</span>
+                </button>
+                <button
+                  onClick={() => {
+                    const msg = `नमस्ते! DFI इमरजेंसी सेवा ग्रुप - 1% ब्याज पर लोन प्राप्त करने हेतु कृपया इस लिंक पर क्लिक कर अपना आधार नंबर दर्ज करें और आवेदन करें:\n${loanApplyLink}`;
+                    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, "_blank");
+                  }}
+                  className="flex-1 min-w-[140px] flex items-center justify-center gap-2 py-2.5 px-3 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl text-xs shadow-sm transition"
+                >
+                  <Send className="w-4 h-4" />
+                  <span>WhatsApp शेयर</span>
+                </button>
+                <button
+                  onClick={() => window.open(loanApplyLink, "_blank")}
+                  className="py-2.5 px-3 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs shadow-sm transition"
+                  title="पेज खोलें"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
             {/* Invite Member Link Card */}
             <div className="p-6 rounded-3xl bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200 shadow-sm space-y-4">
               <div className="flex items-center justify-between">
@@ -1175,8 +1261,8 @@ export default function AdminPage() {
                 </span>
               </div>
               <p className="text-xs text-slate-600 leading-relaxed">
-                यह लिंक किसी को भी WhatsApp या SMS पर भेजें। सदस्य इस लिंक को खोलकर अपना नाम, फोटो,
-                आधार/पैन व बैंक विवरण भरकर <b>स्वयं ग्रुप से जुड़ सकते हैं</b>:
+                यह लिंक किसी को भी WhatsApp या SMS पर भेजें। सदस्य इस लिंक को खोलकर अपना नाम,
+                आधार व बैंक विवरण भरकर <b>स्वयं ग्रुप से जुड़ सकते हैं</b>:
               </p>
               <div className="p-3 bg-white border border-blue-200 rounded-xl text-xs font-mono font-bold text-slate-800 break-all select-all">
                 {inviteLink || "https://your-site/join"}
@@ -1535,7 +1621,7 @@ export default function AdminPage() {
               {/* Photo */}
               <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
                 <label className="block font-bold text-slate-800">
-                  सदस्य फोटो (Live Camera या File Upload) *
+                  सदस्य फोटो (Live Camera या File Upload) <span className="text-slate-400 font-normal text-xs">(वैकल्पिक / Optional)</span>
                 </label>
                 {cameraActive ? (
                   <div className="space-y-2">
@@ -1563,10 +1649,10 @@ export default function AdminPage() {
                 ) : (
                   <div className="flex gap-2">
                     <button type="button" onClick={startCamera} className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold">
-                      📸 कैमरा चालू करें *
+                      📸 कैमरा चालू करें
                     </button>
                     <label className="px-3 py-1.5 bg-white border border-slate-300 rounded-lg font-bold cursor-pointer hover:bg-slate-50">
-                      गैलरी से चुनें *
+                      गैलरी से चुनें
                       <input
                         type="file"
                         accept="image/*"
@@ -1598,7 +1684,7 @@ export default function AdminPage() {
                     className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-mono focus:outline-none focus:ring-1 focus:ring-blue-500"
                   />
                   <label className="block text-slate-600 cursor-pointer text-[11px] font-semibold hover:text-blue-600">
-                    आधार फाइल (PDF/JPG) *: <span className="text-blue-700 font-bold">{formAadhaarFileName || "फाइल चुनें"}</span>
+                    आधार फाइल (PDF/JPG) <span className="text-slate-400 font-normal">(वैकल्पिक)</span>: <span className="text-blue-700 font-bold">{formAadhaarFileName || "फाइल चुनें"}</span>
                     <input
                       type="file"
                       accept=".pdf,image/*"
@@ -1612,10 +1698,9 @@ export default function AdminPage() {
                 </div>
 
                 <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
-                  <label className="block font-bold text-slate-800">पैन संख्या (10 अंक) *</label>
+                  <label className="block font-bold text-slate-800">पैन संख्या (10 अंक) <span className="text-slate-400 font-normal text-xs">(वैकल्पिक / Optional)</span></label>
                   <input
                     type="text"
-                    required
                     maxLength={10}
                     value={formPanNumber}
                     onChange={(e) => setFormPanNumber(e.target.value.toUpperCase())}
@@ -1623,7 +1708,7 @@ export default function AdminPage() {
                     className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-mono uppercase focus:outline-none focus:ring-1 focus:ring-blue-500"
                   />
                   <label className="block text-slate-600 cursor-pointer text-[11px] font-semibold hover:text-blue-600">
-                    पैन फाइल (PDF/JPG) *: <span className="text-blue-700 font-bold">{formPanFileName || "फाइल चुनें"}</span>
+                    पैन फाइल (PDF/JPG) <span className="text-slate-400 font-normal">(वैकल्पिक)</span>: <span className="text-blue-700 font-bold">{formPanFileName || "फाइल चुनें"}</span>
                     <input
                       type="file"
                       accept=".pdf,image/*"

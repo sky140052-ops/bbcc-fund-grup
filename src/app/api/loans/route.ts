@@ -11,6 +11,11 @@ import {
 } from "../../../lib/astra";
 import { sanitize } from "../../../lib/crypto";
 import { Loan } from "../../../lib/types";
+import {
+  sendLoanApplicationEmail,
+  sendLoanDisbursalEmail,
+  sendLoanRepaymentNotificationEmail,
+} from "../../../lib/email";
 
 // Helper: Calculate 1% p.m. interest
 function calculateLoanInterest(loan: Loan): { months: number; interest: number; totalPayable: number } {
@@ -65,6 +70,17 @@ export async function GET(req: NextRequest) {
             repayment_auto_approved: true,
             repaid_at: l.repaid_at,
           });
+          // Send notification email to member
+          dbFindMemberById(l.member_id).then((m) => {
+            if (m?.email) {
+              sendLoanRepaymentNotificationEmail({
+                type: "approved",
+                memberName: l.member_name,
+                memberEmail: m.email,
+                amount: l.total_repaid || l.requested_amount,
+              }).catch(console.warn);
+            }
+          }).catch(console.warn);
         }
       }
     }
@@ -185,6 +201,17 @@ export async function POST(req: NextRequest) {
 
     await dbInsertLoan(newLoan);
 
+    // Trigger Email Notification to Admin & Member
+    sendLoanApplicationEmail({
+      memberName: newLoan.member_name,
+      memberEmail: member?.email,
+      requestedAmount,
+      disbursedAmount,
+      reason,
+      totalDeposit: memberTotalDeposited,
+      eligibleMax: maxEligibleAmount,
+    }).catch(console.warn);
+
     return NextResponse.json({
       success: true,
       message: `₹${requestedAmount} के लोन का आवेदन सफलतापूर्वक दर्ज हो गया है! (10% प्रोसेसिंग शुल्क कटने के बाद आपके खाते में ₹${disbursedAmount} भेजे जाएंगे)।`,
@@ -218,6 +245,8 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: "लोन रिकॉर्ड नहीं मिला।" }, { status: 404 });
     }
 
+    const memberObj = await dbFindMemberById(loan.member_id);
+
     // Action 1: Admin Approves & Disburses with Screenshot Proof
     if (action === "admin_disburse") {
       if (session.role !== "admin" && session.role !== "founder") {
@@ -245,6 +274,18 @@ export async function PUT(req: NextRequest) {
 
       await dbUpdateLoan(loan_id, updates);
 
+      // Trigger Email Notification to Member with Disbursal Proof
+      sendLoanDisbursalEmail({
+        memberName: loan.member_name,
+        memberEmail: memberObj?.email,
+        requestedAmount: loan.requested_amount,
+        disbursedAmount: loan.disbursed_amount,
+        processingFee: loan.processing_fee_amount,
+        interestRate: loan.interest_rate_monthly,
+        utr: transactionUtr || loan.transaction_utr,
+        paymentScreenshot,
+      }).catch(console.warn);
+
       return NextResponse.json({
         success: true,
         message: `लोन सफलतापूर्वक चालू (Disbursed) कर दिया गया है! पेमेंट स्क्रीनशॉट सभी सदस्यों के लिए उपलब्ध है।`,
@@ -264,6 +305,14 @@ export async function PUT(req: NextRequest) {
         );
       }
 
+      // Check duplicate pending repayment
+      if (loan.repayment_status === "pending_approval") {
+        return NextResponse.json(
+          { error: "आपका लोन अदायगी स्क्रीनशॉट पहले से समीक्षाधीन है (24 घंटे में स्वतः स्वीकृत)। दोबारा अपलोड नहीं कर सकते।" },
+          { status: 400 }
+        );
+      }
+
       const calc = calculateLoanInterest(loan);
       const totalAmountPaid = Number(body.amount) || calc.totalPayable;
       const screenshot = body.repayment_screenshot || "";
@@ -280,6 +329,15 @@ export async function PUT(req: NextRequest) {
       };
 
       await dbUpdateLoan(loan_id, updates);
+
+      // Trigger Email Notification
+      sendLoanRepaymentNotificationEmail({
+        type: isAdmin ? "approved" : "pending",
+        memberName: loan.member_name,
+        memberEmail: memberObj?.email,
+        amount: totalAmountPaid,
+        screenshotUrl: screenshot,
+      }).catch(console.warn);
 
       const msg = isAdmin
         ? `₹${totalAmountPaid} का लोन चुकता दर्ज कर दिया गया!`
@@ -306,6 +364,13 @@ export async function PUT(req: NextRequest) {
       };
 
       await dbUpdateLoan(loan_id, updates);
+
+      sendLoanRepaymentNotificationEmail({
+        type: "approved",
+        memberName: loan.member_name,
+        memberEmail: memberObj?.email,
+        amount: loan.total_repaid || loan.requested_amount,
+      }).catch(console.warn);
 
       return NextResponse.json({
         success: true,

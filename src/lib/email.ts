@@ -386,7 +386,209 @@ export async function sendLoginAlertEmail({
   return { success: true, provider: "system_generated" };
 }
 
-// Stubs for broadcast alerts
+// Generic Email Sender supporting Brevo -> Gmail SMTP -> Resend
+export async function sendGeneralEmail({
+  toEmail,
+  toName,
+  subject,
+  htmlContent,
+}: {
+  toEmail: string;
+  toName: string;
+  subject: string;
+  htmlContent: string;
+}): Promise<{ success: boolean; provider: string; error?: string }> {
+  const cleanEmail = toEmail.trim().toLowerCase();
+  if (!cleanEmail || !cleanEmail.includes("@")) {
+    return { success: false, provider: "none", error: "अमान्य ईमेल आईडी" };
+  }
+
+  const config = await resolveEmailConfig();
+
+  // 1. Brevo SMTP API (Priority 1)
+  if (config.brevoApiKey && !config.brevoApiKey.includes("placeholder")) {
+    try {
+      const brevoRes = await fetch("https://api.brevo.com/v3/smtp/email", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "api-key": config.brevoApiKey.trim(),
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          sender: { name: "DFI इमरजेंसी सेवा", email: config.brevoSender },
+          to: [{ email: cleanEmail, name: toName }],
+          subject,
+          htmlContent,
+        }),
+      });
+
+      if (brevoRes.ok) {
+        console.log(`[Brevo Email Sent] To: ${cleanEmail} | Subject: ${subject}`);
+        return { success: true, provider: "brevo" };
+      } else {
+        const errJson = await brevoRes.json().catch(() => ({}));
+        console.warn("Brevo API warning:", errJson);
+      }
+    } catch (err: any) {
+      console.warn("Brevo API send error:", err?.message);
+    }
+  }
+
+  // 2. Gmail SMTP
+  if (config.smtpEmail && config.smtpPassword && !config.smtpEmail.includes("placeholder")) {
+    try {
+      const transporter = nodemailer.createTransport({
+        service: "gmail",
+        auth: { user: config.smtpEmail, pass: config.smtpPassword },
+      });
+      await transporter.sendMail({
+        from: `"DFI इमरजेंसी सेवा" <${config.smtpEmail}>`,
+        to: cleanEmail,
+        subject,
+        html: htmlContent,
+      });
+      console.log(`[Gmail SMTP Email Sent] To: ${cleanEmail}`);
+      return { success: true, provider: "gmail_smtp" };
+    } catch (err: any) {
+      console.warn("Gmail SMTP send error:", err?.message);
+    }
+  }
+
+  // 3. Resend fallback
+  if (config.resendApiKey && !config.resendApiKey.includes("placeholder")) {
+    try {
+      const resend = new Resend(config.resendApiKey);
+      const resendRes = await resend.emails.send({
+        from: process.env.RESEND_FROM_EMAIL || "DFI <onboarding@resend.dev>",
+        to: cleanEmail,
+        subject,
+        html: htmlContent,
+      });
+      if (!resendRes.error) {
+        console.log(`[Resend Email Sent] To: ${cleanEmail}`);
+        return { success: true, provider: "resend" };
+      }
+    } catch (err: any) {
+      console.warn("Resend send error:", err?.message);
+    }
+  }
+
+  console.log(`[Email Log Fallback] To: ${cleanEmail} | Subject: ${subject}`);
+  return { success: true, provider: "fallback_logged" };
+}
+
+// Deposit Screenshot Email Notification (Pending, Approved, Rejected)
+export async function sendDepositNotificationEmail(params: {
+  type: "pending" | "approved" | "rejected";
+  memberName: string;
+  memberEmail?: string;
+  amount: number;
+  month: string;
+  screenshotUrl?: string;
+  rejectionReason?: string;
+}) {
+  const config = await resolveEmailConfig();
+  const adminEmail = config.founderEmail || "sky140052@gmail.com";
+  const { type, memberName, memberEmail, amount, month, screenshotUrl, rejectionReason } = params;
+
+  if (type === "pending") {
+    // 1. Email to Admin
+    const adminSubject = `📥 नया अंशदान स्क्रीनशॉट - ${memberName} (₹${amount}) - [लंबित]`;
+    const adminHtml = `
+      <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 14px; border: 1px solid #e2e8f0; overflow: hidden; padding: 24px;">
+        <div style="background: #0f172a; padding: 18px; border-radius: 10px; color: #ffffff; text-align: center;">
+          <h2 style="margin: 0; font-size: 18px;">DFI इमरजेंसी सेवा - नया अंशदान</h2>
+        </div>
+        <div style="padding: 20px 0; color: #334155;">
+          <p>नमस्ते <b>एडमिन</b>,</p>
+          <p>सदस्य <b>${memberName}</b> ने माह <b>${month}</b> के लिए <b>₹${amount}</b> का अंशदान स्क्रीनशॉट अपलोड किया है।</p>
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; margin: 16px 0;">
+            <p style="margin: 4px 0;"><b>सदस्य का नाम:</b> ${memberName}</p>
+            <p style="margin: 4px 0;"><b>अंशदान राशि:</b> ₹${amount}</p>
+            <p style="margin: 4px 0;"><b>माह:</b> ${month}</p>
+            <p style="margin: 4px 0;"><b>स्थिति:</b> <span style="color: #d97706; font-weight: bold;">लंबित (Pending Review)</span></p>
+            <p style="margin: 4px 0; font-size: 12px; color: #64748b;">(यदि आप 24 घंटे में इसे स्वीकार/अस्वीकार नहीं करते हैं, तो यह 24 घंटे में सिस्टम द्वारा स्वतः स्वीकृत हो जाएगा)</p>
+          </div>
+          ${screenshotUrl ? `<p><b>भुगतान स्क्रीनशॉट:</b> <a href="${screenshotUrl}" target="_blank" style="color: #2563eb; font-weight: bold;">स्क्रीनशॉट देखें</a></p>` : ""}
+        </div>
+        <div style="font-size: 11px; color: #94a3b8; text-align: center; border-top: 1px solid #e2e8f0; padding-top: 12px;">
+          DFI ऑटोमेशन डेस्क • © 2026 DFI इमरजेंसी सेवा
+        </div>
+      </div>
+    `;
+    await sendGeneralEmail({ toEmail: adminEmail, toName: "Admin", subject: adminSubject, htmlContent: adminHtml });
+
+    // 2. Email to Member (if provided)
+    if (memberEmail) {
+      const memberSubject = `⏳ DFI - आपका ₹${amount} का अंशदान स्क्रीनशॉट जमा हुआ (लंबित)`;
+      const memberHtml = `
+        <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 14px; border: 1px solid #e2e8f0; overflow: hidden; padding: 24px;">
+          <div style="background: #1e293b; padding: 18px; border-radius: 10px; color: #ffffff; text-align: center;">
+            <h2 style="margin: 0; font-size: 18px;">DFI इमरजेंसी सेवा - अंशदान प्राप्ति</h2>
+          </div>
+          <div style="padding: 20px 0; color: #334155;">
+            <p>नमस्ते <b>${memberName}</b>,</p>
+            <p>माह <b>${month}</b> के लिए आपका <b>₹${amount}</b> का भुगतान स्क्रीनशॉट सफलतापूर्वक दर्ज कर लिया गया है।</p>
+            <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 14px; margin: 16px 0;">
+              <p style="margin: 4px 0; color: #166534; font-weight: bold;">स्थिति: 24 घंटे में स्वतः स्वीकृति (Auto-Approval)</p>
+              <p style="margin: 4px 0; font-size: 13px; color: #334155;">एडमिन द्वारा सत्यापन उपरांत अथवा 24 घंटे पूरे होने पर यह राशि आपके कुल फंड खाते में स्वतः जुड़ जाएगी।</p>
+            </div>
+            <p style="font-size: 12px; color: #64748b;">जब तक यह स्क्रीनशॉट स्वीकृत नहीं होता, आपको दोबारा अपलोड करने की आवश्यकता नहीं है।</p>
+          </div>
+          <div style="font-size: 11px; color: #94a3b8; text-align: center; border-top: 1px solid #e2e8f0; padding-top: 12px;">
+            DFI सपोर्ट डेस्क • © 2026 DFI इमरजेंसी सेवा
+          </div>
+        </div>
+      `;
+      await sendGeneralEmail({ toEmail: memberEmail, toName: memberName, subject: memberSubject, htmlContent: memberHtml });
+    }
+  } else if (type === "approved") {
+    if (memberEmail) {
+      const memberSubject = `✅ DFI - आपका ₹${amount} का अंशदान स्वीकृत हो गया है!`;
+      const memberHtml = `
+        <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 14px; border: 1px solid #e2e8f0; overflow: hidden; padding: 24px;">
+          <div style="background: #15803d; padding: 18px; border-radius: 10px; color: #ffffff; text-align: center;">
+            <h2 style="margin: 0; font-size: 18px;">अंशदान स्वीकृति सूचना 🎉</h2>
+          </div>
+          <div style="padding: 20px 0; color: #334155;">
+            <p>नमस्ते <b>${memberName}</b>,</p>
+            <p>बधाई हो! माह <b>${month}</b> के लिए आपका <b>₹${amount}</b> का अंशदान स्वीकृत हो चुका है और आपके कुल संचित फंड में जोड़ दिया गया है।</p>
+          </div>
+          <div style="font-size: 11px; color: #94a3b8; text-align: center; border-top: 1px solid #e2e8f0; padding-top: 12px;">
+            DFI सपोर्ट डेस्क • © 2026 DFI इमरजेंसी सेवा
+          </div>
+        </div>
+      `;
+      await sendGeneralEmail({ toEmail: memberEmail, toName: memberName, subject: memberSubject, htmlContent: memberHtml });
+    }
+  } else if (type === "rejected") {
+    if (memberEmail) {
+      const memberSubject = `⚠️ DFI - आपका अंशदान स्क्रीनशॉट अस्वीकृत हुआ`;
+      const memberHtml = `
+        <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 14px; border: 1px solid #e2e8f0; overflow: hidden; padding: 24px;">
+          <div style="background: #b91c1c; padding: 18px; border-radius: 10px; color: #ffffff; text-align: center;">
+            <h2 style="margin: 0; font-size: 18px;">स्क्रीनशॉट अस्वीकृति सूचना</h2>
+          </div>
+          <div style="padding: 20px 0; color: #334155;">
+            <p>नमस्ते <b>${memberName}</b>,</p>
+            <p>माह <b>${month}</b> के लिए आपके द्वारा जमा किया गया स्क्रीनशॉट निम्नलिखित कारणवश अस्वीकृत हो गया है:</p>
+            <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 14px; margin: 16px 0; color: #991b1b; font-weight: bold;">
+              कारण: ${rejectionReason || "अस्पष्ट अथवा अमान्य भुगतान प्रमाण"}
+            </div>
+            <p>कृपया सही भुगतान स्क्रीनशॉट दोबारा अपलोड करें।</p>
+          </div>
+          <div style="font-size: 11px; color: #94a3b8; text-align: center; border-top: 1px solid #e2e8f0; padding-top: 12px;">
+            DFI सपोर्ट डेस्क • © 2026 DFI इमरजेंसी सेवा
+          </div>
+        </div>
+      `;
+      await sendGeneralEmail({ toEmail: memberEmail, toName: memberName, subject: memberSubject, htmlContent: memberHtml });
+    }
+  }
+}
+
+// Legacy stubs for compatibility with legacy endpoints
 export async function sendPaymentAlertToAll(params: any): Promise<void> {
   console.log(`[DFI Broadcast] Payment Alert:`, params);
 }
@@ -397,4 +599,196 @@ export async function sendLoanRequestAlertToAll(params: any): Promise<void> {
 
 export async function sendLoanDisbursedAlertToAll(params: any): Promise<void> {
   console.log(`[DFI Broadcast] Loan Disbursed:`, params);
+}
+
+// Loan Application Notification (Admin & Member)
+export async function sendLoanApplicationEmail(params: {
+  memberName: string;
+  memberEmail?: string;
+  requestedAmount: number;
+  disbursedAmount: number;
+  reason: string;
+  totalDeposit: number;
+  eligibleMax: number;
+}) {
+  const config = await resolveEmailConfig();
+  const adminEmail = config.founderEmail || "sky140052@gmail.com";
+  const { memberName, memberEmail, requestedAmount, disbursedAmount, reason, totalDeposit, eligibleMax } = params;
+
+  // 1. Email to Admin
+  const adminSubject = `📋 नया लोन आवेदन - ${memberName} (₹${requestedAmount})`;
+  const adminHtml = `
+    <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 14px; border: 1px solid #e2e8f0; overflow: hidden; padding: 24px;">
+      <div style="background: #0f172a; padding: 18px; border-radius: 10px; color: #ffffff; text-align: center;">
+        <h2 style="margin: 0; font-size: 18px;">DFI इमरजेंसी सेवा - नया लोन आवेदन</h2>
+      </div>
+      <div style="padding: 20px 0; color: #334155;">
+        <p>नमस्ते <b>एडमिन</b>,</p>
+        <p>सदस्य <b>${memberName}</b> ने <b>₹${requestedAmount}</b> लोन हेतु आवेदन किया है।</p>
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; margin: 16px 0;">
+          <p style="margin: 4px 0;"><b>आवेदक सदस्य:</b> ${memberName}</p>
+          <p style="margin: 4px 0;"><b>सदस्य की कुल जमा राशि:</b> ₹${totalDeposit}</p>
+          <p style="margin: 4px 0;"><b>अधिकतम पात्रता (90%):</b> ₹${eligibleMax}</p>
+          <p style="margin: 4px 0;"><b>आवेदन राशि:</b> ₹${requestedAmount}</p>
+          <p style="margin: 4px 0;"><b>प्रोसेसिंग शुल्क (10%):</b> ₹${Math.round(requestedAmount * 0.10)}</p>
+          <p style="margin: 4px 0;"><b>खाते में देय राशि (90%):</b> ₹${disbursedAmount}</p>
+          <p style="margin: 4px 0;"><b>लोन का कारण:</b> ${reason}</p>
+          <p style="margin: 4px 0;"><b>मासिक ब्याज दर:</b> 1% प्रति माह</p>
+        </div>
+        <p>कृपया एडमिन डैशबोर्ड में जाकर सदस्य को राशि भेजकर ट्रांसफर स्क्रीनशॉट संलग्न करें।</p>
+      </div>
+      <div style="font-size: 11px; color: #94a3b8; text-align: center; border-top: 1px solid #e2e8f0; padding-top: 12px;">
+        DFI लोन डेस्क • © 2026 DFI इमरजेंसी सेवा
+      </div>
+    </div>
+  `;
+  await sendGeneralEmail({ toEmail: adminEmail, toName: "Admin", subject: adminSubject, htmlContent: adminHtml });
+
+  // 2. Email to Member
+  if (memberEmail) {
+    const memberSubject = `⏳ DFI - आपका ₹${requestedAmount} का लोन आवेदन प्राप्त हुआ`;
+    const memberHtml = `
+      <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 14px; border: 1px solid #e2e8f0; overflow: hidden; padding: 24px;">
+        <div style="background: #1e293b; padding: 18px; border-radius: 10px; color: #ffffff; text-align: center;">
+          <h2 style="margin: 0; font-size: 18px;">DFI इमरजेंसी सेवा - लोन आवेदन</h2>
+        </div>
+        <div style="padding: 20px 0; color: #334155;">
+          <p>नमस्ते <b>${memberName}</b>,</p>
+          <p>आपका <b>₹${requestedAmount}</b> का लोन आवेदन समीक्षा हेतु प्राप्त हुआ है।</p>
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; margin: 16px 0;">
+            <p style="margin: 4px 0;"><b>आवेदन राशि:</b> ₹${requestedAmount}</p>
+            <p style="margin: 4px 0;"><b>10% प्रोसेसिंग शुल्क:</b> ₹${Math.round(requestedAmount * 0.10)}</p>
+            <p style="margin: 4px 0;"><b>आपके खाते में हस्तांतरित राशि:</b> ₹${disbursedAmount}</p>
+            <p style="margin: 4px 0;"><b>ब्याज दर:</b> 1% प्रति माह</p>
+            <p style="margin: 4px 0;"><b>कारण:</b> ${reason}</p>
+          </div>
+          <p style="font-size: 13px; color: #64748b;">एडमिन द्वारा सत्यापन एवं राशि हस्तांतरित किए जाने पर आपको पुष्टिकरण ईमेल भेजा जाएगा।</p>
+        </div>
+        <div style="font-size: 11px; color: #94a3b8; text-align: center; border-top: 1px solid #e2e8f0; padding-top: 12px;">
+          DFI सपोर्ट डेस्क • © 2026 DFI इमरजेंसी सेवा
+        </div>
+      </div>
+    `;
+    await sendGeneralEmail({ toEmail: memberEmail, toName: memberName, subject: memberSubject, htmlContent: memberHtml });
+  }
+}
+
+// Loan Disbursal Notification (Admin -> Member)
+export async function sendLoanDisbursalEmail(params: {
+  memberName: string;
+  memberEmail?: string;
+  requestedAmount: number;
+  disbursedAmount: number;
+  processingFee: number;
+  interestRate: number;
+  utr?: string;
+  paymentScreenshot?: string;
+}) {
+  const config = await resolveEmailConfig();
+  const adminEmail = config.founderEmail || "sky140052@gmail.com";
+  const { memberName, memberEmail, requestedAmount, disbursedAmount, processingFee, interestRate, utr, paymentScreenshot } = params;
+
+  if (memberEmail) {
+    const memberSubject = `🎉 DFI - आपका ₹${disbursedAmount} का लोन स्वीकृत व हस्तांतरित कर दिया गया है!`;
+    const memberHtml = `
+      <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 14px; border: 1px solid #e2e8f0; overflow: hidden; padding: 24px;">
+        <div style="background: #15803d; padding: 18px; border-radius: 10px; color: #ffffff; text-align: center;">
+          <h2 style="margin: 0; font-size: 18px;">लोन डिस्बर्सल सूचना 🎉</h2>
+        </div>
+        <div style="padding: 20px 0; color: #334155;">
+          <p>नमस्ते <b>${memberName}</b>,</p>
+          <p>आपका <b>₹${requestedAmount}</b> का लोन स्वीकृत हो गया है और 10% प्रोसेसिंग शुल्क (₹${processingFee}) काटकर <b>₹${disbursedAmount}</b> की राशि आपके खाते/UPI में भेज दी गई है।</p>
+          <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 14px; margin: 16px 0;">
+            <p style="margin: 4px 0;"><b>हस्तांतरित शुद्ध राशि:</b> <span style="font-size: 16px; font-weight: bold; color: #15803d;">₹${disbursedAmount}</span></p>
+            <p style="margin: 4px 0;"><b>मासिक ब्याज:</b> ${interestRate}% प्रति माह</p>
+            <p style="margin: 4px 0;"><b>ट्रांजेक्शन संदर्भ:</b> ${utr || "Direct UPI Transfer"}</p>
+          </div>
+          ${paymentScreenshot ? `<p><b>एडमिन पेमेंट प्रूफ स्क्रीनशॉट:</b> <a href="${paymentScreenshot}" target="_blank" style="color: #2563eb; font-weight: bold;">स्क्रीनशॉट देखें</a></p>` : ""}
+        </div>
+        <div style="font-size: 11px; color: #94a3b8; text-align: center; border-top: 1px solid #e2e8f0; padding-top: 12px;">
+          DFI वित्तीय डेस्क • © 2026 DFI इमरजेंसी सेवा
+        </div>
+      </div>
+    `;
+    await sendGeneralEmail({ toEmail: memberEmail, toName: memberName, subject: memberSubject, htmlContent: memberHtml });
+  }
+
+  // Admin confirmation
+  const adminSubject = `✅ लोन डिस्बर्सल सफल - ${memberName} (₹${disbursedAmount})`;
+  const adminHtml = `
+    <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 14px; border: 1px solid #e2e8f0; overflow: hidden; padding: 24px;">
+      <p>सदस्य <b>${memberName}</b> को <b>₹${disbursedAmount}</b> का लोन सफलतापूर्वक डिस्बर्स किया गया।</p>
+    </div>
+  `;
+  await sendGeneralEmail({ toEmail: adminEmail, toName: "Admin", subject: adminSubject, htmlContent: adminHtml });
+}
+
+// Loan Repayment Notification (Pending, Approved, Rejected)
+export async function sendLoanRepaymentNotificationEmail(params: {
+  type: "pending" | "approved" | "rejected";
+  memberName: string;
+  memberEmail?: string;
+  amount: number;
+  screenshotUrl?: string;
+}) {
+  const config = await resolveEmailConfig();
+  const adminEmail = config.founderEmail || "sky140052@gmail.com";
+  const { type, memberName, memberEmail, amount, screenshotUrl } = params;
+
+  if (type === "pending") {
+    // 1. Admin Email
+    const adminSubject = `📥 लोन अदायगी स्क्रीनशॉट - ${memberName} (₹${amount}) - [लंबित]`;
+    const adminHtml = `
+      <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 14px; border: 1px solid #e2e8f0; overflow: hidden; padding: 24px;">
+        <div style="background: #0f172a; padding: 18px; border-radius: 10px; color: #ffffff; text-align: center;">
+          <h2 style="margin: 0; font-size: 18px;">DFI इमरजेंसी सेवा - लोन अदायगी</h2>
+        </div>
+        <div style="padding: 20px 0; color: #334155;">
+          <p>नमस्ते <b>एडमिन</b>,</p>
+          <p>सदस्य <b>${memberName}</b> ने <b>₹${amount}</b> का लोन चुकता स्क्रीनशॉट अपलोड किया है।</p>
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; margin: 16px 0;">
+            <p style="margin: 4px 0;"><b>सदस्य का नाम:</b> ${memberName}</p>
+            <p style="margin: 4px 0;"><b>भुगतान राशि:</b> ₹${amount}</p>
+            <p style="margin: 4px 0;"><b>स्थिति:</b> <span style="color: #d97706; font-weight: bold;">लंबित (24 घंटे में स्वतः स्वीकृति)</span></p>
+          </div>
+          ${screenshotUrl ? `<p><b>भुगतान स्क्रीनशॉट:</b> <a href="${screenshotUrl}" target="_blank" style="color: #2563eb; font-weight: bold;">स्क्रीनशॉट देखें</a></p>` : ""}
+        </div>
+      </div>
+    `;
+    await sendGeneralEmail({ toEmail: adminEmail, toName: "Admin", subject: adminSubject, htmlContent: adminHtml });
+
+    // 2. Member Email
+    if (memberEmail) {
+      const memberSubject = `⏳ DFI - लोन अदायगी स्क्रीनशॉट जमा हुआ (24 घंटे में स्वतः स्वीकृत)`;
+      const memberHtml = `
+        <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 14px; border: 1px solid #e2e8f0; overflow: hidden; padding: 24px;">
+          <div style="background: #1e293b; padding: 18px; border-radius: 10px; color: #ffffff; text-align: center;">
+            <h2 style="margin: 0; font-size: 18px;">लोन अदायगी पावती</h2>
+          </div>
+          <div style="padding: 20px 0; color: #334155;">
+            <p>नमस्ते <b>${memberName}</b>,</p>
+            <p>आपके द्वारा <b>₹${amount}</b> की लोन अदायगी का स्क्रीनशॉट प्राप्त हो गया है।</p>
+            <p style="color: #166534; font-weight: bold;">स्थिति: एडमिन द्वारा सत्यापन अथवा 24 घंटे में स्वतः (Auto-Approved) आपका लोन चुकता हो जाएगा।</p>
+          </div>
+        </div>
+      `;
+      await sendGeneralEmail({ toEmail: memberEmail, toName: memberName, subject: memberSubject, htmlContent: memberHtml });
+    }
+  } else if (type === "approved") {
+    if (memberEmail) {
+      const memberSubject = `✅ DFI - आपका लोन सफलतापूर्वक चुकता (Closed) हो गया है!`;
+      const memberHtml = `
+        <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 14px; border: 1px solid #e2e8f0; overflow: hidden; padding: 24px;">
+          <div style="background: #15803d; padding: 18px; border-radius: 10px; color: #ffffff; text-align: center;">
+            <h2 style="margin: 0; font-size: 18px;">लोन चुकता पुष्टिकरण (NOC) 🎉</h2>
+          </div>
+          <div style="padding: 20px 0; color: #334155;">
+            <p>नमस्ते <b>${memberName}</b>,</p>
+            <p>बधाई हो! आपकी <b>₹${amount}</b> की लोन अदायगी स्वीकृत हो चुकी है और आपका लोन खाता पूर्ण रूप से चुकता (Repaid) कर दिया गया है।</p>
+          </div>
+        </div>
+      `;
+      await sendGeneralEmail({ toEmail: memberEmail, toName: memberName, subject: memberSubject, htmlContent: memberHtml });
+    }
+  }
 }
