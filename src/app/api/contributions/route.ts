@@ -15,7 +15,9 @@ import { sendDepositNotificationEmail } from "../../../lib/email";
 // GET: Returns list of contributions, community total, and member's total
 // Includes 24-hour Auto-Approval check for all pending screenshot contributions
 export async function GET(req: NextRequest) {
-  const token = req.cookies.get("bbcc_session")?.value;
+  const authHeader = req.headers.get("authorization");
+  const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+  const token = req.cookies.get("bbcc_session")?.value || bearerToken;
   const session = token ? verifyToken(token) : null;
 
   if (!session) {
@@ -92,7 +94,9 @@ export async function GET(req: NextRequest) {
 
 // POST: Save Direct UPI Screenshot Deposit (Auto-approves in 24h if admin does not act)
 export async function POST(req: NextRequest) {
-  const token = req.cookies.get("bbcc_session")?.value;
+  const authHeader = req.headers.get("authorization");
+  const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+  const token = req.cookies.get("bbcc_session")?.value || bearerToken;
   const session = token ? verifyToken(token) : null;
 
   if (!session) {
@@ -203,16 +207,20 @@ export async function POST(req: NextRequest) {
       contributionRecord = newContribution;
     }
 
-    // Trigger Email Notification to Admin & Member
-    const memberObj = await dbFindMemberById(targetMemberId);
-    sendDepositNotificationEmail({
-      type: initialStatus === "paid" ? "approved" : "pending",
-      memberName: targetMemberName,
-      memberEmail: memberObj?.email,
-      amount,
-      month: targetMonth,
-      screenshotUrl: screenshot,
-    }).catch(console.warn);
+    // Trigger Email Notification to Admin & Member (Non-blocking safe call)
+    try {
+      const memberObj = await dbFindMemberById(targetMemberId);
+      sendDepositNotificationEmail({
+        type: initialStatus === "paid" ? "approved" : "pending",
+        memberName: targetMemberName,
+        memberEmail: memberObj?.email,
+        amount,
+        month: targetMonth,
+        screenshotUrl: screenshot,
+      }).catch(console.warn);
+    } catch (emailErr) {
+      console.warn("Deposit email notification error:", emailErr);
+    }
 
     const message = isAdmin
       ? `₹${amount} की राशि सफलतापूर्वक दर्ज कर दी गई!`
@@ -225,13 +233,15 @@ export async function POST(req: NextRequest) {
     });
   } catch (err: any) {
     console.error("Contribution POST error:", err);
-    return NextResponse.json({ error: "जमा राशि सुरक्षित करने में त्रुटि।" }, { status: 500 });
+    return NextResponse.json({ error: err?.message || "जमा राशि सुरक्षित करने में त्रुटि।" }, { status: 500 });
   }
 }
 
 // PUT: Admin Manual Approval or Rejection
 export async function PUT(req: NextRequest) {
-  const token = req.cookies.get("bbcc_session")?.value;
+  const authHeader = req.headers.get("authorization");
+  const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+  const token = req.cookies.get("bbcc_session")?.value || bearerToken;
   const session = token ? verifyToken(token) : null;
 
   if (!session || (session.role !== "admin" && session.role !== "founder")) {

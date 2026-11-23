@@ -226,7 +226,7 @@ export async function POST(req: NextRequest) {
 
       const screenshot = body.payment_screenshot;
       if (!screenshot) {
-        return NextResponse.json({ error: "कृपया ₹100 का भुगतान स्क्रीनशॉट अवश्य अपलोड करें।" }, { status: 400 });
+        return NextResponse.json({ error: "कृपया भुगतान स्क्रीनशॉट अवश्य अपलोड करें।" }, { status: 400 });
       }
 
       const member = await dbFindMemberById(memberId);
@@ -380,6 +380,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "अमान्य एक्शन।" }, { status: 400 });
   } catch (err: any) {
     console.error("Public pay POST error:", err);
-    return NextResponse.json({ error: "स्क्रीनशॉट जमा करने में त्रुटि।" }, { status: 500 });
+    return NextResponse.json({ error: err?.message || "स्क्रीनशॉट जमा करने में त्रुटि।" }, { status: 500 });
   }
 }

@@ -39,13 +39,25 @@ async function getCollection<T extends Record<string, any>>(name: string) {
       if (name === "members") {
         await db.createCollection(name, {
           indexing: {
-            deny: ["photo", "aadhaar_file", "pan_file"],
+            deny: ["photo", "aadhaar_file", "pan_file", "photo_live", "aadhaar_front", "aadhaar_back", "pan_document"],
+          },
+        });
+      } else if (name === "contributions") {
+        await db.createCollection(name, {
+          indexing: {
+            deny: ["payment_screenshot"],
           },
         });
       } else if (name === "loans") {
         await db.createCollection(name, {
           indexing: {
-            deny: ["payment_screenshot"],
+            deny: ["payment_screenshot", "repayment_screenshot"],
+          },
+        });
+      } else if (name === "system_settings") {
+        await db.createCollection(name, {
+          indexing: {
+            deny: ["admin_qr_code"],
           },
         });
       } else {

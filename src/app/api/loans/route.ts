@@ -41,7 +41,9 @@ function calculateLoanInterest(loan: Loan): { months: number; interest: number; 
 
 // GET: Fetch loans (All loans or member specific loans)
 export async function GET(req: NextRequest) {
-  const token = req.cookies.get("bbcc_session")?.value;
+  const authHeader = req.headers.get("authorization");
+  const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+  const token = req.cookies.get("bbcc_session")?.value || bearerToken;
   const session = token ? verifyToken(token) : null;
 
   if (!session) {
@@ -121,7 +123,9 @@ export async function GET(req: NextRequest) {
 
 // POST: Member applies for Loan (Max 90% of total deposited amount)
 export async function POST(req: NextRequest) {
-  const token = req.cookies.get("bbcc_session")?.value;
+  const authHeader = req.headers.get("authorization");
+  const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+  const token = req.cookies.get("bbcc_session")?.value || bearerToken;
   const session = token ? verifyToken(token) : null;
 
   if (!session) {
@@ -229,7 +233,9 @@ export async function POST(req: NextRequest) {
 
 // PUT: Admin Approves & Disburses with Screenshot OR Member Repays Loan
 export async function PUT(req: NextRequest) {
-  const token = req.cookies.get("bbcc_session")?.value;
+  const authHeader = req.headers.get("authorization");
+  const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+  const token = req.cookies.get("bbcc_session")?.value || bearerToken;
   const session = token ? verifyToken(token) : null;
 
   if (!session) {

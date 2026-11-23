@@ -189,9 +189,13 @@ export default function MemberDashboardPage() {
 
     setSubmittingDeposit(true);
     try {
+      const localToken = typeof window !== "undefined" ? localStorage.getItem("dfi_token") : null;
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (localToken) headers["Authorization"] = `Bearer ${localToken}`;
+
       const res = await fetch("/api/contributions", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
           amount: monthlyDepositAmount,
           payment_screenshot: depositScreenshot,
@@ -242,9 +246,13 @@ export default function MemberDashboardPage() {
     const totalPayable = activeLoan.total_payable || activeLoan.requested_amount;
 
     try {
+      const localToken = typeof window !== "undefined" ? localStorage.getItem("dfi_token") : null;
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (localToken) headers["Authorization"] = `Bearer ${localToken}`;
+
       const res = await fetch("/api/loans", {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
           loan_id: activeLoan._id,
           action: "member_repay",
