@@ -3,7 +3,13 @@ import { verifyToken } from "../../../../lib/auth";
 import { dbGetSystemSettings, dbUpdateSystemSettings } from "../../../../lib/astra";
 
 function getAdminSession(req: NextRequest) {
-  const token = req.cookies.get("bbcc_session")?.value;
+  let token = req.cookies.get("bbcc_session")?.value;
+  if (!token) {
+    const authHeader = req.headers.get("authorization");
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      token = authHeader.substring(7).trim();
+    }
+  }
   if (!token) return null;
   const session = verifyToken(token);
   if (!session) return null;
@@ -18,9 +24,18 @@ export async function GET() {
   try {
     const settings = await dbGetSystemSettings();
     const currentDay = new Date().getDate(); // 1 to 31
+    const monthlyAmount = settings.monthly_contribution_amount || 100;
+    const platformFee = settings.platform_fee !== undefined ? settings.platform_fee : 3;
+    const totalMonthlyPayable = monthlyAmount + platformFee;
+
     return NextResponse.json({
       success: true,
-      settings,
+      settings: {
+        ...settings,
+        monthly_contribution_amount: monthlyAmount,
+        platform_fee: platformFee,
+      },
+      total_monthly_payable: totalMonthlyPayable,
       currentDay,
     });
   } catch (err: any) {
@@ -61,6 +76,18 @@ async function handleUpdate(req: NextRequest) {
     }
     if (typeof body.allow_loan_repay_after_15th === "boolean") {
       updates.allow_loan_repay_after_15th = body.allow_loan_repay_after_15th;
+    }
+    if (body.monthly_contribution_amount !== undefined) {
+      const amt = Number(body.monthly_contribution_amount);
+      if (!isNaN(amt) && amt >= 1) {
+        updates.monthly_contribution_amount = Math.round(amt);
+      }
+    }
+    if (body.platform_fee !== undefined) {
+      const fee = Number(body.platform_fee);
+      if (!isNaN(fee) && fee >= 0) {
+        updates.platform_fee = Math.round(fee);
+      }
     }
     if (body.admin_upi_id !== undefined) {
       updates.admin_upi_id = String(body.admin_upi_id).trim();

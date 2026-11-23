@@ -54,6 +54,9 @@ interface PayPageData {
     admin_ifsc: string;
     allow_deposit_after_10th: boolean;
     allow_loan_repay_after_15th: boolean;
+    monthly_contribution_amount?: number;
+    platform_fee?: number;
+    total_monthly_payable?: number;
   };
   members: PublicMember[];
   loans_for_repay: LoanForRepay[];
@@ -161,7 +164,7 @@ export default function PublicPayPage() {
       return;
     }
     if (!depositScreenshot) {
-      setDepositMsg({ type: "error", text: "कृपया ₹100 का भुगतान स्क्रीनशॉट अवश्य चुनें।" });
+      setDepositMsg({ type: "error", text: "कृपया भुगतान स्क्रीनशॉट अवश्य चुनें।" });
       return;
     }
 
@@ -254,8 +257,12 @@ export default function PublicPayPage() {
   const upiId = pageData?.settings.admin_upi_id || "sky140052@okaxis";
   const upiName = pageData?.settings.admin_upi_name || "DFI इमरजेंसी सेवा";
 
+  const monthlyAmount = pageData?.settings.monthly_contribution_amount || 100;
+  const platformFee = pageData?.settings.platform_fee !== undefined ? pageData.settings.platform_fee : 3;
+  const totalPayable = monthlyAmount + platformFee;
+
   // Intent links for 1-click payment
-  const depositUpiIntent = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(upiName)}&am=100&cu=INR&tn=${encodeURIComponent(`DFI Deposit - ${selectedMemberObj?.name || "Member"}`)}`;
+  const depositUpiIntent = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(upiName)}&am=${totalPayable}&cu=INR&tn=${encodeURIComponent(`DFI Deposit - ${selectedMemberObj?.name || "Member"}`)}`;
   const repayUpiIntent = selectedLoanObj
     ? `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(upiName)}&am=${selectedLoanObj.total_payable}&cu=INR&tn=${encodeURIComponent(`DFI Loan Repay - ${selectedLoanObj.member_name}`)}`
     : "";
@@ -306,7 +313,7 @@ export default function PublicPayPage() {
             }`}
           >
             <Calendar className="w-4 h-4" />
-            <span>1. मासिक अंशदान (₹100)</span>
+            <span>1. मासिक अंशदान (₹{totalPayable})</span>
           </button>
           <button
             type="button"
@@ -455,13 +462,37 @@ export default function PublicPayPage() {
                     <div>
                       <h2 className="text-sm font-bold text-white flex items-center gap-1.5">
                         <QrCode className="w-4 h-4 text-blue-400" />
-                        <span>2. ₹100 का भुगतान करें</span>
+                        <span>2. ₹{totalPayable} का भुगतान करें</span>
                       </h2>
                       <p className="text-[11px] text-slate-400">QR कोड स्कैन करें या 1-क्लिक बटन से पे करें</p>
                     </div>
-                    <span className="text-lg font-black text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-xl border border-emerald-500/20">
-                      ₹100
-                    </span>
+                    <div className="text-right">
+                      <span className="text-lg font-black text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-xl border border-emerald-500/20 block">
+                        ₹{totalPayable}
+                      </span>
+                      <span className="text-[10px] text-slate-400 block mt-0.5">
+                        (अंशदान ₹{monthlyAmount} + शुल्क ₹{platformFee})
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Fee Breakdown Info Box */}
+                  <div className="p-3.5 bg-slate-950/80 rounded-xl border border-slate-800/80 text-xs space-y-1.5">
+                    <div className="flex justify-between text-slate-300">
+                      <span>मूल मासिक अंशदान (आपके संचित फंड में जमा):</span>
+                      <span className="font-bold text-white font-mono">₹{monthlyAmount}</span>
+                    </div>
+                    <div className="flex justify-between text-amber-400">
+                      <span>प्लेटफॉर्म शुल्क:</span>
+                      <span className="font-bold font-mono">+₹{platformFee}</span>
+                    </div>
+                    <div className="flex justify-between text-emerald-400 border-t border-slate-800 pt-1.5 font-bold">
+                      <span>कुल देय राशि (UPI द्वारा):</span>
+                      <span className="font-mono text-sm">₹{totalPayable}</span>
+                    </div>
+                    <p className="text-[10px] text-slate-400 pt-0.5 leading-snug">
+                      * नोट: आपके खाते में केवल मूल अंशदान (₹{monthlyAmount}) जमा माना जाएगा, ₹{platformFee} प्लेटफॉर्म मेंटेनेंस शुल्क है।
+                    </p>
                   </div>
 
                   {/* QR Code & Direct Apps */}
@@ -516,7 +547,7 @@ export default function PublicPayPage() {
                           className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold rounded-xl shadow-md transition"
                         >
                           <ExternalLink className="w-3.5 h-3.5" />
-                          <span>PhonePe / GPay / Paytm से ₹100 पे करें</span>
+                          <span>PhonePe / GPay / Paytm से ₹{totalPayable} पे करें</span>
                         </a>
                       </div>
                     </div>
@@ -607,7 +638,7 @@ export default function PublicPayPage() {
                       ) : (
                         <>
                           <CheckCircle2 className="w-4 h-4" />
-                          <span>₹100 अंशदान स्क्रीनशॉट जमा करें</span>
+                          <span>₹{totalPayable} अंशदान स्क्रीनशॉट जमा करें</span>
                         </>
                       )}
                     </button>

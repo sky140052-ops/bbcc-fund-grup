@@ -149,6 +149,11 @@ export default function AdminPage() {
   const [savingUpiSettings, setSavingUpiSettings] = useState(false);
   const [upiSettingsMsg, setUpiSettingsMsg] = useState<string | null>(null);
 
+  // Monthly Contribution Customization State
+  const [monthlyAmountInput, setMonthlyAmountInput] = useState<number>(100);
+  const [savingMonthlyAmount, setSavingMonthlyAmount] = useState<boolean>(false);
+  const [monthlyAmountMsg, setMonthlyAmountMsg] = useState<string | null>(null);
+
   const [payLink, setPayLink] = useState("");
   const [loanApplyLink, setLoanApplyLink] = useState("");
 
@@ -172,6 +177,9 @@ export default function AdminPage() {
           if (data.settings.admin_upi_id) setAdminUpiInput(data.settings.admin_upi_id);
           if (data.settings.admin_upi_name) setAdminUpiNameInput(data.settings.admin_upi_name);
           if (data.settings.admin_qr_code) setAdminQrCodeInput(data.settings.admin_qr_code);
+          if (typeof data.settings.monthly_contribution_amount === "number") {
+            setMonthlyAmountInput(data.settings.monthly_contribution_amount);
+          }
         }
         if (typeof data.currentDay === "number") {
           setCurrentDay(data.currentDay);
@@ -179,6 +187,36 @@ export default function AdminPage() {
       }
     } catch (err) {
       console.error("Failed to load settings:", err);
+    }
+  };
+
+  // Save Monthly Contribution Amount (Lock & Save)
+  const handleSaveMonthlyAmount = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!monthlyAmountInput || monthlyAmountInput <= 0) {
+      alert("कृपया मान्य अंशदान राशि दर्ज करें (कम से कम ₹1)।");
+      return;
+    }
+    setSavingMonthlyAmount(true);
+    setMonthlyAmountMsg(null);
+    try {
+      const res = await fetch("/api/admin/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          monthly_contribution_amount: Number(monthlyAmountInput),
+          platform_fee: 3,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "मासिक अंशदान राशि लॉक करने में विफल।");
+      setSettings(data.settings);
+      setMonthlyAmountMsg(`✓ मासिक अंशदान ₹${monthlyAmountInput} (+₹3 शुल्क = ₹${Number(monthlyAmountInput) + 3}) सफलतापूर्वक लॉक व सेव कर दिया गया!`);
+      setTimeout(() => setMonthlyAmountMsg(null), 4500);
+    } catch (err: any) {
+      alert(err.message || "त्रुटि हुई।");
+    } finally {
+      setSavingMonthlyAmount(false);
     }
   };
 
@@ -988,7 +1026,7 @@ export default function AdminPage() {
               )}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
               {/* Control 1: Registration Link */}
               <div className={`p-5 rounded-2xl border transition-all ${
                 settings.registration_link_active
@@ -1151,6 +1189,86 @@ export default function AdminPage() {
                   )}
                 </button>
               </div>
+
+              {/* Control 4: Monthly Deposit Customization & ₹3 Platform Fee */}
+              <div className="p-5 rounded-2xl border bg-amber-50/70 border-amber-300 shadow-sm space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black uppercase tracking-wider text-slate-500">
+                    कंट्रोल 4
+                  </span>
+                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-900 flex items-center gap-1">
+                    <Lock className="w-3 h-3 text-amber-700" />
+                    <span>मासिक अंशदान लॉक</span>
+                  </span>
+                </div>
+
+                <div>
+                  <h4 className="font-bold text-slate-900 text-sm">मासिक अंशदान राशि (कस्टमाइज़)</h4>
+                  <p className="text-[11px] text-slate-500 mt-1 leading-snug">
+                    हर महीने सदस्य कितना जमा करेंगे यहाँ सेट करें। इसमें <b>+₹3 प्लेटफ़ॉर्म शुल्क</b> स्वतः जुड़ेगा।
+                  </p>
+                </div>
+
+                <form onSubmit={handleSaveMonthlyAmount} className="space-y-2.5 pt-1">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                      मूल मासिक अंशदान राशि (₹):
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-2 text-sm font-bold text-slate-500">₹</span>
+                      <input
+                        type="number"
+                        min="1"
+                        required
+                        value={monthlyAmountInput}
+                        onChange={(e) => setMonthlyAmountInput(Number(e.target.value))}
+                        placeholder="100"
+                        className="w-full pl-7 pr-3 py-1.5 bg-white border border-amber-300 rounded-xl text-sm font-black font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Calculation Preview Box */}
+                  <div className="p-2.5 bg-white/90 rounded-xl border border-amber-200 text-[11px] space-y-1 font-medium text-slate-700">
+                    <div className="flex justify-between">
+                      <span>मूल बचत अंशदान (जमा):</span>
+                      <span className="font-bold text-emerald-700">₹{monthlyAmountInput || 0}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>प्लेटफ़ॉर्म मेंटेनेंस शुल्क:</span>
+                      <span className="font-bold text-blue-700">+₹3</span>
+                    </div>
+                    <div className="border-t border-amber-200 pt-1 flex justify-between font-black text-slate-900">
+                      <span>सदस्यों को कुल देय:</span>
+                      <span className="text-amber-700">₹{(Number(monthlyAmountInput) || 0) + 3}</span>
+                    </div>
+                    <p className="text-[10px] text-slate-500 italic pt-0.5">
+                      * सदस्य फंड में केवल मूल राशि (₹{monthlyAmountInput || 0}) क्रेडिट होगी। ₹3 शुल्क फंड पूल में नहीं जुड़ेगा।
+                    </p>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={savingMonthlyAmount}
+                    className="w-full py-2.5 px-4 rounded-xl font-bold text-xs bg-amber-600 hover:bg-amber-700 text-white transition flex items-center justify-center gap-2 shadow-sm disabled:opacity-50"
+                  >
+                    {savingMonthlyAmount ? (
+                      "राशि लॉक हो रही है..."
+                    ) : (
+                      <>
+                        <Lock className="w-3.5 h-3.5" />
+                        <span>राशि लॉक व सेव करें (Lock & Save)</span>
+                      </>
+                    )}
+                  </button>
+
+                  {monthlyAmountMsg && (
+                    <p className="text-[11px] text-emerald-700 font-bold text-center animate-pulse pt-1">
+                      {monthlyAmountMsg}
+                    </p>
+                  )}
+                </form>
+              </div>
             </div>
           </div>
 
@@ -1168,7 +1286,7 @@ export default function AdminPage() {
                 </span>
               </div>
               <p className="text-xs text-slate-600 leading-relaxed">
-                यह लिंक WhatsApp पर सदस्यों को भेजें। सदस्य इस लिंक को खोलकर अपना नाम चुनेंगे, एडमिन UPI/QR कोड पर <b>₹100 अंशदान</b> या <b>लोन किश्त</b> का भुगतान करेंगे और स्क्रीनशॉट अपलोड करेंगे। (एडमिन बिना ही 24 घंटे में स्वतः स्वीकृत):
+                यह लिंक WhatsApp पर सदस्यों को भेजें। सदस्य इस लिंक को खोलकर अपना नाम चुनेंगे, एडमिन UPI/QR कोड पर <b>₹{(settings.monthly_contribution_amount || 100) + 3} (मूल अंशदान ₹{settings.monthly_contribution_amount || 100} + ₹3 शुल्क)</b> या <b>लोन किश्त</b> का भुगतान करेंगे और स्क्रीनशॉट अपलोड करेंगे। (एडमिन बिना ही 24 घंटे में स्वतः स्वीकृत):
               </p>
               <div className="p-3 bg-white border border-emerald-200 rounded-xl text-xs font-mono font-bold text-slate-800 break-all select-all">
                 {payLink || "https://your-site/pay"}
@@ -1184,7 +1302,9 @@ export default function AdminPage() {
                 </button>
                 <button
                   onClick={() => {
-                    const msg = `नमस्ते! DFI इमरजेंसी सेवा ग्रुप - मासिक ₹100 अंशदान अथवा लोन किश्त जमा करने हेतु कृपया नीचे दिए गए लिंक पर क्लिक करें और स्क्रीनशॉट अपलोड करें:\n${payLink}`;
+                    const monthlyBase = settings.monthly_contribution_amount || 100;
+                    const totalPay = monthlyBase + 3;
+                    const msg = `नमस्ते! DFI इमरजेंसी सेवा ग्रुप - मासिक अंशदान ₹${totalPay} (मूल बचत ₹${monthlyBase} + ₹3 मेंटेनेंस शुल्क) अथवा लोन किश्त जमा करने हेतु कृपया नीचे दिए गए लिंक पर क्लिक करें और स्क्रीनशॉट अपलोड करें:\n${payLink}`;
                     window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, "_blank");
                   }}
                   className="flex-1 min-w-[140px] flex items-center justify-center gap-2 py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs shadow-sm transition"

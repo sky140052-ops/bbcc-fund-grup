@@ -82,6 +82,8 @@ const DEFAULT_SYSTEM_SETTINGS: SystemSettings = {
   registration_link_active: true,
   allow_deposit_after_10th: false,
   allow_loan_repay_after_15th: false,
+  monthly_contribution_amount: 100, // Monthly deposit amount set by Admin (default ₹100)
+  platform_fee: 3, // Flat ₹3 platform maintenance fee
   admin_upi_id: "sky140052@okaxis",
   admin_upi_name: "DFI इमरजेंसी सेवा",
   updated_at: new Date().toISOString(),
@@ -689,7 +691,14 @@ export async function dbGetSystemSettings(): Promise<SystemSettings> {
   if (col) {
     try {
       const doc = await col.findOne({ _id: "dfi_system_settings" });
-      if (doc) return doc;
+      if (doc) {
+        return {
+          ...DEFAULT_SYSTEM_SETTINGS,
+          ...doc,
+          monthly_contribution_amount: doc.monthly_contribution_amount || 100,
+          platform_fee: doc.platform_fee !== undefined ? doc.platform_fee : 3,
+        };
+      }
       await col.insertOne(DEFAULT_SYSTEM_SETTINGS as any);
       return DEFAULT_SYSTEM_SETTINGS;
     } catch (err) {

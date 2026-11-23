@@ -113,7 +113,12 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
 
-    const amount = Math.max(1, Number(body.amount) || 100);
+    const configuredAmount = settings.monthly_contribution_amount || 100;
+    const platformFee = settings.platform_fee !== undefined ? settings.platform_fee : 3;
+    const amount = (session.role === "admin" || session.role === "founder") && body.amount
+      ? Math.max(1, Number(body.amount))
+      : configuredAmount;
+    const totalPaid = amount + platformFee;
     const targetMemberId = body.member_id || session.userId;
     const targetMemberName = body.member_name || session.name;
     const targetMemberMobile = body.member_mobile || session.mobile || "";
@@ -157,6 +162,8 @@ export async function POST(req: NextRequest) {
       // Re-uploading after rejection: update existing record
       await dbUpdateContribution(existingContribution._id, {
         amount,
+        platform_fee: platformFee,
+        total_paid: totalPaid,
         status: initialStatus,
         payment_screenshot: screenshot,
         submitted_at: new Date().toISOString(),
@@ -167,6 +174,8 @@ export async function POST(req: NextRequest) {
       contributionRecord = {
         ...existingContribution,
         amount,
+        platform_fee: platformFee,
+        total_paid: totalPaid,
         status: initialStatus,
         payment_screenshot: screenshot,
         submitted_at: new Date().toISOString(),
@@ -179,6 +188,8 @@ export async function POST(req: NextRequest) {
         member_name: targetMemberName,
         member_mobile: targetMemberMobile,
         amount,
+        platform_fee: platformFee,
+        total_paid: totalPaid,
         month: targetMonth,
         status: initialStatus,
         payment_screenshot: screenshot,

@@ -185,6 +185,9 @@ export async function GET(req: NextRequest) {
         admin_ifsc: settings.admin_ifsc || "",
         allow_deposit_after_10th: !!settings.allow_deposit_after_10th,
         allow_loan_repay_after_15th: !!settings.allow_loan_repay_after_15th,
+        monthly_contribution_amount: settings.monthly_contribution_amount || 100,
+        platform_fee: settings.platform_fee !== undefined ? settings.platform_fee : 3,
+        total_monthly_payable: (settings.monthly_contribution_amount || 100) + (settings.platform_fee !== undefined ? settings.platform_fee : 3),
       },
       members: publicMembers,
       loans_for_repay: loansForRepay,
@@ -234,6 +237,10 @@ export async function POST(req: NextRequest) {
       const currentMonth = new Date().toISOString().slice(0, 7);
       const allContributions = await dbFindContributions();
 
+      const monthlyAmount = settings.monthly_contribution_amount || 100;
+      const platformFee = settings.platform_fee !== undefined ? settings.platform_fee : 3;
+      const totalPayable = monthlyAmount + platformFee;
+
       // Check duplicate
       const existing = allContributions.find(
         (c) => (c.member_id === memberId || (c as any).user_id === memberId) && c.month === currentMonth
@@ -242,7 +249,7 @@ export async function POST(req: NextRequest) {
       if (existing) {
         if (existing.status === "paid") {
           return NextResponse.json(
-            { error: `सदस्य '${member.name}' का माह ${currentMonth} का ₹100 अंशदान पहले से स्वीकृत (Paid) है। दोबारा जमा करने की आवश्यकता नहीं है।` },
+            { error: `सदस्य '${member.name}' का माह ${currentMonth} का ₹${existing.amount} अंशदान पहले से स्वीकृत (Paid) है। दोबारा जमा करने की आवश्यकता नहीं है।` },
             { status: 400 }
           );
         }
@@ -257,7 +264,9 @@ export async function POST(req: NextRequest) {
       if (existing && existing.status === "rejected") {
         // Re-uploading after rejection: update existing record to pending
         await dbUpdateContribution(existing._id, {
-          amount: 100,
+          amount: monthlyAmount, // Original savings amount
+          platform_fee: platformFee, // ₹3 platform fee
+          total_paid: totalPayable,
           status: "pending",
           payment_screenshot: screenshot,
           submitted_at: new Date().toISOString(),
@@ -271,7 +280,9 @@ export async function POST(req: NextRequest) {
           member_id: member._id,
           member_name: member.name,
           member_mobile: member.mobile,
-          amount: 100,
+          amount: monthlyAmount, // Original savings credited to member fund
+          platform_fee: platformFee, // ₹3 platform fee
+          total_paid: totalPayable, // Total amount paid via UPI
           month: currentMonth,
           status: "pending",
           payment_screenshot: screenshot,
@@ -288,14 +299,14 @@ export async function POST(req: NextRequest) {
         type: "pending",
         memberName: member.name,
         memberEmail: member.email,
-        amount: 100,
+        amount: monthlyAmount,
         month: currentMonth,
         screenshotUrl: screenshot,
       }).catch(console.warn);
 
       return NextResponse.json({
         success: true,
-        message: `सदस्य '${member.name}' का ₹100 का स्क्रीनशॉट सफलतापूर्वक दर्ज हो गया है! एडमिन द्वारा सत्यापन उपरांत अथवा 24 घंटे में सिस्टम द्वारा स्वतः (Auto-Approved) आपके खाते में जुड़ जाएगा।`,
+        message: `सदस्य '${member.name}' का कुल ₹${totalPayable} (अंशदान ₹${monthlyAmount} + ₹${platformFee} प्लेटफॉर्म शुल्क) का स्क्रीनशॉट सफलतापूर्वक दर्ज हो गया है! एडमिन द्वारा सत्यापन उपरांत अथवा 24 घंटे में सिस्टम द्वारा स्वतः (Auto-Approved) मूल अंशदान ₹${monthlyAmount} आपके खाते में जुड़ जाएगा।`,
       });
     }
 

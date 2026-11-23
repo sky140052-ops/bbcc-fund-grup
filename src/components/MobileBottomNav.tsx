@@ -26,11 +26,11 @@ export default function MobileBottomNav() {
       isActive: pathname === "/",
     },
     {
-      label: "पे / ₹100",
+      label: "पे करें",
       href: "/pay",
       icon: Wallet,
       isActive: pathname === "/pay",
-      badge: "₹100",
+      badge: "पे",
     },
     {
       label: "लोन",
