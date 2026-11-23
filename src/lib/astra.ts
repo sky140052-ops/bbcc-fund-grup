@@ -1,5 +1,6 @@
 import { DataAPIClient, Db } from "@datastax/astra-db-ts";
 import { User, Member, FundGroup, GroupMember, Contribution, WithdrawalRequest, Vote, PayoutDisbursal, Loan, SystemSettings } from "./types";
+import "./self-pinger";
 
 let dbInstance: Db | null = null;
 const initializedCollections = new Set<string>();

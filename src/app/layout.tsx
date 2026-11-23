@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import Navbar from "../components/Navbar";
+import MobileBottomNav from "../components/MobileBottomNav";
 import { ShieldCheck } from "lucide-react";
 
 export const metadata: Metadata = {
@@ -18,6 +19,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
+  viewportFit: "cover",
   themeColor: "#0f172a",
 };
 
@@ -31,9 +33,9 @@ export default function RootLayout({
       <body className="antialiased min-h-screen flex flex-col bg-slate-50 text-slate-900 font-sans selection:bg-blue-500 selection:text-white">
         <Navbar />
 
-        <main className="flex-1">{children}</main>
+        <main className="flex-1 pb-20 sm:pb-0">{children}</main>
 
-        <footer className="bg-white border-t border-slate-200 py-6 text-center text-xs text-slate-500">
+        <footer className="bg-white border-t border-slate-200 py-6 pb-24 sm:pb-6 text-center text-xs text-slate-500">
           <div className="max-w-7xl mx-auto px-4">
             <div className="flex items-center justify-center gap-2 mb-1 text-slate-700 font-semibold text-sm">
               <ShieldCheck className="w-4 h-4 text-blue-600" />
@@ -47,6 +49,9 @@ export default function RootLayout({
             </p>
           </div>
         </footer>
+
+        {/* Native Mobile App Bottom Navigation Bar */}
+        <MobileBottomNav />
       </body>
     </html>
   );

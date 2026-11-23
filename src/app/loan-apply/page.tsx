@@ -36,6 +36,7 @@ export default function PublicLoanApplyPage() {
 
   const [member, setMember] = useState<MemberData | null>(null);
   const [totalDeposited, setTotalDeposited] = useState(0);
+  const [communityTotalDeposited, setCommunityTotalDeposited] = useState(0);
   const [maxEligible, setMaxEligible] = useState(0);
   const [hasActiveLoan, setHasActiveLoan] = useState(false);
   const [activeLoanStatus, setActiveLoanStatus] = useState<string | null>(null);
@@ -79,6 +80,7 @@ export default function PublicLoanApplyPage() {
 
       setMember(data.member);
       setTotalDeposited(data.total_deposited || 0);
+      setCommunityTotalDeposited(data.community_total_deposited || 0);
       setMaxEligible(data.max_eligible_loan || 0);
       setHasActiveLoan(data.has_active_loan || false);
       setActiveLoanStatus(data.active_loan_status || null);
@@ -145,8 +147,8 @@ export default function PublicLoanApplyPage() {
   };
 
   const reqNum = Number(requestedAmount) || 0;
-  const processingFee = Math.round(reqNum * 0.10);
-  const netDisbursed = Math.max(0, reqNum - processingFee);
+  const processingFee = Math.round(reqNum * 0.05); // 5% processing fee
+  const netDisbursed = Math.max(0, reqNum - processingFee); // 95% net to member
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-slate-100 flex flex-col">
@@ -188,10 +190,10 @@ export default function PublicLoanApplyPage() {
           </div>
           <ul className="list-disc list-inside space-y-1 text-blue-300/90 text-xs pl-1">
             <li>
-              <b>पात्रता (90%):</b> आप अपनी कुल जमा अंशदान राशि का अधिकतम 90% तक लोन ले सकते हैं।
+              <b>पात्रता:</b> आप सभी सदस्यों द्वारा जमा कुल कम्युनिटी फंड तक लोन ले सकते हैं।
             </li>
             <li>
-              <b>प्रोसेसिंग शुल्क (10%):</b> लोन स्वीकृति पर 10% शुल्क काटकर शेष 90% राशि आपके खाते में भेजी जाती है।
+              <b>प्रोसेसिंग शुल्क (5%):</b> लोन स्वीकृति पर केवल 5% शुल्क काटकर शेष 95% राशि आपके खाते में भेजी जाती है।
             </li>
             <li>
               <b>मासिक ब्याज:</b> केवल 1% प्रति माह साधारण ब्याज दर लागू होती है।
@@ -279,25 +281,35 @@ export default function PublicLoanApplyPage() {
               </div>
 
               {/* Deposit & Max Loan Stats */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="p-3.5 bg-slate-950 rounded-xl border border-indigo-900/50">
+                  <span className="text-[10px] text-indigo-400 uppercase tracking-wider block font-bold">
+                    कुल कम्युनिटी फंड
+                  </span>
+                  <span className="text-xl font-black text-indigo-300 block mt-0.5">
+                    ₹{communityTotalDeposited}
+                  </span>
+                  <span className="text-[10px] text-slate-500 block">सभी सदस्यों द्वारा कुल जमा</span>
+                </div>
+
                 <div className="p-3.5 bg-slate-950 rounded-xl border border-slate-800">
                   <span className="text-[10px] text-slate-400 uppercase tracking-wider block font-bold">
-                    कुल संचित अंशदान
+                    आवेदक सदस्य का अंशदान
                   </span>
-                  <span className="text-lg font-black text-white block mt-0.5">
+                  <span className="text-xl font-black text-white block mt-0.5">
                     ₹{totalDeposited}
                   </span>
-                  <span className="text-[10px] text-slate-500 block">स्वीकृत बचत राशि</span>
+                  <span className="text-[10px] text-slate-500 block">आपकी स्वीकृत बचत</span>
                 </div>
 
                 <div className="p-3.5 bg-slate-950 rounded-xl border border-blue-900/50">
                   <span className="text-[10px] text-blue-400 uppercase tracking-wider block font-bold">
-                    अधिकतम लोन पात्रता (90%)
+                    अधिकतम लोन पात्रता
                   </span>
-                  <span className="text-lg font-black text-blue-400 block mt-0.5">
+                  <span className="text-xl font-black text-blue-400 block mt-0.5">
                     ₹{maxEligible}
                   </span>
-                  <span className="text-[10px] text-slate-500 block">कुल बचत का 90%</span>
+                  <span className="text-[10px] text-slate-500 block">कम्युनिटी फंड के बराबर</span>
                 </div>
               </div>
 
@@ -427,11 +439,11 @@ export default function PublicLoanApplyPage() {
                         <span className="font-bold font-mono">₹{reqNum}</span>
                       </div>
                       <div className="flex justify-between text-rose-400">
-                        <span>10% प्रोसेसिंग शुल्क (कटौती):</span>
+                        <span>5% प्रोसेसिंग शुल्क (कटौती):</span>
                         <span className="font-bold font-mono">-₹{processingFee}</span>
                       </div>
                       <div className="flex justify-between text-emerald-400 border-t border-slate-800 pt-2 text-sm font-bold">
-                        <span>आपके खाते में भेजी जाने वाली शुद्ध राशि:</span>
+                        <span>आपके खाते में भेजी जाने वाली शुद्ध राशि (95%):</span>
                         <span className="font-mono text-base">₹{netDisbursed}</span>
                       </div>
                       <div className="flex justify-between text-amber-400 text-[11px] pt-1">

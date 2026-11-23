@@ -137,17 +137,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "कृपया न्यूनतम ₹10 की राशि दर्ज करें।" }, { status: 400 });
     }
 
-    // Check member's total deposited amount
+    // Check community pool and member's deposited amount
     const allContributions = await dbFindContributions();
-    const memberTotalDeposited = allContributions
-      .filter((c) => (c.member_id === session.userId || (c as any).user_id === session.userId) && c.status === "paid")
+    const approvedContributions = allContributions.filter((c) => c.status === "paid");
+    const communityTotalDeposited = approvedContributions.reduce((sum, c) => sum + (Number(c.amount) || 0), 0);
+
+    const memberTotalDeposited = approvedContributions
+      .filter((c) => (c.member_id === session.userId || (c as any).user_id === session.userId))
       .reduce((sum, c) => sum + (Number(c.amount) || 0), 0);
 
-    const maxEligibleAmount = Math.floor(memberTotalDeposited * 0.90);
+    const maxEligibleAmount = communityTotalDeposited;
 
-    if (memberTotalDeposited <= 0) {
+    if (communityTotalDeposited <= 0) {
       return NextResponse.json(
-        { error: "आपने अभी तक कोई अंशदान जमा नहीं किया है। लोन लेने के लिए कम से कम एक जमा होना आवश्यक है।" },
+        { error: "कम्युनिटी फंड में अभी पर्याप्त जमा राशि उपलब्ध नहीं है।" },
         { status: 400 }
       );
     }
@@ -155,7 +158,7 @@ export async function POST(req: NextRequest) {
     if (requestedAmount > maxEligibleAmount) {
       return NextResponse.json(
         {
-          error: `आपकी अधिकतम लोन पात्रता ₹${maxEligibleAmount} है (आपकी कुल जमा राशि ₹${memberTotalDeposited} का 90%)।`,
+          error: `आपकी अधिकतम लोन पात्रता ₹${maxEligibleAmount} है (सभी सदस्यों द्वारा कुल जमा कम्युनिटी फंड के बराबर)।`,
         },
         { status: 400 }
       );
@@ -175,10 +178,10 @@ export async function POST(req: NextRequest) {
     // Fetch member payment details
     const member = await dbFindMemberById(session.userId);
 
-    // Calculate 10% processing fee
-    const processingFeePercent = 10;
-    const processingFeeAmount = Math.round(requestedAmount * 0.10);
-    const disbursedAmount = requestedAmount - processingFeeAmount; // 90% net to member
+    // Calculate 5% processing fee
+    const processingFeePercent = 5;
+    const processingFeeAmount = Math.round(requestedAmount * 0.05);
+    const disbursedAmount = requestedAmount - processingFeeAmount; // 95% net to member
 
     const newLoan: Loan = {
       _id: `loan_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
@@ -210,11 +213,12 @@ export async function POST(req: NextRequest) {
       reason,
       totalDeposit: memberTotalDeposited,
       eligibleMax: maxEligibleAmount,
+      communityPool: communityTotalDeposited,
     }).catch(console.warn);
 
     return NextResponse.json({
       success: true,
-      message: `₹${requestedAmount} के लोन का आवेदन सफलतापूर्वक दर्ज हो गया है! (10% प्रोसेसिंग शुल्क कटने के बाद आपके खाते में ₹${disbursedAmount} भेजे जाएंगे)।`,
+      message: `₹${requestedAmount} के लोन का आवेदन सफलतापूर्वक दर्ज हो गया है! (5% प्रोसेसिंग शुल्क कटने के बाद आपके खाते में ₹${disbursedAmount} भेजे जाएंगे)।`,
       loan: newLoan,
     });
   } catch (err: any) {

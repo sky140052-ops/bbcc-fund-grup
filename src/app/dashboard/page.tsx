@@ -262,14 +262,14 @@ export default function MemberDashboardPage() {
     }
   };
 
-  // Submit Loan Request (Max 90% of total deposit)
+  // Submit Loan Request (Up to Total Community Pool)
   const handleApplyLoan = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmittingLoan(true);
     setLoanMsg(null);
 
     const amount = Number(loanAmountInput);
-    const maxAllowed = Math.floor(myTotalDeposited * 0.90);
+    const maxAllowed = communityPoolTotal;
 
     if (amount <= 0) {
       setLoanMsg({ type: "error", text: "कृपया मान्य लोन राशि दर्ज करें।" });
@@ -280,7 +280,7 @@ export default function MemberDashboardPage() {
     if (amount > maxAllowed) {
       setLoanMsg({
         type: "error",
-        text: `आपकी अधिकतम लोन पात्रता ₹${maxAllowed} है (आपकी कुल जमा ₹${myTotalDeposited} का 90%)।`,
+        text: `आपकी अधिकतम लोन पात्रता ₹${maxAllowed} है (सभी सदस्यों द्वारा कुल जमा कम्युनिटी फंड के बराबर)।`,
       });
       setSubmittingLoan(false);
       return;
@@ -312,8 +312,8 @@ export default function MemberDashboardPage() {
     }
   };
 
-  // Calculate 90% loan limit
-  const maxLoanEligible = Math.floor(myTotalDeposited * 0.90);
+  // Loan limit up to total community pool
+  const maxLoanEligible = communityPoolTotal;
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6 sm:space-y-8 pb-28 sm:pb-8">
@@ -489,7 +489,7 @@ export default function MemberDashboardPage() {
               </div>
               <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
-                <span>लोन पात्रता: ₹{maxLoanEligible} (कुल का 90%)</span>
+                <span>लोन पात्रता: ₹{maxLoanEligible} (कम्युनिटी फंड तक)</span>
               </div>
             </div>
 
@@ -661,14 +661,14 @@ export default function MemberDashboardPage() {
                 </div>
 
                 <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
-                  <span className="text-slate-400 block text-[10px]">10% प्रोसेसिंग शुल्क:</span>
+                  <span className="text-slate-400 block text-[10px]">5% प्रोसेसिंग शुल्क:</span>
                   <span className="font-bold text-rose-600 text-sm">
                     -₹{activeLoan.processing_fee_amount}
                   </span>
                 </div>
 
                 <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
-                  <span className="text-slate-400 block text-[10px]">खाते में प्राप्त राशि (90%):</span>
+                  <span className="text-slate-400 block text-[10px]">खाते में प्राप्त राशि (95%):</span>
                   <span className="font-black text-emerald-700 text-base">
                     ₹{activeLoan.disbursed_amount}
                   </span>
@@ -713,7 +713,7 @@ export default function MemberDashboardPage() {
               <div>
                 <h3 className="text-xl font-black text-slate-900">लोन के लिए आवेदन करें</h3>
                 <p className="text-xs sm:text-sm text-slate-500 mt-1">
-                  आपकी कुल जमा राशि ₹{myTotalDeposited} है। आप अधिकतम <b>90% (₹{maxLoanEligible})</b> तक
+                  आपकी कुल जमा राशि ₹{myTotalDeposited} है एवं कुल कम्युनिटी फंड ₹{communityPoolTotal} है। आप अधिकतम <b>कम्युनिटी फंड (₹{maxLoanEligible})</b> तक
                   लोन ले सकते हैं।
                 </p>
               </div>
@@ -740,7 +740,7 @@ export default function MemberDashboardPage() {
                   <li>लोन राशि पर <b>1% प्रति माह (1% p.m.)</b> का ब्याज लगेगा।</li>
                   <li>ब्याज की गणना लोन निकलने की तारीख से हर महीने की <b>10 तारीख</b> को होगी।</li>
                   <li>
-                    लोन राशि में से <b>10% प्रोसेसिंग शुल्क</b> काटा जाएगा, और <b>90% राशि</b> सीधे
+                    लोन राशि में से <b>5% प्रोसेसिंग शुल्क</b> काटा जाएगा, और <b>95% राशि</b> सीधे
                     आपके UPI/खाते में भेजी जाएगी।
                   </li>
                   <li>
@@ -785,17 +785,17 @@ export default function MemberDashboardPage() {
                       <span className="font-bold text-slate-800">₹{Number(loanAmountInput)}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-slate-500">10% प्रोसेसिंग शुल्क (कटौती):</span>
+                      <span className="text-slate-500">5% प्रोसेसिंग शुल्क (कटौती):</span>
                       <span className="font-bold text-rose-600">
-                        -₹{Math.round(Number(loanAmountInput) * 0.10)}
+                        -₹{Math.round(Number(loanAmountInput) * 0.05)}
                       </span>
                     </div>
                     <div className="flex justify-between pt-1 border-t border-slate-200">
                       <span className="font-bold text-slate-800">
-                        आपके UPI/खाते में भेजे जाने वाली शुद्ध राशि (90%):
+                        आपके UPI/खाते में भेजे जाने वाली शुद्ध राशि (95%):
                       </span>
                       <span className="font-black text-emerald-600 text-sm">
-                        ₹{Math.round(Number(loanAmountInput) * 0.90)}
+                        ₹{Math.round(Number(loanAmountInput) * 0.95)}
                       </span>
                     </div>
                   </div>

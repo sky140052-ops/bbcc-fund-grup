@@ -32,13 +32,18 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      // Calculate total approved contributions deposited by this member
+      // Calculate total approved contributions deposited by all members & by this member
       const allContributions = await dbFindContributions();
-      const memberContributions = allContributions.filter(
-        (c) => (c.member_id === member._id || (c as any).user_id === member._id) && c.status === "paid"
+      const approvedContributions = allContributions.filter((c) => c.status === "paid");
+      const communityTotalDeposited = approvedContributions.reduce((sum, c) => sum + (Number(c.amount) || 0), 0);
+
+      const memberContributions = approvedContributions.filter(
+        (c) => (c.member_id === member._id || (c as any).user_id === member._id)
       );
       const totalDeposited = memberContributions.reduce((sum, c) => sum + (Number(c.amount) || 0), 0);
-      const maxEligibleLoan = Math.floor(totalDeposited * 0.90);
+
+      // Max loan eligibility: Can borrow up to total money deposited by all members in the community pool
+      const maxEligibleLoan = communityTotalDeposited;
 
       // Check if member already has an active loan
       const allLoans = await dbFindLoans();
@@ -58,8 +63,10 @@ export async function POST(req: NextRequest) {
           ifsc: member.ifsc || "",
           wallet_number: member.wallet_number || "",
         },
-        total_deposited: totalDeposited,
+        total_deposited: totalDeposited, // Member's individual deposit
+        community_total_deposited: communityTotalDeposited, // Total by all members
         max_eligible_loan: maxEligibleLoan,
+        processing_fee_percent: 5,
         has_active_loan: !!activeLoan,
         active_loan_status: activeLoan?.status || null,
         active_loan_amount: activeLoan?.requested_amount || null,
@@ -86,17 +93,20 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "सदस्य सत्यापन विफल।" }, { status: 400 });
       }
 
-      // Verify Total Deposit & Max 90% Eligibility
+      // Verify Community Fund & Member Eligibility
       const allContributions = await dbFindContributions();
-      const memberTotalDeposited = allContributions
-        .filter((c) => (c.member_id === memberId || (c as any).user_id === memberId) && c.status === "paid")
+      const approvedContributions = allContributions.filter((c) => c.status === "paid");
+      const communityTotalDeposited = approvedContributions.reduce((sum, c) => sum + (Number(c.amount) || 0), 0);
+
+      const memberTotalDeposited = approvedContributions
+        .filter((c) => (c.member_id === memberId || (c as any).user_id === memberId))
         .reduce((sum, c) => sum + (Number(c.amount) || 0), 0);
 
-      const maxEligibleAmount = Math.floor(memberTotalDeposited * 0.90);
+      const maxEligibleAmount = communityTotalDeposited;
 
-      if (memberTotalDeposited <= 0) {
+      if (communityTotalDeposited <= 0) {
         return NextResponse.json(
-          { error: "आपने अभी तक कोई अंशदान जमा नहीं किया है। लोन लेने के लिए कम से कम एक जमा होना आवश्यक है।" },
+          { error: "कम्युनिटी फंड में अभी पर्याप्त जमा राशि उपलब्ध नहीं है।" },
           { status: 400 }
         );
       }
@@ -104,7 +114,7 @@ export async function POST(req: NextRequest) {
       if (requestedAmount > maxEligibleAmount) {
         return NextResponse.json(
           {
-            error: `आपकी अधिकतम लोन पात्रता ₹${maxEligibleAmount} है (आपकी कुल जमा राशि ₹${memberTotalDeposited} का 90%)।`,
+            error: `आपकी अधिकतम लोन पात्रता ₹${maxEligibleAmount} है (सभी सदस्यों द्वारा कुल जमा कम्युनिटी फंड के बराबर)।`,
           },
           { status: 400 }
         );
@@ -123,10 +133,10 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      // 10% Fee Breakdown
-      const processingFeePercent = 10;
-      const processingFeeAmount = Math.round(requestedAmount * 0.10);
-      const disbursedAmount = requestedAmount - processingFeeAmount; // 90% net to member
+      // 5% Fee Breakdown (Net 95% disbursed to member)
+      const processingFeePercent = 5;
+      const processingFeeAmount = Math.round(requestedAmount * 0.05);
+      const disbursedAmount = requestedAmount - processingFeeAmount; // 95% net to member
 
       const newLoan: Loan = {
         _id: `loan_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
@@ -158,11 +168,12 @@ export async function POST(req: NextRequest) {
         reason,
         totalDeposit: memberTotalDeposited,
         eligibleMax: maxEligibleAmount,
+        communityPool: communityTotalDeposited,
       }).catch(console.warn);
 
       return NextResponse.json({
         success: true,
-        message: `सदस्य '${member.name}', आपका ₹${requestedAmount} के लोन का आवेदन सफलतापूर्वक दर्ज हो गया है! (10% प्रोसेसिंग शुल्क कटने के बाद आपके खाते में ₹${disbursedAmount} भेजे जाएंगे)।`,
+        message: `सदस्य '${member.name}', आपका ₹${requestedAmount} के लोन का आवेदन सफलतापूर्वक दर्ज हो गया है! (5% प्रोसेसिंग शुल्क कटने के बाद आपके खाते में ₹${disbursedAmount} भेजे जाएंगे)।`,
         loan: newLoan,
       });
     }
