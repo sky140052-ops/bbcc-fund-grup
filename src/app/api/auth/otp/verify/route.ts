@@ -23,7 +23,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const THIRTY_DAYS_SEC = 30 * 24 * 60 * 60; // 30 days session
+    // Permanent 10-year session so mobile app and web NEVER auto logout
+    const PERMANENT_SESSION_SEC = 10 * 365 * 24 * 60 * 60; // 10 years (315,360,000s)
     const token = signToken(sessionPayload, true);
 
     // Send Login Notification Email
@@ -40,6 +41,7 @@ export async function POST(req: NextRequest) {
       success: true,
       message: isAdmin ? "👑 मुख्य एडमिन लॉगिन सफल!" : "👤 सदस्य लॉगिन सफल रहा!",
       user: sessionPayload,
+      token,
       redirectTo,
     });
 
@@ -47,8 +49,8 @@ export async function POST(req: NextRequest) {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
-      maxAge: THIRTY_DAYS_SEC,
-      expires: new Date(Date.now() + THIRTY_DAYS_SEC * 1000),
+      maxAge: PERMANENT_SESSION_SEC,
+      expires: new Date(Date.now() + PERMANENT_SESSION_SEC * 1000),
       path: "/",
     });
 

@@ -2,15 +2,21 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import Navbar from "../components/Navbar";
 import MobileBottomNav from "../components/MobileBottomNav";
+import ServiceWorkerRegistration from "../components/ServiceWorkerRegistration";
 import { ShieldCheck } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "DFI - इमरजेंसी सेवा ग्रुप (Digital Financial Infrastructure)",
   description: "DFI सुरक्षित सदस्य बचत, आकस्मिक लोन, आधार व पैन सत्यापन एवं पारदर्शी वित्तीय पोर्टल",
+  manifest: "/manifest.json",
+  icons: {
+    icon: "/icon.svg",
+    apple: "/apple-touch-icon.png",
+  },
   appleWebApp: {
     capable: true,
-    statusBarStyle: "default",
-    title: "DFI",
+    statusBarStyle: "black-translucent",
+    title: "DFI ऐप",
   },
 };
 
@@ -30,7 +36,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="hi" className="scroll-smooth">
+      <head>
+        <link rel="manifest" href="/manifest.json" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="application-name" content="DFI ऐप" />
+      </head>
       <body className="antialiased min-h-screen flex flex-col bg-slate-50 text-slate-900 font-sans selection:bg-blue-500 selection:text-white">
+        <ServiceWorkerRegistration />
         <Navbar />
 
         <main className="flex-1 pb-20 sm:pb-0">{children}</main>

@@ -1,0 +1,60 @@
+{
+  "name": "DFI - इमरजेंसी सेवा ग्रुप",
+  "short_name": "DFI ऐप",
+  "description": "DFI सुरक्षित सदस्य बचत, आकस्मिक लोन, पारदर्शी वित्तीय पोर्टल",
+  "start_url": "/dashboard?source=pwa",
+  "id": "/dashboard?source=pwa",
+  "display": "standalone",
+  "display_override": ["standalone", "window-controls-overlay", "minimal-ui"],
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "orientation": "portrait",
+  "scope": "/",
+  "lang": "hi",
+  "categories": ["finance", "business", "utilities"],
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "पे / ₹100 अंशदान",
+      "short_name": "पेमेंट",
+      "url": "/pay",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "लोन आवेदन",
+      "short_name": "लोन",
+      "url": "/loan-apply",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "डैशबोर्ड",
+      "short_name": "डैशबोर्ड",
+      "url": "/dashboard",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}

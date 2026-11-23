@@ -92,15 +92,19 @@ export default function MemberDashboardPage() {
   const fetchDashboardData = async () => {
     setLoading(true);
     try {
-      // 1. Fetch current user/member
-      const resMe = await fetch("/api/auth/me");
+      // 1. Fetch current user/member (support persistent localStorage Bearer token)
+      const localToken = typeof window !== "undefined" ? localStorage.getItem("dfi_token") : null;
+      const headers: Record<string, string> = {};
+      if (localToken) headers["Authorization"] = `Bearer ${localToken}`;
+
+      const resMe = await fetch("/api/auth/me", { headers });
       if (resMe.status === 401) {
-        router.push("/");
+        router.push("/?open_login=true");
         return;
       }
       const dataMe = await resMe.json();
       if (!dataMe.authenticated) {
-        router.push("/");
+        router.push("/?open_login=true");
         return;
       }
       setMember(dataMe.user);

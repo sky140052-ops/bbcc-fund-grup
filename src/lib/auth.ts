@@ -12,8 +12,8 @@ import { User, Member, SessionPayload } from "./types";
 const JWT_SECRET = process.env.JWT_SECRET || "bbcc_fund_secure_jwt_secret_render_production_key";
 
 export function signToken(payload: SessionPayload, rememberMe: boolean = true): string {
-  // 30 days token expiry so session stays permanently logged in until logout
-  const expiry = "30d";
+  // 10 years (3650 days) permanent session so mobile app and web stay permanently logged in without auto-logout
+  const expiry = "3650d";
   return jwt.sign(payload, JWT_SECRET, { expiresIn: expiry });
 }
 

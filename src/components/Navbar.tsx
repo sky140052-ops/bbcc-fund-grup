@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { LayoutDashboard, Home, UserPlus, LogOut, UserCheck } from "lucide-react";
+import InstallAppButton from "./InstallAppButton";
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -16,10 +17,14 @@ export default function Navbar() {
   useEffect(() => {
     let isMounted = true;
 
-    // 1. Check Session State
+    // 1. Check Session State (via cookies & localStorage Bearer token)
     async function checkAuth() {
       try {
-        const res = await fetch("/api/auth/me");
+        const localToken = typeof window !== "undefined" ? localStorage.getItem("dfi_token") : null;
+        const headers: Record<string, string> = {};
+        if (localToken) headers["Authorization"] = `Bearer ${localToken}`;
+
+        const res = await fetch("/api/auth/me", { headers });
         if (res.ok) {
           const data = await res.json();
           if (isMounted && data.authenticated && data.user) {
@@ -58,6 +63,10 @@ export default function Navbar() {
 
   const handleLogout = async () => {
     try {
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("dfi_token");
+        localStorage.removeItem("dfi_user_email");
+      }
       await fetch("/api/auth/logout", { method: "POST" });
       setUser(null);
       router.push("/");
@@ -103,6 +112,9 @@ export default function Navbar() {
               <span>स्वयं जुड़ें (Join)</span>
             </Link>
           )}
+
+          {/* App Install Button */}
+          <InstallAppButton variant="pill" />
 
           {/* Home Link */}
           <Link

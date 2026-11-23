@@ -4,7 +4,13 @@ import { getEmailServiceStatus, sendOtpEmail } from "../../../../lib/email";
 import Razorpay from "razorpay";
 
 function getAdminSession(req: NextRequest) {
-  const token = req.cookies.get("bbcc_session")?.value;
+  let token = req.cookies.get("bbcc_session")?.value;
+  if (!token) {
+    const authHeader = req.headers.get("authorization");
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      token = authHeader.substring(7).trim();
+    }
+  }
   if (!token) return null;
   const session = verifyToken(token);
   if (!session) return null;

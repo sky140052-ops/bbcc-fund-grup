@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import InstallAppButton from "../components/InstallAppButton";
 import {
   ShieldCheck,
   Mail,
@@ -41,13 +42,29 @@ export default function HomePage() {
     let isMounted = true;
 
     async function initPage() {
-      // 1. Check Session State
+      // 1. Check Session State (via cookies & localStorage Bearer token)
       try {
-        const res = await fetch("/api/auth/me");
+        const localToken = typeof window !== "undefined" ? localStorage.getItem("dfi_token") : null;
+        const headers: Record<string, string> = {};
+        if (localToken) headers["Authorization"] = `Bearer ${localToken}`;
+
+        const res = await fetch("/api/auth/me", { headers });
         if (res.ok) {
           const data = await res.json();
           if (isMounted && data.authenticated && data.user) {
             setCurrentUser(data.user);
+
+            // In mobile app (standalone PWA) or redirected with ?app=true, immediately go to their dashboard!
+            const isStandalone =
+              window.matchMedia("(display-mode: standalone)").matches ||
+              (window.navigator as any).standalone ||
+              window.location.search.includes("app=true") ||
+              window.location.search.includes("source=pwa");
+
+            if (isStandalone) {
+              const target = data.user.role === "admin" || data.user.role === "founder" ? "/admin" : "/dashboard";
+              router.replace(target);
+            }
           }
         }
       } catch {
@@ -84,6 +101,10 @@ export default function HomePage() {
 
   const handleLogout = async () => {
     try {
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("dfi_token");
+        localStorage.removeItem("dfi_user_email");
+      }
       await fetch("/api/auth/logout", { method: "POST" });
       setCurrentUser(null);
       window.location.reload();
@@ -154,6 +175,12 @@ export default function HomePage() {
         throw new Error(data.error || "OTP अमान्य या समाप्त हो चुका है।");
       }
 
+      // Store permanent token in localStorage for resilient mobile app session
+      if (typeof window !== "undefined") {
+        if (data.token) localStorage.setItem("dfi_token", data.token);
+        localStorage.setItem("dfi_user_email", emailInput.trim().toLowerCase());
+      }
+
       setStatusMsg("सत्यापन सफल! डैशबोर्ड पर पुनर्निर्देशित किया जा रहा है...");
       setTimeout(() => {
         if (data.redirectTo) {
@@ -171,7 +198,7 @@ export default function HomePage() {
     }
   };
 
-  // Direct Go to Dashboard handler - respects 30-day active session
+  // Direct Go to Dashboard handler - respects permanent active session
   const handleGoToDashboardClick = async () => {
     if (currentUser) {
       if (currentUser.role === "admin" || currentUser.role === "founder") {
@@ -182,9 +209,13 @@ export default function HomePage() {
       return;
     }
 
-    // Double check with backend session before asking for login
+    // Double check with backend session (cookies + localStorage Bearer) before asking for login
     try {
-      const res = await fetch("/api/auth/me");
+      const localToken = typeof window !== "undefined" ? localStorage.getItem("dfi_token") : null;
+      const headers: Record<string, string> = {};
+      if (localToken) headers["Authorization"] = `Bearer ${localToken}`;
+
+      const res = await fetch("/api/auth/me", { headers });
       if (res.ok) {
         const data = await res.json();
         if (data.authenticated && data.user) {
@@ -274,8 +305,13 @@ export default function HomePage() {
               </button>
             )}
           </div>
+          {/* Mobile App Download Banner */}
+          <div className="pt-2 max-w-xl mx-auto">
+            <InstallAppButton variant="banner" />
+          </div>
+
           <p className="text-[11px] text-slate-400">
-            * 30 दिनों तक लॉगिन स्वतः सुरक्षित रहता है। बार-बार OTP की आवश्यकता नहीं होगी।
+            * स्थायी लॉगिन सक्रिय है। एक बार ईमेल व OTP से लॉगिन करने पर आप हमेशा लॉगिन रहेंगे।
           </p>
         </div>
 
