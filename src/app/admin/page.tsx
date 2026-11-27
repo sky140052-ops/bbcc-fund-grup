@@ -151,6 +151,7 @@ export default function AdminPage() {
 
   // Monthly Contribution Customization State
   const [monthlyAmountInput, setMonthlyAmountInput] = useState<number>(100);
+  const [platformFeeInput, setPlatformFeeInput] = useState<number>(3);
   const [savingMonthlyAmount, setSavingMonthlyAmount] = useState<boolean>(false);
   const [monthlyAmountMsg, setMonthlyAmountMsg] = useState<string | null>(null);
 
@@ -180,6 +181,9 @@ export default function AdminPage() {
           if (typeof data.settings.monthly_contribution_amount === "number") {
             setMonthlyAmountInput(data.settings.monthly_contribution_amount);
           }
+          if (typeof data.settings.platform_fee === "number") {
+            setPlatformFeeInput(data.settings.platform_fee);
+          }
         }
         if (typeof data.currentDay === "number") {
           setCurrentDay(data.currentDay);
@@ -190,13 +194,14 @@ export default function AdminPage() {
     }
   };
 
-  // Save Monthly Contribution Amount (Lock & Save)
+  // Save Monthly Contribution Amount & Maintenance Fee (Lock & Save)
   const handleSaveMonthlyAmount = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!monthlyAmountInput || monthlyAmountInput <= 0) {
       alert("कृपया मान्य अंशदान राशि दर्ज करें (कम से कम ₹1)।");
       return;
     }
+    const fee = Number(platformFeeInput) >= 0 ? Number(platformFeeInput) : 0;
     setSavingMonthlyAmount(true);
     setMonthlyAmountMsg(null);
     try {
@@ -205,13 +210,14 @@ export default function AdminPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           monthly_contribution_amount: Number(monthlyAmountInput),
-          platform_fee: 3,
+          platform_fee: fee,
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "मासिक अंशदान राशि लॉक करने में विफल।");
+      if (!res.ok) throw new Error(data.error || "मासिक अंशदान व शुल्क लॉक करने में विफल।");
       setSettings(data.settings);
-      setMonthlyAmountMsg(`✓ मासिक अंशदान ₹${monthlyAmountInput} (+₹3 शुल्क = ₹${Number(monthlyAmountInput) + 3}) सफलतापूर्वक लॉक व सेव कर दिया गया!`);
+      const feeText = fee === 0 ? "शुल्क मुफ़्त (₹0)" : `+₹${fee} शुल्क`;
+      setMonthlyAmountMsg(`✓ मासिक अंशदान ₹${monthlyAmountInput} (${feeText} = कुल देय ₹${Number(monthlyAmountInput) + fee}) सफलतापूर्वक लॉक व सेव कर दिया गया!`);
       setTimeout(() => setMonthlyAmountMsg(null), 4500);
     } catch (err: any) {
       alert(err.message || "त्रुटि हुई।");
@@ -1190,7 +1196,7 @@ export default function AdminPage() {
                 </button>
               </div>
 
-              {/* Control 4: Monthly Deposit Customization & ₹3 Platform Fee */}
+              {/* Control 4: Monthly Deposit Customization & Manual Platform Fee */}
               <div className="p-5 rounded-2xl border bg-amber-50/70 border-amber-300 shadow-sm space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-black uppercase tracking-wider text-slate-500">
@@ -1198,21 +1204,22 @@ export default function AdminPage() {
                   </span>
                   <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-900 flex items-center gap-1">
                     <Lock className="w-3 h-3 text-amber-700" />
-                    <span>मासिक अंशदान लॉक</span>
+                    <span>अंशदान व शुल्क लॉक</span>
                   </span>
                 </div>
 
                 <div>
-                  <h4 className="font-bold text-slate-900 text-sm">मासिक अंशदान राशि (कस्टमाइज़)</h4>
+                  <h4 className="font-bold text-slate-900 text-sm">मासिक अंशदान एवं मेंटेनेंस शुल्क</h4>
                   <p className="text-[11px] text-slate-500 mt-1 leading-snug">
-                    हर महीने सदस्य कितना जमा करेंगे यहाँ सेट करें। इसमें <b>+₹3 प्लेटफ़ॉर्म शुल्क</b> स्वतः जुड़ेगा।
+                    हर महीने सदस्य कितना अंशदान जमा करेंगे और मेंटेनेंस शुल्क (₹0 मुफ़्त, ₹3, ₹5 या कोई भी) कितना रहेगा यहाँ से सेट करें।
                   </p>
                 </div>
 
-                <form onSubmit={handleSaveMonthlyAmount} className="space-y-2.5 pt-1">
+                <form onSubmit={handleSaveMonthlyAmount} className="space-y-3 pt-1">
+                  {/* Field 1: Monthly Deposit Base */}
                   <div>
                     <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                      मूल मासिक अंशदान राशि (₹):
+                      मूल मासिक बचत अंशदान (₹):
                     </label>
                     <div className="relative">
                       <span className="absolute left-3 top-2 text-sm font-bold text-slate-500">₹</span>
@@ -1228,36 +1235,112 @@ export default function AdminPage() {
                     </div>
                   </div>
 
+                  {/* Field 2: Platform / Maintenance Fee (Manual input + Free preset) */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-[11px] font-bold text-slate-700">
+                        मेंटेनेंस / प्लेटफ़ॉर्म शुल्क (₹):
+                      </label>
+                      <span className="text-[10px] font-bold text-slate-500">
+                        {Number(platformFeeInput) === 0 ? "🎉 मुफ़्त (Free)" : `+₹${platformFeeInput}`}
+                      </span>
+                    </div>
+                    <div className="relative">
+                      <span className="absolute left-3 top-2 text-sm font-bold text-slate-500">₹</span>
+                      <input
+                        type="number"
+                        min="0"
+                        required
+                        value={platformFeeInput}
+                        onChange={(e) => setPlatformFeeInput(Math.max(0, Number(e.target.value)))}
+                        placeholder="0"
+                        className="w-full pl-7 pr-3 py-1.5 bg-white border border-amber-300 rounded-xl text-sm font-black font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                      />
+                    </div>
+
+                    {/* Quick Preset Buttons */}
+                    <div className="flex items-center gap-1.5 mt-2">
+                      <button
+                        type="button"
+                        onClick={() => setPlatformFeeInput(0)}
+                        className={`px-2.5 py-1 rounded-lg text-[10px] font-black transition border ${
+                          Number(platformFeeInput) === 0
+                            ? "bg-emerald-600 text-white border-emerald-600 shadow-sm"
+                            : "bg-white text-emerald-800 border-emerald-300 hover:bg-emerald-50"
+                        }`}
+                      >
+                        ₹0 (मुफ़्त)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPlatformFeeInput(3)}
+                        className={`px-2.5 py-1 rounded-lg text-[10px] font-black transition border ${
+                          Number(platformFeeInput) === 3
+                            ? "bg-blue-600 text-white border-blue-600 shadow-sm"
+                            : "bg-white text-blue-800 border-blue-300 hover:bg-blue-50"
+                        }`}
+                      >
+                        ₹3 (डिफ़ॉल्ट)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPlatformFeeInput(5)}
+                        className={`px-2.5 py-1 rounded-lg text-[10px] font-black transition border ${
+                          Number(platformFeeInput) === 5
+                            ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
+                            : "bg-white text-indigo-800 border-indigo-300 hover:bg-indigo-50"
+                        }`}
+                      >
+                        ₹5
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPlatformFeeInput(10)}
+                        className={`px-2.5 py-1 rounded-lg text-[10px] font-black transition border ${
+                          Number(platformFeeInput) === 10
+                            ? "bg-slate-800 text-white border-slate-800 shadow-sm"
+                            : "bg-white text-slate-800 border-slate-300 hover:bg-slate-50"
+                        }`}
+                      >
+                        ₹10
+                      </button>
+                    </div>
+                  </div>
+
                   {/* Calculation Preview Box */}
-                  <div className="p-2.5 bg-white/90 rounded-xl border border-amber-200 text-[11px] space-y-1 font-medium text-slate-700">
+                  <div className="p-2.5 bg-white/95 rounded-xl border border-amber-200 text-[11px] space-y-1.5 font-medium text-slate-700 shadow-sm">
                     <div className="flex justify-between">
                       <span>मूल बचत अंशदान (जमा):</span>
                       <span className="font-bold text-emerald-700">₹{monthlyAmountInput || 0}</span>
                     </div>
                     <div className="flex justify-between">
                       <span>प्लेटफ़ॉर्म मेंटेनेंस शुल्क:</span>
-                      <span className="font-bold text-blue-700">+₹3</span>
+                      <span className={`font-bold ${Number(platformFeeInput) === 0 ? "text-emerald-600" : "text-blue-700"}`}>
+                        {Number(platformFeeInput) === 0 ? "₹0 (मुफ़्त - कोई शुल्क नहीं)" : `+₹${platformFeeInput || 0}`}
+                      </span>
                     </div>
                     <div className="border-t border-amber-200 pt-1 flex justify-between font-black text-slate-900">
                       <span>सदस्यों को कुल देय:</span>
-                      <span className="text-amber-700">₹{(Number(monthlyAmountInput) || 0) + 3}</span>
+                      <span className="text-amber-700 text-sm">
+                        ₹{(Number(monthlyAmountInput) || 0) + (Number(platformFeeInput) || 0)}
+                      </span>
                     </div>
-                    <p className="text-[10px] text-slate-500 italic pt-0.5">
-                      * सदस्य फंड में केवल मूल राशि (₹{monthlyAmountInput || 0}) क्रेडिट होगी। ₹3 शुल्क फंड पूल में नहीं जुड़ेगा।
+                    <p className="text-[10px] text-slate-500 italic pt-0.5 leading-snug">
+                      * सदस्य फंड खाते में केवल मूल राशि (₹{monthlyAmountInput || 0}) क्रेडिट होगी। {Number(platformFeeInput) > 0 ? `₹${platformFeeInput} मेंटेनेंस शुल्क फंड में नहीं जुड़ेगा।` : "मेंटेनेंस शुल्क मुफ़्त है।"}
                     </p>
                   </div>
 
                   <button
                     type="submit"
                     disabled={savingMonthlyAmount}
-                    className="w-full py-2.5 px-4 rounded-xl font-bold text-xs bg-amber-600 hover:bg-amber-700 text-white transition flex items-center justify-center gap-2 shadow-sm disabled:opacity-50"
+                    className="w-full py-2.5 px-4 rounded-xl font-bold text-xs bg-amber-600 hover:bg-amber-700 text-white transition flex items-center justify-center gap-2 shadow-sm disabled:opacity-50 active-press"
                   >
                     {savingMonthlyAmount ? (
-                      "राशि लॉक हो रही है..."
+                      "सेव व लॉक हो रहा है..."
                     ) : (
                       <>
                         <Lock className="w-3.5 h-3.5" />
-                        <span>राशि लॉक व सेव करें (Lock & Save)</span>
+                        <span>राशि व शुल्क लॉक व सेव करें (Lock & Save)</span>
                       </>
                     )}
                   </button>
@@ -1286,7 +1369,7 @@ export default function AdminPage() {
                 </span>
               </div>
               <p className="text-xs text-slate-600 leading-relaxed">
-                यह लिंक WhatsApp पर सदस्यों को भेजें। सदस्य इस लिंक को खोलकर अपना नाम चुनेंगे, एडमिन UPI/QR कोड पर <b>₹{(settings.monthly_contribution_amount || 100) + 3} (मूल अंशदान ₹{settings.monthly_contribution_amount || 100} + ₹3 शुल्क)</b> या <b>लोन किश्त</b> का भुगतान करेंगे और स्क्रीनशॉट अपलोड करेंगे। (एडमिन बिना ही 24 घंटे में स्वतः स्वीकृत):
+                यह लिंक WhatsApp पर सदस्यों को भेजें। सदस्य इस लिंक को खोलकर अपना नाम चुनेंगे, एडमिन UPI/QR कोड पर <b>₹{(settings.monthly_contribution_amount || 100) + (settings.platform_fee !== undefined ? settings.platform_fee : 3)} (मूल अंशदान ₹{settings.monthly_contribution_amount || 100} {(settings.platform_fee !== undefined ? settings.platform_fee : 3) > 0 ? `+ ₹${settings.platform_fee !== undefined ? settings.platform_fee : 3} मेंटेनेंस शुल्क` : "• शुल्क मुफ़्त"})</b> या <b>लोन किश्त</b> का भुगतान करेंगे और स्क्रीनशॉट अपलोड करेंगे। (एडमिन बिना ही 24 घंटे में स्वतः स्वीकृत):
               </p>
               <div className="p-3 bg-white border border-emerald-200 rounded-xl text-xs font-mono font-bold text-slate-800 break-all select-all">
                 {payLink || "https://your-site/pay"}
@@ -1303,8 +1386,10 @@ export default function AdminPage() {
                 <button
                   onClick={() => {
                     const monthlyBase = settings.monthly_contribution_amount || 100;
-                    const totalPay = monthlyBase + 3;
-                    const msg = `नमस्ते! DFI इमरजेंसी सेवा ग्रुप - मासिक अंशदान ₹${totalPay} (मूल बचत ₹${monthlyBase} + ₹3 मेंटेनेंस शुल्क) अथवा लोन किश्त जमा करने हेतु कृपया नीचे दिए गए लिंक पर क्लिक करें और स्क्रीनशॉट अपलोड करें:\n${payLink}`;
+                    const fee = settings.platform_fee !== undefined ? settings.platform_fee : 3;
+                    const totalPay = monthlyBase + fee;
+                    const feeLabel = fee === 0 ? "शुल्क मुफ़्त" : `+₹${fee} मेंटेनेंस शुल्क`;
+                    const msg = `नमस्ते! DFI इमरजेंसी सेवा ग्रुप - मासिक अंशदान ₹${totalPay} (मूल बचत ₹${monthlyBase} • ${feeLabel}) अथवा लोन किश्त जमा करने हेतु कृपया नीचे दिए गए लिंक पर क्लिक करें और स्क्रीनशॉट अपलोड करें:\n${payLink}`;
                     window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, "_blank");
                   }}
                   className="flex-1 min-w-[140px] flex items-center justify-center gap-2 py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs shadow-sm transition"

@@ -471,7 +471,9 @@ export default function PublicPayPage() {
                         ₹{totalPayable}
                       </span>
                       <span className="text-[10px] text-slate-400 block mt-0.5">
-                        (अंशदान ₹{monthlyAmount} + शुल्क ₹{platformFee})
+                        {platformFee === 0
+                          ? `(अंशदान ₹${monthlyAmount} • शुल्क मुफ़्त)`
+                          : `(अंशदान ₹${monthlyAmount} + शुल्क ₹${platformFee})`}
                       </span>
                     </div>
                   </div>
@@ -483,15 +485,17 @@ export default function PublicPayPage() {
                       <span className="font-bold text-white font-mono">₹{monthlyAmount}</span>
                     </div>
                     <div className="flex justify-between text-amber-400">
-                      <span>प्लेटफॉर्म शुल्क:</span>
-                      <span className="font-bold font-mono">+₹{platformFee}</span>
+                      <span>प्लेटफॉर्म मेंटेनेंस शुल्क:</span>
+                      <span className={`font-bold font-mono ${platformFee === 0 ? "text-emerald-400" : ""}`}>
+                        {platformFee === 0 ? "₹0 (मुफ़्त / Free)" : `+₹${platformFee}`}
+                      </span>
                     </div>
                     <div className="flex justify-between text-emerald-400 border-t border-slate-800 pt-1.5 font-bold">
                       <span>कुल देय राशि (UPI द्वारा):</span>
                       <span className="font-mono text-sm">₹{totalPayable}</span>
                     </div>
                     <p className="text-[10px] text-slate-400 pt-0.5 leading-snug">
-                      * नोट: आपके खाते में केवल मूल अंशदान (₹{monthlyAmount}) जमा माना जाएगा, ₹{platformFee} प्लेटफॉर्म मेंटेनेंस शुल्क है।
+                      * नोट: आपके खाते में केवल मूल अंशदान (₹{monthlyAmount}) जमा माना जाएगा{platformFee > 0 ? `, ₹${platformFee} प्लेटफॉर्म मेंटेनेंस शुल्क है।` : "। (मेंटेनेंस शुल्क मुफ़्त है)।"}
                     </p>
                   </div>
 

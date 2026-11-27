@@ -48,7 +48,8 @@ export default function RootLayout({
 
         <main className="flex-1 pb-20 sm:pb-0">{children}</main>
 
-        <footer className="bg-white border-t border-slate-200 py-6 pb-24 sm:pb-6 text-center text-xs text-slate-500">
+        {/* Website Footer: Hidden on mobile phones to give clean 100% native app feel above bottom nav */}
+        <footer className="hidden sm:block bg-white border-t border-slate-200 py-6 text-center text-xs text-slate-500">
           <div className="max-w-7xl mx-auto px-4">
             <div className="flex items-center justify-center gap-2 mb-1 text-slate-700 font-semibold text-sm">
               <ShieldCheck className="w-4 h-4 text-blue-600" />

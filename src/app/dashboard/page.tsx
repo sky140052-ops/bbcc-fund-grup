@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   ShieldCheck,
@@ -32,11 +32,25 @@ import {
 import { Member, Contribution, Loan, SystemSettings } from "../../lib/types";
 import { compressImage } from "../../lib/compress";
 
-export default function MemberDashboardPage() {
+function MemberDashboardContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   // Active Tab: "my_fund" | "loan" | "my_profile" | "transparency"
   const [activeTab, setActiveTab] = useState<"my_fund" | "loan" | "my_profile" | "transparency">("my_fund");
+
+  // Sync activeTab with URL search param "?tab=..."
+  useEffect(() => {
+    const tabParam = searchParams.get("tab");
+    if (
+      tabParam === "loan" ||
+      tabParam === "my_profile" ||
+      tabParam === "transparency" ||
+      tabParam === "my_fund"
+    ) {
+      setActiveTab(tabParam);
+    }
+  }, [searchParams]);
 
   const [loading, setLoading] = useState(true);
   const [member, setMember] = useState<any>(null);
@@ -209,7 +223,13 @@ export default function MemberDashboardPage() {
 
       setDepositMsg({
         type: "success",
-        text: data.message || `₹${totalPayableAmount} (मूल अंशदान ₹${monthlyDepositAmount} + ₹${platformFee} शुल्क) का स्क्रीनशॉट दर्ज हो गया है! एडमिन द्वारा या 24 घंटे में स्वतः (Auto-Approve) आपके खाते में ₹${monthlyDepositAmount} जुड़ जाएगा।`,
+        text:
+          data.message ||
+          `₹${totalPayableAmount} (${
+            platformFee > 0
+              ? `मूल अंशदान ₹${monthlyDepositAmount} + ₹${platformFee} शुल्क`
+              : `अंशदान ₹${monthlyDepositAmount} मुफ़्त शुल्क`
+          }) का स्क्रीनशॉट दर्ज हो गया है! एडमिन द्वारा या 24 घंटे में स्वतः (Auto-Approve) आपके खाते में ₹${monthlyDepositAmount} जुड़ जाएगा।`,
       });
       setShowDepositModal(false);
       setDepositScreenshot("");
@@ -379,54 +399,66 @@ export default function MemberDashboardPage() {
         </div>
       </div>
 
-      {/* Navigation Tabs */}
-      <div className="flex flex-wrap gap-2 p-1.5 rounded-2xl bg-slate-200/70 w-fit">
+      {/* Navigation Tabs - Mobile Native Segmented Control */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 p-1.5 rounded-2xl bg-slate-200/80 w-full shadow-inner border border-slate-300/50">
         <button
-          onClick={() => setActiveTab("my_fund")}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition ${
+          onClick={() => {
+            setActiveTab("my_fund");
+            router.replace("/dashboard?tab=my_fund", { scroll: false });
+          }}
+          className={`flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition active-press ${
             activeTab === "my_fund"
-              ? "bg-white text-blue-700 shadow-md shadow-slate-300/50"
-              : "text-slate-600 hover:text-slate-900"
+              ? "bg-white text-blue-700 shadow-md shadow-slate-300/60"
+              : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60"
           }`}
         >
-          <CreditCard className="w-4 h-4" />
-          <span>सक्रिय फंड व मासिक जमा (₹{monthlyDepositAmount})</span>
+          <CreditCard className="w-4 h-4 flex-shrink-0" />
+          <span className="truncate">मासिक बचत (₹{monthlyDepositAmount})</span>
         </button>
 
         <button
-          onClick={() => setActiveTab("loan")}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition ${
+          onClick={() => {
+            setActiveTab("loan");
+            router.replace("/dashboard?tab=loan", { scroll: false });
+          }}
+          className={`flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition active-press ${
             activeTab === "loan"
-              ? "bg-white text-blue-700 shadow-md shadow-slate-300/50"
-              : "text-slate-600 hover:text-slate-900"
+              ? "bg-white text-blue-700 shadow-md shadow-slate-300/60"
+              : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60"
           }`}
         >
-          <DollarSign className="w-4 h-4" />
-          <span>लोन आवेदन (90%) व चुकता</span>
+          <DollarSign className="w-4 h-4 flex-shrink-0" />
+          <span className="truncate">लोन (90%) व चुकता</span>
         </button>
 
         <button
-          onClick={() => setActiveTab("my_profile")}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition ${
+          onClick={() => {
+            setActiveTab("my_profile");
+            router.replace("/dashboard?tab=my_profile", { scroll: false });
+          }}
+          className={`flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition active-press ${
             activeTab === "my_profile"
-              ? "bg-white text-blue-700 shadow-md shadow-slate-300/50"
-              : "text-slate-600 hover:text-slate-900"
+              ? "bg-white text-blue-700 shadow-md shadow-slate-300/60"
+              : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60"
           }`}
         >
-          <User className="w-4 h-4" />
-          <span>मेरी प्रोफाइल व दस्तावेज</span>
+          <User className="w-4 h-4 flex-shrink-0" />
+          <span className="truncate">मेरी प्रोफाइल</span>
         </button>
 
         <button
-          onClick={() => setActiveTab("transparency")}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition ${
+          onClick={() => {
+            setActiveTab("transparency");
+            router.replace("/dashboard?tab=transparency", { scroll: false });
+          }}
+          className={`flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition active-press ${
             activeTab === "transparency"
-              ? "bg-white text-blue-700 shadow-md shadow-slate-300/50"
-              : "text-slate-600 hover:text-slate-900"
+              ? "bg-white text-blue-700 shadow-md shadow-slate-300/60"
+              : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60"
           }`}
         >
-          <Users className="w-4 h-4" />
-          <span>पारदर्शिता (सभी सदस्य व इतिहास)</span>
+          <Users className="w-4 h-4 flex-shrink-0" />
+          <span className="truncate">समुदाय व पारदर्शिता</span>
         </button>
       </div>
 
@@ -458,7 +490,10 @@ export default function MemberDashboardPage() {
               <div>
                 <h3 className="text-3xl font-black">₹{monthlyDepositAmount}</h3>
                 <p className="text-xs text-blue-100 mt-1">
-                  प्रति माह Direct UPI द्वारा देय (+₹{platformFee} मेंटेनेंस शुल्क = ₹{totalPayableAmount})
+                  प्रति माह Direct UPI द्वारा देय{" "}
+                  {platformFee > 0
+                    ? `(+₹${platformFee} मेंटेनेंस शुल्क = ₹${totalPayableAmount})`
+                    : "(शुल्क मुफ़्त - ₹0)"}
                 </p>
               </div>
 
@@ -1210,49 +1245,6 @@ export default function MemberDashboardPage() {
         </div>
       )}
 
-      {/* Mobile App Bottom Navigation Dock */}
-      <div className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 py-2 px-3 flex items-center justify-around shadow-2xl glass-panel">
-        <button
-          onClick={() => setActiveTab("my_fund")}
-          className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition active-press ${
-            activeTab === "my_fund" ? "text-blue-600 font-black scale-105" : "text-slate-500 font-semibold"
-          }`}
-        >
-          <CreditCard className="w-5 h-5" />
-          <span className="text-[10px]">जमा (₹{totalPayableAmount})</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab("loan")}
-          className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition active-press ${
-            activeTab === "loan" ? "text-blue-600 font-black scale-105" : "text-slate-500 font-semibold"
-          }`}
-        >
-          <DollarSign className="w-5 h-5" />
-          <span className="text-[10px]">लोन (90%)</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab("my_profile")}
-          className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition active-press ${
-            activeTab === "my_profile" ? "text-blue-600 font-black scale-105" : "text-slate-500 font-semibold"
-          }`}
-        >
-          <User className="w-5 h-5" />
-          <span className="text-[10px]">प्रोफाइल</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab("transparency")}
-          className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition active-press ${
-            activeTab === "transparency" ? "text-blue-600 font-black scale-105" : "text-slate-500 font-semibold"
-          }`}
-        >
-          <Users className="w-5 h-5" />
-          <span className="text-[10px]">समुदाय</span>
-        </button>
-      </div>
-
       {/* Direct UPI Monthly Deposit Modal (Only Screenshot Required) */}
       {showDepositModal && (
         <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in overflow-y-auto">
@@ -1283,14 +1275,18 @@ export default function MemberDashboardPage() {
               </div>
               <div className="flex justify-between text-slate-700">
                 <span>प्लेटफ़ॉर्म मेंटेनेंस शुल्क:</span>
-                <span className="font-bold text-blue-700">+₹{platformFee}</span>
+                <span className="font-bold text-blue-700">
+                  {platformFee === 0 ? "₹0 (मुफ़्त / Free)" : `+₹${platformFee}`}
+                </span>
               </div>
               <div className="border-t border-blue-200 pt-1 flex justify-between font-black text-slate-900 text-sm">
                 <span>कुल भुगतान राशि:</span>
                 <span className="text-blue-700">₹{totalPayableAmount}</span>
               </div>
               <p className="text-[10px] text-slate-500 italic pt-0.5">
-                * आपके फंड बचत खाते में मूल राशि (₹{monthlyDepositAmount}) ही जुड़ेगी। ₹{platformFee} प्लेटफ़ॉर्म शुल्क है।
+                {platformFee > 0
+                  ? `* आपके फंड बचत खाते में मूल राशि (₹${monthlyDepositAmount}) ही जुड़ेगी। ₹${platformFee} प्लेटफ़ॉर्म शुल्क है।`
+                  : `* आपके फंड बचत खाते में पूरी मूल राशि (₹${monthlyDepositAmount}) जुड़ेगी। कोई अतिरिक्त शुल्क नहीं है।`}
               </p>
             </div>
 
@@ -1529,5 +1525,22 @@ export default function MemberDashboardPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function MemberDashboardPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+            <p className="text-sm font-bold text-slate-600">डैशबोर्ड लोड हो रहा है...</p>
+          </div>
+        </div>
+      }
+    >
+      <MemberDashboardContent />
+    </Suspense>
   );
 }
