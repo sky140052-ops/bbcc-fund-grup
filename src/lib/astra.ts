@@ -747,3 +747,127 @@ export async function dbUpdateSystemSettings(updates: Partial<SystemSettings>): 
   store.settings = updated;
   return updated;
 }
+
+// ==========================================
+// FRESH PUBLIC LAUNCH & DATABASE RESET
+// ==========================================
+export async function dbResetDatabaseForFreshLaunch(preserveFounderEmail: string = "sky140052@gmail.com") {
+  const cleanEmail = preserveFounderEmail.trim().toLowerCase();
+  const db = getAstraDb();
+
+  let delCnt = 0;
+  let delLoans = 0;
+  let delMembers = 0;
+
+  if (db) {
+    try {
+      // 1. Clear Contributions collection
+      const colCnt = await getCollection("contributions");
+      if (colCnt) {
+        try {
+          const res = await colCnt.deleteMany({});
+          delCnt = res.deletedCount || 0;
+        } catch (e) {
+          console.warn("Error wiping contributions:", e);
+        }
+      }
+
+      // 2. Clear Loans collection
+      const colLoans = await getCollection("loans");
+      if (colLoans) {
+        try {
+          const res = await colLoans.deleteMany({});
+          delLoans = res.deletedCount || 0;
+        } catch (e) {
+          console.warn("Error wiping loans:", e);
+        }
+      }
+
+      // 3. Clear Members collection (all member records)
+      const colMem = await getCollection("members");
+      if (colMem) {
+        try {
+          const res = await colMem.deleteMany({});
+          delMembers = res.deletedCount || 0;
+        } catch (e) {
+          console.warn("Error wiping members:", e);
+        }
+      }
+
+      // 4. Clear auxiliary collections: groups, group_members, payouts, votes, withdrawal_requests
+      const auxCols = ["groups", "group_members", "payouts", "votes", "withdrawal_requests"];
+      for (const cName of auxCols) {
+        try {
+          const col = await getCollection(cName);
+          if (col) {
+            await col.deleteMany({});
+          }
+        } catch (e) {
+          console.warn(`Error wiping ${cName}:`, e);
+        }
+      }
+
+      // 5. Clean users collection: PRESERVE ADMIN / FOUNDER accounts!
+      const colUsers = await getCollection("users");
+      if (colUsers) {
+        try {
+          const allUsers = await colUsers.find({}).toArray();
+          for (const u of allUsers) {
+            const isFounder = u.role === "admin" || u.role === "founder" || u.email?.toLowerCase() === cleanEmail;
+            if (!isFounder) {
+              await colUsers.deleteOne({ _id: u._id } as any);
+            }
+          }
+        } catch (e) {
+          console.warn("Error cleaning users collection:", e);
+        }
+      }
+
+      // 6. Clear reset OTP fields in system_settings while PRESERVING UPI, QR, bank details & fees
+      const colSettings = await getCollection("system_settings");
+      if (colSettings) {
+        try {
+          const current = await dbGetSystemSettings();
+          await colSettings.replaceOne(
+            { _id: "dfi_system_settings" } as any,
+            {
+              ...current,
+              reset_otp: undefined,
+              reset_otp_expires_at: undefined,
+              updated_at: new Date().toISOString(),
+            } as any,
+            { upsert: true }
+          );
+        } catch (e) {
+          console.warn("Error clearing reset OTP in settings:", e);
+        }
+      }
+    } catch (err) {
+      console.error("Error during Astra DB reset:", err);
+    }
+  }
+
+  // Also clean in-memory fallback store
+  const store = getCleanStore();
+  store.contributions = [];
+  store.loans = [];
+  store.members = [];
+  store.groups = [];
+  store.group_members = [];
+  store.withdrawal_requests = [];
+  store.votes = [];
+  store.payouts = [];
+  store.users = store.users.filter(
+    (u) => u.role === "admin" || u.role === "founder" || u.email?.toLowerCase() === cleanEmail
+  );
+  if (store.settings) {
+    store.settings.reset_otp = undefined;
+    store.settings.reset_otp_expires_at = undefined;
+  }
+
+  return {
+    deletedContributions: delCnt,
+    deletedLoans: delLoans,
+    deletedMembers: delMembers,
+  };
+}

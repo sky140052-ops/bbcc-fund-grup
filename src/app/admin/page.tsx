@@ -155,6 +155,16 @@ export default function AdminPage() {
   const [savingMonthlyAmount, setSavingMonthlyAmount] = useState<boolean>(false);
   const [monthlyAmountMsg, setMonthlyAmountMsg] = useState<string | null>(null);
 
+  // Fresh Public Launch & Database Reset States
+  const [showResetModal, setShowResetModal] = useState<boolean>(false);
+  const [resetStep, setResetStep] = useState<"initial" | "otp_sent" | "success">("initial");
+  const [resetOtpInput, setResetOtpInput] = useState<string>("");
+  const [requestingResetOtp, setRequestingResetOtp] = useState<boolean>(false);
+  const [confirmingReset, setConfirmingReset] = useState<boolean>(false);
+  const [resetErrorMsg, setResetErrorMsg] = useState<string | null>(null);
+  const [resetSuccessData, setResetSuccessData] = useState<any>(null);
+  const [maskedAdminEmail, setMaskedAdminEmail] = useState<string>("");
+
   const [payLink, setPayLink] = useState("");
   const [loanApplyLink, setLoanApplyLink] = useState("");
 
@@ -286,6 +296,115 @@ export default function AdminPage() {
       setAdminQrCodeInput(compressed);
     } catch {
       alert("QR कोड लोड करने में विफल।");
+    }
+  };
+
+  // Helper for admin authorization headers
+  const getAdminAuthHeaders = (): Record<string, string> => {
+    const localToken = typeof window !== "undefined" ? localStorage.getItem("dfi_token") : null;
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (localToken) headers["Authorization"] = `Bearer ${localToken}`;
+    return headers;
+  };
+
+  // 1. Request Reset Confirmation OTP
+  const handleRequestResetOtp = async () => {
+    setRequestingResetOtp(true);
+    setResetErrorMsg(null);
+    setResetOtpInput("");
+    try {
+      const res = await fetch("/api/admin/reset/send-otp", {
+        method: "POST",
+        headers: getAdminAuthHeaders(),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "OTP भेजने में विफलता आई।");
+      }
+      setMaskedAdminEmail(data.email || "एडमिन ईमेल");
+      setResetStep("otp_sent");
+      setShowResetModal(true);
+    } catch (err: any) {
+      alert(err.message || "त्रुटि हुई।");
+    } finally {
+      setRequestingResetOtp(false);
+    }
+  };
+
+  // 2. Download Database Backup as JSON file at any time
+  const handleDownloadBackupDirectly = async () => {
+    try {
+      const localToken = typeof window !== "undefined" ? localStorage.getItem("dfi_token") : null;
+      const headers: Record<string, string> = {};
+      if (localToken) headers["Authorization"] = `Bearer ${localToken}`;
+
+      const res = await fetch("/api/admin/reset/export", { headers });
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || "डेटा बैकअप लोड करने में त्रुटि।");
+      }
+
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `dfi_database_backup_${new Date().toISOString().slice(0, 10)}_${Date.now()}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (err: any) {
+      alert(err.message || "बैकअप डाउनलोड करने में त्रुटि आई।");
+    }
+  };
+
+  // 3. Confirm Reset with OTP and format database
+  const handleConfirmReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resetOtpInput || resetOtpInput.trim().length !== 6) {
+      setResetErrorMsg("कृपया 6-अंकीय सत्यापन कोड दर्ज करें।");
+      return;
+    }
+
+    setConfirmingReset(true);
+    setResetErrorMsg(null);
+    try {
+      const res = await fetch("/api/admin/reset/confirm", {
+        method: "POST",
+        headers: getAdminAuthHeaders(),
+        body: JSON.stringify({ otp: resetOtpInput.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "डेटाबेस फ़ॉर्मेट करने में विफलता आई।");
+      }
+
+      // Automatically trigger client download of backup archive as .json file
+      if (data.backup) {
+        const jsonStr = JSON.stringify(data.backup, null, 2);
+        const blob = new Blob([jsonStr], { type: "application/json;charset=utf-8" });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `dfi_backup_archive_fresh_launch_${new Date().toISOString().slice(0, 10)}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+      }
+
+      setResetSuccessData(data);
+      setResetStep("success");
+
+      // Instantly refresh dashboard lists and counters (now clean 0)
+      fetchMembers();
+      fetchTransactions();
+      fetchLoans();
+      fetchSettings();
+    } catch (err: any) {
+      setResetErrorMsg(err.message || "डेटाबेस फ़ॉर्मेट करने में विफलता आई।");
+    } finally {
+      setConfirmingReset(false);
     }
   };
 
@@ -1631,6 +1750,72 @@ export default function AdminPage() {
               </div>
             </div>
           </div>
+
+          {/* Row 4: Private Settings - Fresh Public Launch & Database Reset */}
+          <div className="p-6 rounded-3xl bg-gradient-to-br from-rose-50 via-amber-50/50 to-slate-50 border-2 border-rose-300 shadow-md space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-rose-200">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="px-2.5 py-0.5 rounded-full bg-rose-600 text-white text-[11px] font-black uppercase tracking-wider flex items-center gap-1">
+                    <AlertTriangle className="w-3.5 h-3.5" />
+                    <span>प्राइवेट सेटिंग्स • डेंजर ज़ोन</span>
+                  </span>
+                  <span className="text-xs font-bold text-rose-800">
+                    • सुरक्षित 100% फ्रेश पब्लिक लॉन्च
+                  </span>
+                </div>
+                <h3 className="text-lg font-black text-slate-900 mt-1 flex items-center gap-2">
+                  <span>डेटाबेस रीसेट एवं फ्रेश पब्लिक लॉन्च (Fresh Public Launch & Database Reset)</span>
+                </h3>
+                <p className="text-xs text-slate-600 max-w-2xl mt-0.5 leading-relaxed">
+                  सभी टेस्ट सदस्य, संचित जमा लेन-देन, तथा लोन रिकॉर्ड्स को फ़ॉर्मेट करके पोर्टल को नए सिरे से पब्लिक लॉन्च के लिए सक्रिय करें।
+                  फ़ॉर्मेट से ठीक पहले वर्तमान डेटाबेस का <b>संपूर्ण .JSON / JS बैकअप</b> आपके कंप्यूटर पर स्वतः डाउनलोड होगा और एडमिन के ईमेल पर <b>6-अंकीय सत्यापन OTP</b> भेजा जाएगा।
+                </p>
+              </div>
+            </div>
+
+            {/* Preserved Configurations Highlight Box */}
+            <div className="p-3.5 rounded-2xl bg-white border border-emerald-300/80 shadow-xs space-y-1">
+              <div className="flex items-center gap-2 text-xs font-black text-emerald-800">
+                <ShieldCheck className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                <span>100% सुरक्षित रहेंगी आपकी मुख्य सेटिंग्स (UPI व बैंकिंग नहीं हटेगी):</span>
+              </div>
+              <p className="text-[11px] text-slate-600 pl-6 leading-relaxed">
+                आपकी <b>Admin UPI ID ({settings.admin_upi_id})</b>, <b>QR कोड</b>, <b>बैंक खाता विवरण</b>, <b>मासिक अंशदान (₹{settings.monthly_contribution_amount || 100})</b>, <b>प्लेटफ़ॉर्म मेंटेनेंस शुल्क ({settings.platform_fee === 0 ? "मुफ़्त - ₹0" : `₹${settings.platform_fee}`})</b>, <b>Brevo ईमेल API</b>, तथा <b>मुख्य एडमिन खाता</b> पूरी तरह सुरक्षित और चालू रहेंगे। केवल टेस्ट सदस्य एवं टेस्ट लेन-देन ही साफ़ होंगे।
+              </p>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-1">
+              <button
+                type="button"
+                onClick={handleDownloadBackupDirectly}
+                className="flex-1 inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-white hover:bg-slate-100 text-slate-800 font-bold text-xs sm:text-sm border border-slate-300 shadow-sm transition active-press"
+              >
+                <Download className="w-4 h-4 text-blue-600" />
+                <span>1. संपूर्ण डेटाबेस JS / JSON बैकअप डाउनलोड करें</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleRequestResetOtp}
+                disabled={requestingResetOtp}
+                className="flex-1 inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-700 hover:to-red-700 text-white font-black text-xs sm:text-sm shadow-md shadow-rose-600/30 transition hover-lift active-press disabled:opacity-50"
+              >
+                {requestingResetOtp ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>OTP भेजा जा रहा है...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    <span>2. फ्रेश लॉन्च हेतु OTP भेजें व फ़ॉर्मेट करें</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -2593,6 +2778,148 @@ export default function AdminPage() {
               </button>
             </div>
             <img src={previewScreenshot} alt="Payment Proof" className="max-h-[70vh] w-full object-contain rounded-2xl bg-black" />
+          </div>
+        </div>
+      )}
+      {/* Fresh Public Launch & Database Reset Modal with OTP */}
+      {showResetModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl space-y-5 animate-scale-in glass-panel border border-rose-200 my-8">
+            {resetStep === "otp_sent" && (
+              <form onSubmit={handleConfirmReset} className="space-y-4">
+                <div className="flex items-start justify-between pb-3 border-b border-slate-100">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-10 h-10 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center font-bold">
+                      <AlertTriangle className="w-6 h-6 text-rose-600" />
+                    </div>
+                    <div>
+                      <h4 className="font-black text-slate-900 text-base">
+                        डेटाबेस फ़ॉर्मेट व फ्रेश लॉन्च सत्यापन
+                      </h4>
+                      <p className="text-[11px] text-slate-500">
+                        एडमिन ईमेल सत्यापन OTP कोड दर्ज करें
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowResetModal(false)}
+                    className="p-1 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 space-y-1">
+                  <p className="font-bold flex items-center gap-1.5 text-amber-800">
+                    <Mail className="w-4 h-4 text-amber-600" />
+                    <span>OTP कोड आपके ईमेल पर भेजा गया है:</span>
+                  </p>
+                  <p className="text-[11px] font-mono font-bold text-slate-700 pl-5">
+                    {maskedAdminEmail}
+                  </p>
+                  <p className="text-[10px] text-amber-700 pl-5">
+                    (यह कोड 10 मिनट तक मान्य है। कृपया अपना Gmail इनबॉक्स व स्पैम फोल्डर देखें)
+                  </p>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-slate-700 text-center uppercase tracking-wider">
+                    6-अंकीय सत्यापन कोड (OTP) दर्ज करें
+                  </label>
+                  <input
+                    type="text"
+                    maxLength={6}
+                    value={resetOtpInput}
+                    onChange={(e) => setResetOtpInput(e.target.value.replace(/\D/g, ""))}
+                    placeholder="••••••"
+                    autoFocus
+                    className="w-full text-center text-3xl font-mono font-black tracking-[10px] py-3 bg-slate-50 border-2 border-slate-300 rounded-2xl focus:border-rose-500 focus:bg-white focus:outline-none transition shadow-inner text-slate-900"
+                  />
+                </div>
+
+                <div className="p-3 bg-rose-50/70 border border-rose-200 rounded-xl text-[11px] text-rose-800 space-y-1 leading-snug">
+                  <p className="font-bold">⚠️ पुष्टि करने पर निम्नलिखित कार्रवाई होगी:</p>
+                  <p>1. वर्तमान डेटाबेस का संपूर्ण बैकअप (.json फाइल) तुरंत डाउनलोड होगा।</p>
+                  <p>2. सभी टेस्ट सदस्य, जमा अंशदान व लोन रिकॉर्ड्स साफ़ हो जाएंगे।</p>
+                  <p>3. आपकी Admin UPI ID, QR कोड, बैंक विवरण व मेंटेनेंस शुल्क सेटिंग्स सुरक्षित रहेंगी।</p>
+                </div>
+
+                {resetErrorMsg && (
+                  <p className="text-xs text-rose-600 font-bold text-center bg-rose-50 p-2 rounded-lg border border-rose-200">
+                    {resetErrorMsg}
+                  </p>
+                )}
+
+                <div className="flex items-center gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowResetModal(false)}
+                    disabled={confirmingReset}
+                    className="flex-1 py-3 px-4 rounded-xl border border-slate-300 font-bold text-xs text-slate-700 hover:bg-slate-50 transition"
+                  >
+                    रद्द करें
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={confirmingReset || resetOtpInput.length !== 6}
+                    className="flex-1 py-3 px-4 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-black text-xs sm:text-sm shadow-md shadow-rose-600/30 transition disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {confirmingReset ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        <span>फ़ॉर्मेट हो रहा है...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Trash2 className="w-4 h-4" />
+                        <span>बैकअप डाउनलोड व फ़ॉर्मेट करें</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {resetStep === "success" && (
+              <div className="space-y-4 text-center py-2">
+                <div className="w-16 h-16 mx-auto rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shadow-md">
+                  <CheckCircle2 className="w-10 h-10 text-emerald-600" />
+                </div>
+                <div>
+                  <h4 className="text-xl font-black text-slate-900">
+                    डेटाबेस सफलतापूर्वक फ़ॉर्मेट हो गया!
+                  </h4>
+                  <p className="text-xs text-slate-600 mt-1">
+                    आपका पोर्टल अब 100% फ्रेश पब्लिक लॉन्च के लिए तैयार है।
+                  </p>
+                </div>
+
+                <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-left text-xs space-y-1.5 text-emerald-950">
+                  <p className="font-bold text-emerald-800 flex items-center gap-1.5">
+                    <Download className="w-4 h-4 text-emerald-600" />
+                    <span>संपूर्ण बैकअप फ़ाइल (.json) डाउनलोड हो चुकी है</span>
+                  </p>
+                  <p className="text-[11px] text-emerald-700">
+                    • संचित बचत फंड: <b>₹0 (शून्य)</b>
+                  </p>
+                  <p className="text-[11px] text-emerald-700">
+                    • सदस्य रिकॉर्ड्स: <b>0</b>
+                  </p>
+                  <p className="text-[11px] text-emerald-700">
+                    • UPI ID ({settings.admin_upi_id}) व QR कोड: <b>सक्रिय व सुरक्षित</b>
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setShowResetModal(false)}
+                  className="w-full py-3 px-6 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-black text-sm shadow-md transition"
+                >
+                  डैशबोर्ड देखें
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

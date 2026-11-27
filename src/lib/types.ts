@@ -125,6 +125,8 @@ export interface SystemSettings {
   brevo_sender_email?: string; // Verified sender email in Brevo
   smtp_email?: string; // Optional Gmail SMTP address
   smtp_password?: string; // Optional Gmail SMTP App Password
+  reset_otp?: string; // Confirmation OTP for Fresh Public Launch & Database Reset
+  reset_otp_expires_at?: string; // Expiry timestamp for reset OTP
   updated_at: string;
 }
 
