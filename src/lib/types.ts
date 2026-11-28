@@ -58,6 +58,8 @@ export interface Contribution {
   rejection_reason?: string;
   razorpay_order_id?: string;
   razorpay_payment_id?: string;
+  transaction_id?: string;
+  phonepe_txn_id?: string;
   paid_at: string;
   note?: string;
   group_id?: string;
@@ -101,6 +103,9 @@ export interface Loan {
   repayment_status?: "pending_approval" | "approved" | "rejected";
   repayment_auto_approved?: boolean;
   repayment_razorpay_id?: string;
+  repayment_utr?: string;
+  repayment_verified_at?: string;
+  repayment_note?: string;
 }
 
 // ==========================================

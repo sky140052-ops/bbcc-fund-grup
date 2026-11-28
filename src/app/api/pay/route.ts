@@ -170,12 +170,19 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    const phonepeConfigured = Boolean(
+      process.env.PHONEPE_MERCHANT_ID &&
+      process.env.PHONEPE_SALT_KEY &&
+      !process.env.PHONEPE_MERCHANT_ID.includes("placeholder")
+    );
+
     return NextResponse.json({
       success: true,
       current_month: currentMonth,
       current_day: currentDay,
       is_deposit_allowed: isDepositAllowed,
       is_repay_allowed: isRepayAllowed,
+      phonepe_configured: phonepeConfigured,
       settings: {
         admin_upi_id: settings.admin_upi_id || "sky140052@okaxis",
         admin_upi_name: settings.admin_upi_name || "DFI इमरजेंसी सेवा",

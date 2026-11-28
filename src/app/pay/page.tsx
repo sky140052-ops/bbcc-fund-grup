@@ -98,6 +98,58 @@ export default function PublicPayPage() {
   const [repayMsg, setRepayMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   const [copiedUpi, setCopiedUpi] = useState(false);
+  const [initiatingPhonePe, setInitiatingPhonePe] = useState(false);
+  const [urlStatus, setUrlStatus] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const status = params.get("status");
+      const txn = params.get("txn");
+      const member = params.get("member");
+      if (status === "success") {
+        setUrlStatus({
+          type: "success",
+          text: `✓ PhonePe भुगतान सफल! (Txn ID: ${txn || ""}) ${member ? member + " जी का " : ""}मासिक अंशदान जमा हो चुका है और रसीद ईमेल कर दी गई है।`,
+        });
+      } else if (status === "failed") {
+        setUrlStatus({
+          type: "error",
+          text: `भुगतान पूरा नहीं हुआ: ${params.get("reason") || "अमान्य"}. कृपया पुनः प्रयास करें।`,
+        });
+      }
+    }
+  }, []);
+
+  const handlePhonePePay = async () => {
+    if (!selectedMemberId) {
+      setDepositMsg({ type: "error", text: "कृपया पहले सूची से अपना नाम चुनें।" });
+      return;
+    }
+    setInitiatingPhonePe(true);
+    setDepositMsg(null);
+    try {
+      const res = await fetch("/api/pay/phonepe/initiate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          member_id: selectedMemberId,
+          action: "deposit",
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "PhonePe पेमेंट शुरू करने में विफल।");
+      }
+      if (data.checkoutUrl) {
+        window.location.href = data.checkoutUrl;
+      }
+    } catch (err: any) {
+      setDepositMsg({ type: "error", text: err.message || "PhonePe पेमेंट एरर" });
+    } finally {
+      setInitiatingPhonePe(false);
+    }
+  };
 
   // Fetch initial data
   const fetchData = async (memberId = "") => {
@@ -271,6 +323,24 @@ export default function PublicPayPage() {
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col pb-24 sm:pb-8">
       {/* Main Container */}
       <main className="max-w-xl mx-auto w-full px-3 sm:px-4 py-4 sm:py-6 flex-1">
+        {/* URL Payment Callback Status Banner */}
+        {urlStatus && (
+          <div
+            className={`p-4 rounded-2xl mb-4 border text-xs sm:text-sm font-bold flex items-center gap-3 animate-scale-in ${
+              urlStatus.type === "success"
+                ? "bg-emerald-950/80 border-emerald-500 text-emerald-200"
+                : "bg-rose-950/80 border-rose-500 text-rose-200"
+            }`}
+          >
+            {urlStatus.type === "success" ? (
+              <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+            ) : (
+              <AlertCircle className="w-5 h-5 text-rose-400 shrink-0" />
+            )}
+            <span>{urlStatus.text}</span>
+          </div>
+        )}
+
         {/* Navigation Tabs */}
         <div className="grid grid-cols-2 p-1 bg-slate-800/80 border border-slate-700/60 rounded-2xl mb-5 shadow-xl">
           <button
@@ -467,6 +537,43 @@ export default function PublicPayPage() {
                     <p className="text-[10px] text-slate-400 pt-0.5 leading-snug">
                       * नोट: आपके खाते में केवल मूल अंशदान (₹{monthlyAmount}) जमा माना जाएगा{platformFee > 0 ? `, ₹${platformFee} प्लेटफॉर्म मेंटेनेंस शुल्क है।` : "। (मेंटेनेंस शुल्क मुफ़्त है)।"}
                     </p>
+                  </div>
+
+                  {/* PhonePe 1-Click Auto Payment Gateway */}
+                  <div className="p-4 rounded-2xl bg-gradient-to-b from-purple-950/80 via-slate-900 to-indigo-950/80 border border-purple-500/40 text-center space-y-2.5 shadow-lg shadow-purple-900/20">
+                    <div className="flex items-center justify-center gap-1.5 text-xs font-black text-purple-200">
+                      <Sparkles className="w-4 h-4 text-amber-300" />
+                      <span>PhonePe 1-क्लिक भुगतान (Zero Typing • Auto Confirmation)</span>
+                    </div>
+                    <p className="text-[11px] text-slate-300 leading-snug">
+                      सीधे PhonePe ऐप में UPI पिन डालकर पे करें। स्क्रीनशॉट अपलोड करने की कोई आवश्यकता नहीं है, रसीद स्वतः जनरेट होगी।
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handlePhonePePay}
+                      disabled={initiatingPhonePe || !selectedMemberId}
+                      className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-black text-xs sm:text-sm shadow-md shadow-purple-500/30 transition active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
+                    >
+                      {initiatingPhonePe ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          <span>PhonePe पेमेंट विंडो खुल रही है...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-4 h-4 text-amber-300" />
+                          <span>⚡ PhonePe से ₹{totalPayable} पे करें (ऑटो कन्फर्म)</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  <div className="relative my-2 flex items-center justify-center">
+                    <div className="border-t border-slate-800 w-full" />
+                    <span className="bg-slate-900 px-3 text-[10px] font-bold text-slate-500 uppercase tracking-widest shrink-0">
+                      अथवा QR कोड स्कैन करके पे करें (Manual)
+                    </span>
+                    <div className="border-t border-slate-800 w-full" />
                   </div>
 
                   {/* QR Code & Direct Apps */}
