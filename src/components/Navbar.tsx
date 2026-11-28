@@ -80,6 +80,11 @@ export default function Navbar() {
   const isAdminRoute = pathname.startsWith("/admin");
   const isUserAdmin = user && (user.role === "admin" || user.role === "founder");
 
+  // If user is not logged in on home/login page, hide Navbar completely (Dedicated Login Window)
+  if (pathname === "/login" || (pathname === "/" && !user)) {
+    return null;
+  }
+
   // 1. ADMIN MODE TOP BAR (Streamlined & Clean)
   if (isAdminRoute) {
     return (

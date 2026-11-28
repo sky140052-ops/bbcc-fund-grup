@@ -27,6 +27,11 @@ function MobileBottomNavContent() {
   const isAdmin = pathname.startsWith("/admin");
   const currentTab = searchParams.get("tab") || "my_fund";
 
+  // Hide bottom nav on Login & Root Auth Screen
+  if (pathname === "/login" || pathname === "/") {
+    return null;
+  }
+
   // 1. ADMIN COMMAND DOCK (Dedicated Admin Mode Navigation)
   if (isAdmin) {
     const adminTab = searchParams.get("tab") || "status";

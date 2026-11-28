@@ -948,93 +948,6 @@ function AdminPageContent() {
         </div>
       </div>
 
-      {/* Top 4-KPI Metric Cards Grid (Mobile First Native Android Look) */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        {/* Metric 1: Members */}
-        <div
-          onClick={() => {
-            setActiveTab("members");
-            router.replace("/admin?tab=members", { scroll: false });
-          }}
-          className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-xs hover:border-blue-400 cursor-pointer transition active:scale-95 group"
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500">कुल सदस्य</span>
-            <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition">
-              <Users className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-2 text-2xl sm:text-3xl font-black text-slate-900">{members.length}</div>
-          <div className="text-[11px] text-emerald-600 font-semibold mt-0.5">● पंजीकृत सदस्य</div>
-        </div>
-
-        {/* Metric 2: Total Pool */}
-        <div
-          onClick={() => {
-            setActiveTab("transactions");
-            router.replace("/admin?tab=transactions", { scroll: false });
-          }}
-          className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-xs hover:border-emerald-400 cursor-pointer transition active:scale-95 group"
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500">कुल संचित फंड</span>
-            <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:bg-emerald-600 group-hover:text-white transition">
-              <CreditCard className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-2 text-2xl sm:text-3xl font-black text-emerald-600">₹{totalPool}</div>
-          <div className="text-[11px] text-slate-400 font-semibold mt-0.5">स्वीकृत बचत राशि</div>
-        </div>
-
-        {/* Metric 3: Pending Deposit Approvals */}
-        <div
-          onClick={() => {
-            setActiveTab("transactions");
-            router.replace("/admin?tab=transactions", { scroll: false });
-          }}
-          className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-xs hover:border-amber-400 cursor-pointer transition active:scale-95 group"
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500">लंबित जमा रसीदें</span>
-            <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center group-hover:bg-amber-600 group-hover:text-white transition">
-              <Clock className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-2 text-2xl sm:text-3xl font-black text-amber-600">
-            {contributions.filter((c) => c.status === "pending").length}
-          </div>
-          <div className="text-[11px] text-amber-700 font-semibold mt-0.5">
-            {contributions.filter((c) => c.status === "pending").length > 0
-              ? "⚡ समीक्षाधीन स्क्रीनशॉट"
-              : "✓ कोई लंबित नहीं"}
-          </div>
-        </div>
-
-        {/* Metric 4: Pending Loans */}
-        <div
-          onClick={() => {
-            setActiveTab("loans");
-            router.replace("/admin?tab=loans", { scroll: false });
-          }}
-          className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-xs hover:border-indigo-400 cursor-pointer transition active:scale-95 group"
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500">लोन आवेदन</span>
-            <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition">
-              <DollarSign className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-2 text-2xl sm:text-3xl font-black text-indigo-600">
-            {loans.filter((l) => l.status === "pending").length}
-          </div>
-          <div className="text-[11px] text-indigo-600 font-semibold mt-0.5">
-            {loans.filter((l) => l.status === "pending").length > 0
-              ? "⚡ डिस्बर्सल हेतु लंबित"
-              : "✓ सामान्य"}
-          </div>
-        </div>
-      </div>
-
       {/* Navigation Tabs - Native Android Segmented Bar */}
       <div className="flex gap-1.5 p-1.5 rounded-2xl bg-slate-200/80 w-full overflow-x-auto no-scrollbar shadow-inner border border-slate-300/50 select-none">
         <button
@@ -1123,6 +1036,92 @@ function AdminPageContent() {
       {/* ======================================================== */}
       {activeTab === "status" && (
         <div className="space-y-6 animate-fade-in">
+          {/* Top 4-KPI Metric Cards Grid (Mobile First Native Android Look) */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            {/* Metric 1: Members */}
+            <div
+              onClick={() => {
+                setActiveTab("members");
+                router.replace("/admin?tab=members", { scroll: false });
+              }}
+              className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-xs hover:border-blue-400 cursor-pointer transition active:scale-95 group"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-500">कुल सदस्य</span>
+                <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition">
+                  <Users className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="mt-2 text-2xl sm:text-3xl font-black text-slate-900">{members.length}</div>
+              <div className="text-[11px] text-emerald-600 font-semibold mt-0.5">● पंजीकृत सदस्य</div>
+            </div>
+
+            {/* Metric 2: Total Pool */}
+            <div
+              onClick={() => {
+                setActiveTab("transactions");
+                router.replace("/admin?tab=transactions", { scroll: false });
+              }}
+              className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-xs hover:border-emerald-400 cursor-pointer transition active:scale-95 group"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-500">कुल संचित फंड</span>
+                <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:bg-emerald-600 group-hover:text-white transition">
+                  <CreditCard className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="mt-2 text-2xl sm:text-3xl font-black text-emerald-600">₹{totalPool}</div>
+              <div className="text-[11px] text-slate-400 font-semibold mt-0.5">स्वीकृत बचत राशि</div>
+            </div>
+
+            {/* Metric 3: Pending Deposit Approvals */}
+            <div
+              onClick={() => {
+                setActiveTab("transactions");
+                router.replace("/admin?tab=transactions", { scroll: false });
+              }}
+              className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-xs hover:border-amber-400 cursor-pointer transition active:scale-95 group"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-500">लंबित जमा रसीदें</span>
+                <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center group-hover:bg-amber-600 group-hover:text-white transition">
+                  <Clock className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="mt-2 text-2xl sm:text-3xl font-black text-amber-600">
+                {contributions.filter((c) => c.status === "pending").length}
+              </div>
+              <div className="text-[11px] text-amber-700 font-semibold mt-0.5">
+                {contributions.filter((c) => c.status === "pending").length > 0
+                  ? "⚡ समीक्षाधीन स्क्रीनशॉट"
+                  : "✓ कोई लंबित नहीं"}
+              </div>
+            </div>
+
+            {/* Metric 4: Pending Loans */}
+            <div
+              onClick={() => {
+                setActiveTab("loans");
+                router.replace("/admin?tab=loans", { scroll: false });
+              }}
+              className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-xs hover:border-indigo-400 cursor-pointer transition active:scale-95 group"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-500">लोन आवेदन</span>
+                <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition">
+                  <DollarSign className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="mt-2 text-2xl sm:text-3xl font-black text-indigo-600">
+                {loans.filter((l) => l.status === "pending").length}
+              </div>
+              <div className="text-[11px] text-indigo-600 font-semibold mt-0.5">
+                {loans.filter((l) => l.status === "pending").length > 0
+                  ? "⚡ डिस्बर्सल हेतु लंबित"
+                  : "✓ सामान्य"}
+              </div>
+            </div>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Admin Profile */}
             <div className="p-6 rounded-3xl bg-white border border-slate-200 shadow-sm space-y-3">

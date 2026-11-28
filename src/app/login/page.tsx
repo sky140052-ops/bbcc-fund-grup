@@ -7,8 +7,8 @@ export default function LoginPage() {
   const router = useRouter();
 
   useEffect(() => {
-    // If user opens /login directly, redirect to home and open login modal
-    router.replace("/?open_login=true");
+    // If user opens /login directly, redirect to root login window
+    router.replace("/");
   }, [router]);
 
   return (
