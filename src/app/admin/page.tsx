@@ -1373,93 +1373,25 @@ function AdminPageContent() {
               </form>
             </div>
 
-            {/* Google Firebase Phone Auth (Mobile SMS OTP) Settings */}
-            <div className="p-6 rounded-3xl bg-white border border-slate-200 shadow-sm space-y-4">
+            {/* Render Environment Configuration Status Card */}
+            <div className="p-6 rounded-3xl bg-white border border-slate-200 shadow-sm space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                  Firebase Mobile SMS OTP
+                  Render Environment सुरक्षित प्रबंधन
                 </span>
-                <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
-                  settings.firebase_api_key ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"
-                }`}>
-                  {settings.firebase_api_key ? "सक्रिय (10,000 Free OTP/Month)" : "असक्रिय"}
+                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800">
+                  सक्रिय (Render ENV)
                 </span>
               </div>
 
               <p className="text-xs text-slate-600 leading-snug">
-                Google Firebase द्वारा हर महीने 10,000 SMS OTP सीधे उपयोगकर्ताओं के मोबाइल नंबर पर बिल्कुल फ्री भेजे जाते हैं।
+                सभी महत्वपूर्ण सेटिंग्स (एडमिन मोबाइल नंबर और Firebase SMS OTP Keys) सीधे Render.com के Environment Variables द्वारा सुरक्षित हैं।
               </p>
 
-              <form onSubmit={handleSaveFirebaseSettings} className="space-y-2.5">
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-700 mb-0.5">
-                    Firebase API Key (apiKey)
-                  </label>
-                  <input
-                    type="text"
-                    value={firebaseApiKeyInput}
-                    onChange={(e) => setFirebaseApiKeyInput(e.target.value)}
-                    placeholder="AIzaSyAMDD-oB-6UOmu43In05hxN90_Fl6sf1xA"
-                    className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-700 mb-0.5">
-                      Auth Domain
-                    </label>
-                    <input
-                      type="text"
-                      value={firebaseAuthDomainInput}
-                      onChange={(e) => setFirebaseAuthDomainInput(e.target.value)}
-                      placeholder="dfi-app-6eb4b.firebaseapp.com"
-                      className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-700 mb-0.5">
-                      Project ID
-                    </label>
-                    <input
-                      type="text"
-                      value={firebaseProjectIdInput}
-                      onChange={(e) => setFirebaseProjectIdInput(e.target.value)}
-                      placeholder="dfi-app-6eb4b"
-                      className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-700 mb-0.5">
-                    App ID (appId)
-                  </label>
-                  <input
-                    type="text"
-                    value={firebaseAppIdInput}
-                    onChange={(e) => setFirebaseAppIdInput(e.target.value)}
-                    placeholder="1:414935880259:web:5969afbeed90c98b7bfaf6"
-                    className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={savingFirebaseSettings}
-                  className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-xs shadow-md transition disabled:opacity-50"
-                >
-                  {savingFirebaseSettings ? "सेव हो रहा है..." : "Firebase सेटिंग्स सेव करें"}
-                </button>
-
-                {firebaseSettingsMsg && (
-                  <p className={`text-[11px] font-bold text-center ${
-                    firebaseSettingsMsg.startsWith("त्रुटि") ? "text-rose-600" : "text-emerald-700"
-                  }`}>
-                    {firebaseSettingsMsg}
-                  </p>
-                )}
-              </form>
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 text-xs font-mono space-y-1">
+                <div>• <span className="font-bold text-slate-900">ADMIN_MOBILE:</span> Render ENV द्वारा सुरक्षित</div>
+                <div>• <span className="font-bold text-slate-900">Firebase Phone Auth:</span> 10,000 SMS OTP/माह मुफ़्त</div>
+              </div>
             </div>
           </div>
 

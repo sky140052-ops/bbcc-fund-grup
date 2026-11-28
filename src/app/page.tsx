@@ -18,7 +18,7 @@ import {
   Smartphone,
 } from "lucide-react";
 import { compressImage } from "../lib/compress";
-import { createRecaptchaVerifier, sendFirebasePhoneOtp } from "../lib/firebaseClient";
+import { createRecaptchaVerifier, sendFirebasePhoneOtp, fetchRemoteFirebaseConfig } from "../lib/firebaseClient";
 import type { ConfirmationResult } from "firebase/auth";
 
 export default function AppEntryPage() {
@@ -28,8 +28,7 @@ export default function AppEntryPage() {
 
   // Authentication & Mode State
   const [checkingSession, setCheckingSession] = useState(true);
-  const [mode, setMode] = useState<"register" | "login">("register");
-  const [authChannel, setAuthChannel] = useState<"mobile" | "email">("mobile");
+  const [mode, setMode] = useState<"register" | "login">("login");
 
   // Google 1-Tap State
   const [googleClientId, setGoogleClientId] = useState<string>("");
@@ -51,7 +50,7 @@ export default function AppEntryPage() {
   const [statusMsg, setStatusMsg] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
 
-  // Handle Google Credential Response
+  // Handle Google Credential Response (1-Tap)
   const handleGoogleCredentialResponse = useCallback(
     async (response: any) => {
       if (!response?.credential) return;
@@ -73,6 +72,7 @@ export default function AppEntryPage() {
           if (data.token) localStorage.setItem("dfi_token", data.token);
           if (data.user) localStorage.setItem("dfi_user", JSON.stringify(data.user));
           if (data.user?.email) localStorage.setItem("dfi_user_email", data.user.email);
+          if (data.user?.mobile) localStorage.setItem("dfi_user_mobile", data.user.mobile);
         }
 
         setStatusMsg("✓ " + (data.message || "Google लॉगिन सफल! डैशबोर्ड लोड हो रहा है..."));
@@ -99,14 +99,12 @@ export default function AppEntryPage() {
         g.accounts.id.initialize({
           client_id: clientId,
           callback: handleGoogleCredentialResponse,
-          auto_select: false, // Prevents auto-loop login right after logout
+          auto_select: false,
           cancel_on_tap_outside: false,
         });
 
-        // Prompt Google One Tap natively
         g.accounts.id.prompt();
 
-        // Render standard button
         const btnElem = document.getElementById("google-login-btn-container");
         if (btnElem) {
           g.accounts.id.renderButton(btnElem, {
@@ -124,12 +122,12 @@ export default function AppEntryPage() {
     [handleGoogleCredentialResponse]
   );
 
-  // 1. Check if user already has an active permanent session & load Google Client ID
+  // 1. Check existing session & preload settings
   useEffect(() => {
     let isMounted = true;
 
     async function checkAuthAndLoadSettings() {
-      // Step A: Check existing session
+      // Step A: Check session
       try {
         const localToken = typeof window !== "undefined" ? localStorage.getItem("dfi_token") : null;
         const headers: Record<string, string> = {};
@@ -153,8 +151,10 @@ export default function AppEntryPage() {
         if (isMounted) setCheckingSession(false);
       }
 
-      // Step B: Load Google Client ID from settings
+      // Step B: Load remote Firebase & Google settings
       try {
+        await fetchRemoteFirebaseConfig();
+
         const settingsRes = await fetch("/api/admin/settings");
         if (settingsRes.ok) {
           const settingsData = await settingsRes.json();
@@ -165,8 +165,6 @@ export default function AppEntryPage() {
 
           if (clientId && isMounted) {
             setGoogleClientId(clientId);
-
-            // Load Google SDK script dynamically if not present
             if (!document.getElementById("google-gsi-script")) {
               const script = document.createElement("script");
               script.id = "google-gsi-script";
@@ -183,7 +181,7 @@ export default function AppEntryPage() {
           }
         }
       } catch (e) {
-        console.warn("Could not load google client id:", e);
+        console.warn("Settings check error:", e);
       }
     }
 
@@ -206,35 +204,22 @@ export default function AppEntryPage() {
     }
   };
 
-  // Step 1: Send OTP (Mobile SMS via Firebase or Email OTP via Brevo)
-  const handleSendOtp = async (e: React.FormEvent) => {
+  // Step 1: Send Mobile SMS OTP (via Firebase Phone Auth)
+  const handleSendMobileOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg("");
     setStatusMsg("");
 
     const cleanMobile = mobile.replace(/\D/g, "").slice(-10);
-    const cleanEmail = email.trim().toLowerCase();
 
-    // Validation
-    if (authChannel === "mobile") {
-      if (cleanMobile.length !== 10) {
-        setErrorMsg("कृपया 10-अंकीय मान्य मोबाइल नंबर दर्ज करें।");
-        return;
-      }
-    } else {
-      if (!cleanEmail.includes("@")) {
-        setErrorMsg("कृपया मान्य ईमेल (Gmail) आईडी दर्ज करें।");
-        return;
-      }
+    if (cleanMobile.length !== 10) {
+      setErrorMsg("कृपया 10-अंकीय वैध मोबाइल नंबर दर्ज करें।");
+      return;
     }
 
     if (mode === "register") {
       if (!name.trim()) {
         setErrorMsg("कृपया अपना पूरा नाम दर्ज करें।");
-        return;
-      }
-      if (cleanMobile.length !== 10) {
-        setErrorMsg("कृपया 10-अंकीय मोबाइल नंबर दर्ज करें।");
         return;
       }
       const cleanAadhaar = aadhaar.replace(/\D/g, "");
@@ -247,48 +232,25 @@ export default function AppEntryPage() {
     setLoadingOtp(true);
 
     try {
-      if (authChannel === "mobile") {
-        // --- 1. FIREBASE PHONE AUTH (FREE SMS OTP) ---
-        setStatusMsg("Google Firebase सुरक्षा जांच व SMS भेजा जा रहा है...");
-        const verifier = createRecaptchaVerifier("recaptcha-container");
-        const confirmation = await sendFirebasePhoneOtp(cleanMobile, verifier);
-        confirmationResultRef.current = confirmation;
-        setOtpSent(true);
-        setStatusMsg(`✓ आपके मोबाइल नंबर +91 ${cleanMobile} पर 6-अंकीय SMS OTP भेज दिया गया है।`);
-      } else {
-        // --- 2. EMAIL OTP (BREVO / SMTP) ---
-        const payload: any = { email: cleanEmail };
-        if (mode === "register") {
-          payload.name = name.trim();
-          payload.mobile = cleanMobile;
-          payload.photo = photo;
-          payload.aadhaar_number = aadhaar.replace(/\D/g, "");
-          payload.pan_number = pan.toUpperCase().trim();
-        }
-
-        const res = await fetch("/api/auth/otp/send", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-
-        const data = await res.json();
-        if (!res.ok) {
-          throw new Error(data.error || "OTP भेजने में विफल।");
-        }
-
-        setOtpSent(true);
-        setStatusMsg(data.message || `ईमेल ${cleanEmail} पर 6-अंकीय OTP भेज दिया गया है।`);
-      }
+      setStatusMsg("Google Firebase सुरक्षा जांच व SMS भेजा जा रहा है...");
+      
+      // Ensure remote config is fetched if env was empty
+      const remoteConfig = await fetchRemoteFirebaseConfig();
+      const verifier = createRecaptchaVerifier("recaptcha-container", remoteConfig);
+      
+      const confirmation = await sendFirebasePhoneOtp(cleanMobile, verifier);
+      confirmationResultRef.current = confirmation;
+      setOtpSent(true);
+      setStatusMsg(`✓ आपके मोबाइल नंबर +91 ${cleanMobile} पर 6-अंकीय SMS OTP भेज दिया गया है।`);
     } catch (err: any) {
-      console.error("OTP Send error:", err);
-      let errorText = err.message || "OTP भेजने में त्रुटि हुई।";
+      console.error("Firebase SMS OTP error:", err);
+      let errorText = err.message || "SMS OTP भेजने में त्रुटि हुई।";
       if (err.code === "auth/invalid-phone-number") {
         errorText = "अमान्य मोबाइल नंबर! कृपया 10 अंकों का सही नंबर जांचें।";
       } else if (err.code === "auth/too-many-requests") {
         errorText = "बहुत अधिक प्रयास! कृपया कुछ समय बाद पुनः प्रयास करें।";
       } else if (err.code === "auth/unauthorized-domain") {
-        errorText = "Firebase Console में Authorized Domains में वेबसाइट डोमेन जोड़ना आवश्यक है।";
+        errorText = "Firebase Console में Authorized domains में अपनी वेबसाइट डोमेन जोड़ें।";
       }
       setErrorMsg(errorText);
     } finally {
@@ -296,91 +258,64 @@ export default function AppEntryPage() {
     }
   };
 
-  // Step 2: Verify OTP and Login / Register
-  const handleVerifyOtp = async (e: React.FormEvent) => {
+  // Step 2: Verify Mobile SMS OTP and Login / Register
+  const handleVerifyMobileOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg("");
     setStatusMsg("");
 
     const cleanOtp = otp.trim();
     if (cleanOtp.length < 6) {
-      setErrorMsg("कृपया 6-अंकीय OTP कोड दर्ज करें।");
+      setErrorMsg("कृपया 6-अंकीय SMS OTP कोड दर्ज करें।");
+      return;
+    }
+
+    if (!confirmationResultRef.current) {
+      setErrorMsg("सत्र समाप्त हो गया है। कृपया पुनः OTP भेजें।");
       return;
     }
 
     setVerifyingOtp(true);
 
     try {
-      if (authChannel === "mobile") {
-        // --- 1. VERIFY FIREBASE PHONE OTP ---
-        if (!confirmationResultRef.current) {
-          throw new Error("सत्र समाप्त हो गया है। कृपया पुनः OTP भेजें।");
-        }
+      setStatusMsg("SMS OTP सत्यापित किया जा रहा है...");
+      const userCredential = await confirmationResultRef.current.confirm(cleanOtp);
+      const idToken = await userCredential.user.getIdToken();
 
-        setStatusMsg("SMS OTP सत्यापित किया जा रहा है...");
-        const userCredential = await confirmationResultRef.current.confirm(cleanOtp);
-        const idToken = await userCredential.user.getIdToken();
+      const cleanMobile = mobile.replace(/\D/g, "").slice(-10);
 
-        const cleanMobile = mobile.replace(/\D/g, "").slice(-10);
+      const res = await fetch("/api/auth/phone", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mobile: cleanMobile,
+          idToken,
+          name: name.trim(),
+          email: email.trim().toLowerCase(),
+          aadhaar: aadhaar.replace(/\D/g, ""),
+          pan: pan.toUpperCase().trim(),
+          photo,
+        }),
+      });
 
-        const res = await fetch("/api/auth/phone", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            mobile: cleanMobile,
-            idToken,
-            name: name.trim(),
-            email: email.trim().toLowerCase(),
-            aadhaar: aadhaar.replace(/\D/g, ""),
-            pan: pan.toUpperCase().trim(),
-            photo,
-          }),
-        });
-
-        const data = await res.json();
-        if (!res.ok) {
-          throw new Error(data.error || "मोबाइल लॉगिन प्रक्रिया में त्रुटि।");
-        }
-
-        if (typeof window !== "undefined") {
-          if (data.token) localStorage.setItem("dfi_token", data.token);
-          if (data.user) localStorage.setItem("dfi_user", JSON.stringify(data.user));
-          if (data.user?.mobile) localStorage.setItem("dfi_user_mobile", data.user.mobile);
-        }
-
-        setStatusMsg("✓ मोबाइल सत्यापन सफल! डैशबोर्ड लोड हो रहा है...");
-        setTimeout(() => {
-          router.replace(data.redirectTo || "/dashboard");
-        }, 500);
-      } else {
-        // --- 2. VERIFY EMAIL OTP ---
-        const res = await fetch("/api/auth/otp/verify", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            email: email.trim().toLowerCase(),
-            otp: cleanOtp,
-          }),
-        });
-
-        const data = await res.json();
-        if (!res.ok) {
-          throw new Error(data.error || "OTP अमान्य या समाप्त हो चुका है।");
-        }
-
-        if (typeof window !== "undefined") {
-          if (data.token) localStorage.setItem("dfi_token", data.token);
-          localStorage.setItem("dfi_user_email", email.trim().toLowerCase());
-          if (data.user) localStorage.setItem("dfi_user", JSON.stringify(data.user));
-        }
-
-        setStatusMsg("✓ सत्यापन सफल! डैशबोर्ड लोड हो रहा है...");
-        setTimeout(() => {
-          router.replace(data.redirectTo || "/dashboard");
-        }, 500);
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "मोबाइल लॉगिन प्रक्रिया में त्रुटि।");
       }
+
+      if (typeof window !== "undefined") {
+        if (data.token) localStorage.setItem("dfi_token", data.token);
+        if (data.user) localStorage.setItem("dfi_user", JSON.stringify(data.user));
+        if (data.user?.mobile) localStorage.setItem("dfi_user_mobile", data.user.mobile);
+        if (data.user?.email) localStorage.setItem("dfi_user_email", data.user.email);
+      }
+
+      setStatusMsg("✓ मोबाइल सत्यापन सफल! पोर्टल लोड हो रहा है...");
+      setTimeout(() => {
+        router.replace(data.redirectTo || "/dashboard");
+      }, 500);
     } catch (err: any) {
-      console.error("Verification error:", err);
+      console.error("SMS OTP verification error:", err);
       let errorText = err.message || "सत्यापन प्रक्रिया में त्रुटि।";
       if (err.code === "auth/invalid-verification-code") {
         errorText = "गलत SMS OTP! कृपया मोबाइल पर आया सही 6-अंकीय कोड डालें।";
@@ -393,7 +328,7 @@ export default function AppEntryPage() {
     }
   };
 
-  // 2. Loading splash while checking session
+  // Loading splash while checking session
   if (checkingSession) {
     return (
       <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4 text-center select-none">
@@ -408,7 +343,6 @@ export default function AppEntryPage() {
     );
   }
 
-  // 3. Dedicated Login & Registration Window
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 flex flex-col items-center justify-center p-3 sm:p-4 select-none">
       
@@ -430,14 +364,14 @@ export default function AppEntryPage() {
           </p>
         </div>
 
-        {/* ⚡ GOOGLE 1-TAP & 1-TOUCH INSTANT LOGIN (NO OTP REQUIRED) */}
+        {/* ⚡ GOOGLE 1-TAP (OPTIONAL 1-TOUCH INSTANT LOGIN) */}
         <div className="p-3.5 rounded-2xl bg-blue-50/60 border border-blue-200/80 space-y-2 text-center">
           <div className="flex items-center justify-center gap-1.5 text-xs font-black text-slate-900">
             <Sparkles className="w-3.5 h-3.5 text-amber-500" />
             <span>Google 1-Tap ऑटो लॉगिन (बिना OTP)</span>
           </div>
           <p className="text-[10px] text-slate-500 leading-snug">
-            Google अकाउंट से 1-टच में ईमेल, नाम व फोटो स्वतः वेरीफाई करके तुरंत लॉगिन करें
+            Google अकाउंट से 1-टच में ईमेल, नाम व फोटो स्वतः वेरीफाई करके सीधे लॉगिन करें
           </p>
 
           <div className="flex flex-col items-center justify-center min-h-[42px] pt-1">
@@ -452,7 +386,7 @@ export default function AppEntryPage() {
                   <button
                     type="button"
                     onClick={() => {
-                      alert("एडमिन पोर्टल में Google Client ID सेट करते ही यह 1-क्लिक ऑटो लॉगिन सीधे सक्रिय हो जाएगा। कृपया तब तक नीचे दिए गए मोबाइल SMS OTP अथवा ईमेल द्वारा लॉगिन करें।");
+                      alert("कृपया नीचे दिए गए मोबाइल SMS OTP द्वारा तुरंत लॉगिन करें।");
                     }}
                     className="w-full max-w-xs flex items-center justify-center gap-2.5 py-2.5 px-4 rounded-full bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-xs shadow-xs transition active:scale-95"
                   >
@@ -462,7 +396,7 @@ export default function AppEntryPage() {
                       <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
                       <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
                     </svg>
-                    <span>Google से 1-क्लिक ऑटो लॉगिन</span>
+                    <span>Google से 1-क्लिक लॉगिन</span>
                   </button>
                 )}
               </div>
@@ -473,30 +407,15 @@ export default function AppEntryPage() {
         {/* Divider */}
         <div className="relative flex items-center justify-center my-1">
           <div className="border-t border-slate-200 w-full" />
-          <span className="bg-white px-2 text-[10px] text-slate-400 font-bold uppercase tracking-wider shrink-0">
-            अथवा OTP द्वारा लॉगिन / रजिस्ट्रेशन
+          <span className="bg-white px-2 text-[10px] text-slate-400 font-bold uppercase tracking-wider shrink-0 flex items-center gap-1">
+            <Smartphone className="w-3 h-3 text-blue-600" />
+            <span>सुरक्षित मोबाइल SMS OTP लॉगिन</span>
           </span>
           <div className="border-t border-slate-200 w-full" />
         </div>
 
-        {/* Mode Switcher: Register (KYC) vs Quick Login */}
+        {/* Mode Switcher: Login vs Register */}
         <div className="grid grid-cols-2 gap-1 p-1 bg-slate-100 rounded-xl text-xs font-bold text-center">
-          <button
-            type="button"
-            onClick={() => {
-              setMode("register");
-              setErrorMsg("");
-              setStatusMsg("");
-              setOtpSent(false);
-            }}
-            className={`py-2 px-1 rounded-lg transition active:scale-95 truncate ${
-              mode === "register"
-                ? "bg-white text-blue-700 shadow-xs"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            📝 नया सदस्य (KYC)
-          </button>
           <button
             type="button"
             onClick={() => {
@@ -511,48 +430,25 @@ export default function AppEntryPage() {
                 : "text-slate-600 hover:text-slate-900"
             }`}
           >
-            🔐 लॉगिन (Quick Login)
+            🔐 मोबाइल लॉगिन (Login)
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setMode("register");
+              setErrorMsg("");
+              setStatusMsg("");
+              setOtpSent(false);
+            }}
+            className={`py-2 px-1 rounded-lg transition active:scale-95 truncate ${
+              mode === "register"
+                ? "bg-white text-blue-700 shadow-xs"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            📝 नया सदस्य रजिस्ट्रेशन (KYC)
           </button>
         </div>
-
-        {/* OTP Channel Switcher: Mobile SMS vs Email */}
-        {!otpSent && (
-          <div className="flex items-center justify-center gap-2 pt-0.5">
-            <button
-              type="button"
-              onClick={() => {
-                setAuthChannel("mobile");
-                setErrorMsg("");
-                setStatusMsg("");
-              }}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold border transition ${
-                authChannel === "mobile"
-                  ? "bg-blue-600 text-white border-blue-600 shadow-xs"
-                  : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
-              }`}
-            >
-              <Smartphone className="w-3.5 h-3.5" />
-              <span>मोबाइल SMS OTP (फ्री)</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setAuthChannel("email");
-                setErrorMsg("");
-                setStatusMsg("");
-              }}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold border transition ${
-                authChannel === "email"
-                  ? "bg-blue-600 text-white border-blue-600 shadow-xs"
-                  : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
-              }`}
-            >
-              <Mail className="w-3.5 h-3.5" />
-              <span>ईमेल OTP</span>
-            </button>
-          </div>
-        )}
 
         {/* Feedback Messages */}
         {errorMsg && (
@@ -569,7 +465,7 @@ export default function AppEntryPage() {
         )}
 
         {/* Form Container */}
-        <form onSubmit={otpSent ? handleVerifyOtp : handleSendOtp} className="space-y-3">
+        <form onSubmit={otpSent ? handleVerifyMobileOtp : handleSendMobileOtp} className="space-y-3">
           
           {/* REGISTER MODE: Top Photo Upload Avatar */}
           {mode === "register" && !otpSent && (
@@ -632,43 +528,40 @@ export default function AppEntryPage() {
                 </div>
               )}
 
-              {/* Mobile Number (Shown if Mobile OTP channel OR in Register mode) */}
-              {(authChannel === "mobile" || mode === "register") && (
-                <div>
-                  <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider block mb-1">
-                    मोबाइल नंबर (Mobile) *
-                  </label>
-                  <div className="relative flex">
-                    <span className="inline-flex items-center px-2.5 rounded-l-xl border border-r-0 border-slate-200 bg-slate-100 text-slate-600 text-xs font-bold">
-                      +91
-                    </span>
-                    <input
-                      type="tel"
-                      required
-                      maxLength={10}
-                      value={mobile}
-                      onChange={(e) => setMobile(e.target.value.replace(/\D/g, ""))}
-                      placeholder="9876543210"
-                      className="w-full pl-3 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-r-xl text-xs font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
-                    />
-                  </div>
+              {/* Mobile Number (Always visible in both modes) */}
+              <div>
+                <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider block mb-1">
+                  मोबाइल नंबर (Mobile Number) *
+                </label>
+                <div className="relative flex">
+                  <span className="inline-flex items-center px-2.5 rounded-l-xl border border-r-0 border-slate-200 bg-slate-100 text-slate-600 text-xs font-bold">
+                    +91
+                  </span>
+                  <input
+                    type="tel"
+                    required
+                    maxLength={10}
+                    value={mobile}
+                    onChange={(e) => setMobile(e.target.value.replace(/\D/g, ""))}
+                    placeholder="9876543210"
+                    className="w-full pl-3 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-r-xl text-xs font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
+                  />
                 </div>
-              )}
+              </div>
 
-              {/* Email Address (Shown if Email OTP channel OR in Register mode) */}
-              {(authChannel === "email" || mode === "register") && (
+              {/* Email Address (in Register mode - for communication and records) */}
+              {mode === "register" && (
                 <div>
                   <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider block mb-1">
-                    ईमेल आईडी (Gmail / Email) {mode === "register" ? "(वैकल्पिक)" : "*"}
+                    ईमेल आईडी (Gmail / Email) - सूचना हेतु
                   </label>
                   <div className="relative">
                     <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                     <input
                       type="email"
-                      required={authChannel === "email"}
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      placeholder="apnamail@gmail.com"
+                      placeholder="apnamail@gmail.com (वैकल्पिक)"
                       className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
                     />
                   </div>
@@ -716,7 +609,7 @@ export default function AppEntryPage() {
                 </div>
               )}
 
-              {/* Button: Send OTP */}
+              {/* Button: Send SMS OTP */}
               <div className="pt-1">
                 <button
                   type="submit"
@@ -726,16 +619,12 @@ export default function AppEntryPage() {
                   {loadingOtp ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>{authChannel === "mobile" ? "SMS OTP भेजा जा रहा है..." : "ईमेल OTP भेजा जा रहा है..."}</span>
+                      <span>SMS OTP भेजा जा रहा है...</span>
                     </>
                   ) : (
                     <>
-                      {authChannel === "mobile" ? <Smartphone className="w-4 h-4" /> : <Mail className="w-4 h-4" />}
-                      <span>
-                        {authChannel === "mobile"
-                          ? "मोबाइल SMS OTP प्राप्त करें (Get SMS OTP)"
-                          : "ईमेल OTP प्राप्त करें (Get Email OTP)"}
-                      </span>
+                      <Smartphone className="w-4 h-4" />
+                      <span>मोबाइल SMS OTP प्राप्त करें (Get SMS OTP)</span>
                     </>
                   )}
                 </button>
@@ -748,20 +637,16 @@ export default function AppEntryPage() {
             <div className="space-y-3 pt-1 animate-scale-in">
               <div className="p-2.5 rounded-xl bg-blue-50 border border-blue-200 text-center">
                 <p className="text-[11px] font-bold text-blue-900">
-                  {authChannel === "mobile"
-                    ? `मोबाइल +91 ${mobile.replace(/\D/g, "").slice(-10)} पर SMS OTP भेजा गया है`
-                    : `ईमेल ${email} पर 6-अंकीय OTP भेजा गया है`}
+                  मोबाइल +91 {mobile.replace(/\D/g, "").slice(-10)} पर SMS OTP भेजा गया है
                 </p>
                 <p className="text-[10px] text-blue-600 mt-0.5">
-                  {authChannel === "mobile"
-                    ? "कृपया अपने मोबाइल का SMS इनबॉक्स देखें।"
-                    : "कृपया अपना ईमेल इनबॉक्स अथवा स्पैम फ़ोल्डर देखें।"}
+                  कृपया अपने मोबाइल का SMS इनबॉक्स देखें।
                 </p>
               </div>
 
               <div>
                 <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider block mb-1 text-center">
-                  6-अंकीय {authChannel === "mobile" ? "SMS OTP" : "ईमेल OTP"} कोड दर्ज करें
+                  6-अंकीय SMS OTP कोड दर्ज करें
                 </label>
                 <input
                   type="text"
@@ -796,7 +681,7 @@ export default function AppEntryPage() {
               <div className="flex items-center justify-between px-1 pt-1">
                 <button
                   type="button"
-                  onClick={handleSendOtp}
+                  onClick={handleSendMobileOtp}
                   disabled={loadingOtp}
                   className="text-[10px] font-bold text-blue-600 hover:underline flex items-center gap-1"
                 >
@@ -812,7 +697,7 @@ export default function AppEntryPage() {
                   }}
                   className="text-[10px] font-bold text-slate-500 hover:underline"
                 >
-                  {authChannel === "mobile" ? "नंबर बदलें" : "ईमेल बदलें"}
+                  नंबर बदलें
                 </button>
               </div>
             </div>

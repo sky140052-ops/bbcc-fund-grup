@@ -29,6 +29,7 @@ export function verifyToken(token: string): SessionPayload | null {
 export async function getOrCreateAdmin(email: string): Promise<User> {
   const envFounderEmail = (process.env.FOUNDER_EMAIL || "sky140052@gmail.com").trim().toLowerCase();
   const envFounderAadhaar = (process.env.FOUNDER_AADHAAR || "000000000000").trim().replace(/\s+/g, "");
+  const envFounderMobile = (process.env.ADMIN_MOBILE || process.env.FOUNDER_MOBILE || "").trim().replace(/\D/g, "").slice(-10);
 
   let founder = await dbFindUser({ role: "founder" });
   if (!founder && envFounderEmail) {
@@ -42,7 +43,7 @@ export async function getOrCreateAdmin(email: string): Promise<User> {
       _id: `founder_${Date.now()}`,
       name: "DFI मुख्य एडमिन",
       email: envFounderEmail || email,
-      mobile: "9999999999",
+      mobile: envFounderMobile || "9999999999",
       role: "admin",
       aadhaar_last4: envFounderAadhaar.slice(-4),
       aadhaar_hash: hashedAadhaar,
@@ -51,9 +52,21 @@ export async function getOrCreateAdmin(email: string): Promise<User> {
     };
 
     await dbInsertUser(founder);
-  } else if (founder.email !== envFounderEmail) {
-    founder.email = envFounderEmail;
-    await dbUpdateUser(founder._id, { email: envFounderEmail });
+  } else {
+    let needsUpdate = false;
+    const updates: Partial<User> = {};
+    if (founder.email !== envFounderEmail) {
+      updates.email = envFounderEmail;
+      needsUpdate = true;
+    }
+    if (envFounderMobile && founder.mobile !== envFounderMobile) {
+      updates.mobile = envFounderMobile;
+      needsUpdate = true;
+    }
+    if (needsUpdate) {
+      await dbUpdateUser(founder._id, updates);
+      founder = { ...founder, ...updates };
+    }
   }
 
   return founder;

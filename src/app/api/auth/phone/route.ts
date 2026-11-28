@@ -43,25 +43,37 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Check if this mobile belongs to the Admin / Founder
+    // Check if this mobile belongs to the Admin / Founder via Render Environment Variables
+    const envAdminMobile = (
+      process.env.ADMIN_MOBILE ||
+      process.env.FOUNDER_MOBILE ||
+      process.env.ADMIN_PHONE ||
+      ""
+    ).trim().replace(/\D/g, "").slice(-10);
+
     const founderEmail = (process.env.FOUNDER_EMAIL || "sky140052@gmail.com").trim().toLowerCase();
     const adminObj = await getOrCreateAdmin(founderEmail);
-    const adminMobile = adminObj.mobile?.replace(/\D/g, "").slice(-10);
+    const dbAdminMobile = adminObj.mobile?.replace(/\D/g, "").slice(-10);
+
+    const isAdmin = Boolean(
+      (envAdminMobile && cleanMobile === envAdminMobile) ||
+      (dbAdminMobile && cleanMobile === dbAdminMobile)
+    );
 
     let sessionPayload: SessionPayload;
     let redirectTo = "/dashboard";
     let message = "मोबाइल OTP लॉगिन सफल!";
 
-    if (adminMobile && adminMobile === cleanMobile) {
+    if (isAdmin) {
       sessionPayload = {
         userId: adminObj._id,
-        name: adminObj.name || "मुख्य संस्थापक",
+        name: adminObj.name || "मुख्य एडमिन",
         email: adminObj.email,
         role: "admin",
-        mobile: adminMobile,
+        mobile: cleanMobile,
       };
       redirectTo = "/admin";
-      message = "👑 मुख्य एडमिन मोबाइल OTP लॉगिन सफल!";
+      message = "👑 मुख्य एडमिन मोबाइल SMS OTP लॉगिन सफल!";
     } else {
       // Check if Member already exists in Astra DB
       const existingMember = await dbFindMemberByMobile(cleanMobile);
