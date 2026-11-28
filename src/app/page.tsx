@@ -237,6 +237,9 @@ export default function AppEntryPage() {
       // Ensure remote config is fetched if env was empty
       const remoteConfig = await fetchRemoteFirebaseConfig();
       const verifier = createRecaptchaVerifier("recaptcha-container", remoteConfig);
+      if (!verifier) {
+        throw new Error("reCAPTCHA सुरक्षा प्रणाली लोड नहीं हो सकी। कृपया पेज रीफ़्रेश करें।");
+      }
       
       const confirmation = await sendFirebasePhoneOtp(cleanMobile, verifier);
       confirmationResultRef.current = confirmation;
@@ -251,6 +254,8 @@ export default function AppEntryPage() {
         errorText = "बहुत अधिक प्रयास! कृपया कुछ समय बाद पुनः प्रयास करें।";
       } else if (err.code === "auth/unauthorized-domain") {
         errorText = "Firebase Console में Authorized domains में अपनी वेबसाइट डोमेन जोड़ें।";
+      } else if (err.code === "auth/operation-not-allowed") {
+        errorText = "Firebase Console में SMS Region Policy में India (+91) और Phone Auth चालू करें।";
       }
       setErrorMsg(errorText);
     } finally {
