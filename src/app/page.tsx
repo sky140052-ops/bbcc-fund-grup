@@ -13,72 +13,87 @@ import {
   AlertCircle,
   Loader2,
   Lock,
-  RefreshCw,
   Sparkles,
-  Smartphone,
+  ArrowRight,
+  Shield,
 } from "lucide-react";
 import { compressImage } from "../lib/compress";
-import { createRecaptchaVerifier, sendFirebasePhoneOtp, fetchRemoteFirebaseConfig } from "../lib/firebaseClient";
-import type { ConfirmationResult } from "firebase/auth";
 
 export default function AppEntryPage() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const confirmationResultRef = useRef<ConfirmationResult | null>(null);
 
-  // Authentication & Mode State
+  // Auth flow states: "initial" (Google 1-Tap / Sign-In) | "complete_kyc" (fill remaining fields)
+  const [viewState, setViewState] = useState<"initial" | "complete_kyc">("initial");
   const [checkingSession, setCheckingSession] = useState(true);
-  const [mode, setMode] = useState<"register" | "login">("login");
 
-  // Google 1-Tap State
+  // Google Credential & Data
   const [googleClientId, setGoogleClientId] = useState<string>("");
   const [googleLoading, setGoogleLoading] = useState<boolean>(false);
+  const [savedCredential, setSavedCredential] = useState<string>("");
 
   // Form Fields
   const [photo, setPhoto] = useState<string>("");
   const [name, setName] = useState<string>("");
-  const [mobile, setMobile] = useState<string>("");
   const [email, setEmail] = useState<string>("");
+  const [mobile, setMobile] = useState<string>("");
   const [aadhaar, setAadhaar] = useState<string>("");
   const [pan, setPan] = useState<string>("");
-  const [otp, setOtp] = useState<string>("");
 
-  // Loading & Feedback
-  const [loadingOtp, setLoadingOtp] = useState(false);
-  const [verifyingOtp, setVerifyingOtp] = useState(false);
-  const [otpSent, setOtpSent] = useState(false);
+  // Submitting & Feedback
+  const [submitting, setSubmitting] = useState(false);
   const [statusMsg, setStatusMsg] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
 
-  // Handle Google Credential Response (1-Tap)
+  // 1. Handle Google Credential Response (Google 1-Tap & Standard Button)
   const handleGoogleCredentialResponse = useCallback(
     async (response: any) => {
       if (!response?.credential) return;
       setGoogleLoading(true);
       setErrorMsg("");
-      setStatusMsg("Google द्वारा आपकी पहचान स्वतः सत्यापित की जा रही है...");
+      setStatusMsg("Google द्वारा आपकी पहचान सत्यापित की जा रही है...");
+
       try {
         const res = await fetch("/api/auth/google", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ credential: response.credential }),
         });
+
         const data = await res.json();
         if (!res.ok) {
           throw new Error(data.error || "Google प्रमाणीकरण विफल रहा।");
         }
 
-        if (typeof window !== "undefined") {
-          if (data.token) localStorage.setItem("dfi_token", data.token);
-          if (data.user) localStorage.setItem("dfi_user", JSON.stringify(data.user));
-          if (data.user?.email) localStorage.setItem("dfi_user_email", data.user.email);
-          if (data.user?.mobile) localStorage.setItem("dfi_user_mobile", data.user.mobile);
+        // Case A: Existing user or Admin -> Instant Login!
+        if (!data.isNewUser && data.token) {
+          if (typeof window !== "undefined") {
+            localStorage.setItem("dfi_token", data.token);
+            if (data.user) localStorage.setItem("dfi_user", JSON.stringify(data.user));
+            if (data.user?.email) localStorage.setItem("dfi_user_email", data.user.email);
+            if (data.user?.mobile) localStorage.setItem("dfi_user_mobile", data.user.mobile);
+          }
+
+          setStatusMsg("✓ " + (data.message || "लॉगिन सफल! डैशबोर्ड लोड हो रहा है..."));
+          setTimeout(() => {
+            router.replace(data.redirectTo || "/dashboard");
+          }, 400);
+          return;
         }
 
-        setStatusMsg("✓ " + (data.message || "Google लॉगिन सफल! डैशबोर्ड लोड हो रहा है..."));
-        setTimeout(() => {
-          router.replace(data.redirectTo || "/dashboard");
-        }, 500);
+        // Case B: New User -> Open KYC Form with Google details pre-filled!
+        if (data.isNewUser && data.googleData) {
+          setSavedCredential(response.credential);
+          setEmail(data.googleData.email || "");
+          setName(data.googleData.name || "");
+          setPhoto(data.googleData.photo || "");
+          if (data.googleData.mobile) setMobile(data.googleData.mobile);
+          if (data.googleData.aadhaar) setAadhaar(data.googleData.aadhaar);
+          if (data.googleData.pan) setPan(data.googleData.pan);
+
+          setViewState("complete_kyc");
+          setStatusMsg("✓ Google से ईमेल व फोटो सत्यापित! कृपया नीचे मोबाइल व आधार नंबर दर्ज करके रजिस्ट्रेशन पूरा करें।");
+        }
       } catch (err: any) {
         setErrorMsg(err.message || "Google लॉगिन में त्रुटि हुई।");
       } finally {
@@ -88,7 +103,7 @@ export default function AppEntryPage() {
     [router]
   );
 
-  // Initialize Google One-Tap & Button
+  // 2. Initialize Google One-Tap & Render Button
   const initGoogleServices = useCallback(
     (clientId: string) => {
       if (typeof window === "undefined") return;
@@ -103,26 +118,28 @@ export default function AppEntryPage() {
           cancel_on_tap_outside: false,
         });
 
+        // Prompt Google One Tap natively
         g.accounts.id.prompt();
 
+        // Render native Google Sign-in button
         const btnElem = document.getElementById("google-login-btn-container");
         if (btnElem) {
           g.accounts.id.renderButton(btnElem, {
             theme: "outline",
             size: "large",
-            width: 320,
+            width: 300,
             text: "continue_with",
             shape: "pill",
           });
         }
       } catch (err) {
-        console.warn("GSI initialization error:", err);
+        console.warn("Google GSI initialization notice:", err);
       }
     },
     [handleGoogleCredentialResponse]
   );
 
-  // 1. Check existing session & preload settings
+  // 3. Preload Settings & Check Active Session on Mount
   useEffect(() => {
     let isMounted = true;
 
@@ -151,10 +168,8 @@ export default function AppEntryPage() {
         if (isMounted) setCheckingSession(false);
       }
 
-      // Step B: Load remote Firebase & Google settings
+      // Step B: Load Google Client ID from Settings or Env
       try {
-        await fetchRemoteFirebaseConfig();
-
         const settingsRes = await fetch("/api/admin/settings");
         if (settingsRes.ok) {
           const settingsData = await settingsRes.json();
@@ -165,6 +180,7 @@ export default function AppEntryPage() {
 
           if (clientId && isMounted) {
             setGoogleClientId(clientId);
+
             if (!document.getElementById("google-gsi-script")) {
               const script = document.createElement("script");
               script.id = "google-gsi-script";
@@ -181,7 +197,7 @@ export default function AppEntryPage() {
           }
         }
       } catch (e) {
-        console.warn("Settings check error:", e);
+        console.warn("Could not load Google settings:", e);
       }
     }
 
@@ -192,7 +208,7 @@ export default function AppEntryPage() {
     };
   }, [router, initGoogleServices]);
 
-  // Handle Photo Upload & Auto Compression
+  // Handle Local Photo Selection & Compression
   const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -204,136 +220,70 @@ export default function AppEntryPage() {
     }
   };
 
-  // Step 1: Send Mobile SMS OTP (via Firebase Phone Auth)
-  const handleSendMobileOtp = async (e: React.FormEvent) => {
+  // 4. Submit Completed KYC Registration Form
+  const handleCompleteRegistration = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg("");
     setStatusMsg("");
 
     const cleanMobile = mobile.replace(/\D/g, "").slice(-10);
+    const cleanAadhaar = aadhaar.replace(/\D/g, "");
 
+    if (!name.trim()) {
+      setErrorMsg("कृपया अपना पूरा नाम दर्ज करें।");
+      return;
+    }
     if (cleanMobile.length !== 10) {
-      setErrorMsg("कृपया 10-अंकीय वैध मोबाइल नंबर दर्ज करें।");
+      setErrorMsg("कृपया 10-अंकीय मान्य मोबाइल नंबर दर्ज करें।");
+      return;
+    }
+    if (cleanAadhaar.length !== 12) {
+      setErrorMsg("कृपया 12-अंकों का आधार नंबर दर्ज करें।");
       return;
     }
 
-    if (mode === "register") {
-      if (!name.trim()) {
-        setErrorMsg("कृपया अपना पूरा नाम दर्ज करें।");
-        return;
-      }
-      const cleanAadhaar = aadhaar.replace(/\D/g, "");
-      if (cleanAadhaar.length !== 12) {
-        setErrorMsg("कृपया 12-अंकों का आधार नंबर दर्ज करें।");
-        return;
-      }
-    }
-
-    setLoadingOtp(true);
+    setSubmitting(true);
 
     try {
-      setStatusMsg("Google Firebase सुरक्षा जांच व SMS भेजा जा रहा है...");
-      
-      // Ensure remote config is fetched if env was empty
-      const remoteConfig = await fetchRemoteFirebaseConfig();
-      const verifier = await createRecaptchaVerifier("recaptcha-container", remoteConfig);
-      if (!verifier) {
-        throw new Error("reCAPTCHA सुरक्षा प्रणाली लोड नहीं हो सकी। कृपया पेज रीफ़्रेश करें।");
-      }
-      
-      const confirmation = await sendFirebasePhoneOtp(cleanMobile, verifier);
-      confirmationResultRef.current = confirmation;
-      setOtpSent(true);
-      setStatusMsg(`✓ आपके मोबाइल नंबर +91 ${cleanMobile} पर 6-अंकीय SMS OTP भेज दिया गया है।`);
-    } catch (err: any) {
-      console.error("Firebase SMS OTP error:", err);
-      let errorText = err.message || "SMS OTP भेजने में त्रुटि हुई।";
-      if (err.code === "auth/invalid-phone-number") {
-        errorText = "अमान्य मोबाइल नंबर! कृपया 10 अंकों का सही नंबर जांचें।";
-      } else if (err.code === "auth/too-many-requests") {
-        errorText = "बहुत अधिक प्रयास! कृपया कुछ समय बाद पुनः प्रयास करें।";
-      } else if (err.code === "auth/unauthorized-domain") {
-        errorText = "Firebase Console में Authorized domains में अपनी वेबसाइट डोमेन जोड़ें।";
-      } else if (err.code === "auth/operation-not-allowed") {
-        errorText = "Firebase Console में SMS Region Policy में India (+91) और Phone Auth चालू करें।";
-      }
-      setErrorMsg(errorText);
-    } finally {
-      setLoadingOtp(false);
-    }
-  };
-
-  // Step 2: Verify Mobile SMS OTP and Login / Register
-  const handleVerifyMobileOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMsg("");
-    setStatusMsg("");
-
-    const cleanOtp = otp.trim();
-    if (cleanOtp.length < 6) {
-      setErrorMsg("कृपया 6-अंकीय SMS OTP कोड दर्ज करें।");
-      return;
-    }
-
-    if (!confirmationResultRef.current) {
-      setErrorMsg("सत्र समाप्त हो गया है। कृपया पुनः OTP भेजें।");
-      return;
-    }
-
-    setVerifyingOtp(true);
-
-    try {
-      setStatusMsg("SMS OTP सत्यापित किया जा रहा है...");
-      const userCredential = await confirmationResultRef.current.confirm(cleanOtp);
-      const idToken = await userCredential.user.getIdToken();
-
-      const cleanMobile = mobile.replace(/\D/g, "").slice(-10);
-
-      const res = await fetch("/api/auth/phone", {
+      const res = await fetch("/api/auth/google", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          mobile: cleanMobile,
-          idToken,
-          name: name.trim(),
-          email: email.trim().toLowerCase(),
-          aadhaar: aadhaar.replace(/\D/g, ""),
-          pan: pan.toUpperCase().trim(),
-          photo,
+          credential: savedCredential,
+          memberDetails: {
+            name: name.trim(),
+            mobile: cleanMobile,
+            aadhaar_number: cleanAadhaar,
+            pan_number: pan.toUpperCase().trim(),
+            photo,
+          },
         }),
       });
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || "मोबाइल लॉगिन प्रक्रिया में त्रुटि।");
+        throw new Error(data.error || "रजिस्ट्रेशन पूरा करने में त्रुटि हुई।");
       }
 
       if (typeof window !== "undefined") {
         if (data.token) localStorage.setItem("dfi_token", data.token);
         if (data.user) localStorage.setItem("dfi_user", JSON.stringify(data.user));
-        if (data.user?.mobile) localStorage.setItem("dfi_user_mobile", data.user.mobile);
         if (data.user?.email) localStorage.setItem("dfi_user_email", data.user.email);
+        if (data.user?.mobile) localStorage.setItem("dfi_user_mobile", data.user.mobile);
       }
 
-      setStatusMsg("✓ मोबाइल सत्यापन सफल! पोर्टल लोड हो रहा है...");
+      setStatusMsg("✓ " + (data.message || "रजिस्ट्रेशन सफल! डैशबोर्ड लोड हो रहा है..."));
       setTimeout(() => {
         router.replace(data.redirectTo || "/dashboard");
       }, 500);
     } catch (err: any) {
-      console.error("SMS OTP verification error:", err);
-      let errorText = err.message || "सत्यापन प्रक्रिया में त्रुटि।";
-      if (err.code === "auth/invalid-verification-code") {
-        errorText = "गलत SMS OTP! कृपया मोबाइल पर आया सही 6-अंकीय कोड डालें।";
-      } else if (err.code === "auth/code-expired") {
-        errorText = "OTP कोड की समय-सीमा समाप्त हो चुकी है। कृपया पुनः भेजें।";
-      }
-      setErrorMsg(errorText);
+      setErrorMsg(err.message || "रजिस्ट्रेशन सबमिट करने में विफल।");
     } finally {
-      setVerifyingOtp(false);
+      setSubmitting(false);
     }
   };
 
-  // Loading splash while checking session
+  // Loading Splash Screen while checking session
   if (checkingSession) {
     return (
       <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4 text-center select-none">
@@ -350,13 +300,9 @@ export default function AppEntryPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 flex flex-col items-center justify-center p-3 sm:p-4 select-none">
-      
-      {/* Invisible Firebase Recaptcha Anchor */}
-      <div id="recaptcha-container"></div>
-
       <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl p-5 sm:p-6 space-y-4 border border-slate-100 relative overflow-hidden animate-fade-in">
         
-        {/* Top Decorative Header */}
+        {/* Top Header */}
         <div className="text-center space-y-1">
           <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-700 via-indigo-600 to-sky-500 text-white flex items-center justify-center font-black text-xl shadow-md shadow-blue-500/20 mx-auto">
             DFI
@@ -367,92 +313,6 @@ export default function AppEntryPage() {
           <p className="text-[11px] text-slate-500 font-medium">
             100% पारदर्शी, सुरक्षित एवं पंजीकृत कम्युनिटी फंड
           </p>
-        </div>
-
-        {/* ⚡ GOOGLE 1-TAP (OPTIONAL 1-TOUCH INSTANT LOGIN) */}
-        <div className="p-3.5 rounded-2xl bg-blue-50/60 border border-blue-200/80 space-y-2 text-center">
-          <div className="flex items-center justify-center gap-1.5 text-xs font-black text-slate-900">
-            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-            <span>Google 1-Tap ऑटो लॉगिन (बिना OTP)</span>
-          </div>
-          <p className="text-[10px] text-slate-500 leading-snug">
-            Google अकाउंट से 1-टच में ईमेल, नाम व फोटो स्वतः वेरीफाई करके सीधे लॉगिन करें
-          </p>
-
-          <div className="flex flex-col items-center justify-center min-h-[42px] pt-1">
-            {googleLoading ? (
-              <div className="flex items-center gap-2 py-2 text-xs font-bold text-blue-600">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Google अकाउंट से लॉगिन हो रहा है...</span>
-              </div>
-            ) : (
-              <div id="google-login-btn-container" className="w-full flex justify-center min-h-[40px]">
-                {!googleClientId && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      alert("कृपया नीचे दिए गए मोबाइल SMS OTP द्वारा तुरंत लॉगिन करें।");
-                    }}
-                    className="w-full max-w-xs flex items-center justify-center gap-2.5 py-2.5 px-4 rounded-full bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-xs shadow-xs transition active:scale-95"
-                  >
-                    <svg className="w-4 h-4" viewBox="0 0 24 24">
-                      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
-                      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
-                    </svg>
-                    <span>Google से 1-क्लिक लॉगिन</span>
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Divider */}
-        <div className="relative flex items-center justify-center my-1">
-          <div className="border-t border-slate-200 w-full" />
-          <span className="bg-white px-2 text-[10px] text-slate-400 font-bold uppercase tracking-wider shrink-0 flex items-center gap-1">
-            <Smartphone className="w-3 h-3 text-blue-600" />
-            <span>सुरक्षित मोबाइल SMS OTP लॉगिन</span>
-          </span>
-          <div className="border-t border-slate-200 w-full" />
-        </div>
-
-        {/* Mode Switcher: Login vs Register */}
-        <div className="grid grid-cols-2 gap-1 p-1 bg-slate-100 rounded-xl text-xs font-bold text-center">
-          <button
-            type="button"
-            onClick={() => {
-              setMode("login");
-              setErrorMsg("");
-              setStatusMsg("");
-              setOtpSent(false);
-            }}
-            className={`py-2 px-1 rounded-lg transition active:scale-95 truncate ${
-              mode === "login"
-                ? "bg-white text-blue-700 shadow-xs"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            🔐 मोबाइल लॉगिन (Login)
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setMode("register");
-              setErrorMsg("");
-              setStatusMsg("");
-              setOtpSent(false);
-            }}
-            className={`py-2 px-1 rounded-lg transition active:scale-95 truncate ${
-              mode === "register"
-                ? "bg-white text-blue-700 shadow-xs"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            📝 नया सदस्य रजिस्ट्रेशन (KYC)
-          </button>
         </div>
 
         {/* Feedback Messages */}
@@ -469,11 +329,72 @@ export default function AppEntryPage() {
           </div>
         )}
 
-        {/* Form Container */}
-        <form onSubmit={otpSent ? handleVerifyMobileOtp : handleSendMobileOtp} className="space-y-3">
-          
-          {/* REGISTER MODE: Top Photo Upload Avatar */}
-          {mode === "register" && !otpSent && (
+        {/* ========================================================
+            VIEW 1: INITIAL SCREEN (GOOGLE 1-TAP LOGIN & REGISTER)
+            ======================================================== */}
+        {viewState === "initial" && (
+          <div className="space-y-4 pt-1">
+            <div className="p-4 rounded-2xl bg-gradient-to-b from-blue-50/80 to-indigo-50/50 border border-blue-200/80 text-center space-y-3">
+              <div className="flex items-center justify-center gap-1.5 text-xs font-black text-slate-900">
+                <Sparkles className="w-4 h-4 text-amber-500" />
+                <span>Google 1-Tap लॉगिन व रजिस्ट्रेशन</span>
+              </div>
+              <p className="text-[11px] text-slate-600 leading-snug">
+                अपने Google/Gmail अकाउंट से 1-टच में पहचान, नाम व फ़ोटो स्वतः सत्यापित करके सीधे प्रवेश करें।
+              </p>
+
+              {/* Native Google Button Mount Point */}
+              <div className="flex flex-col items-center justify-center min-h-[44px] pt-1">
+                {googleLoading ? (
+                  <div className="flex items-center gap-2 py-2 text-xs font-bold text-blue-600">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Google पहचान सत्यापित की जा रही है...</span>
+                  </div>
+                ) : (
+                  <div id="google-login-btn-container" className="w-full flex justify-center min-h-[42px]">
+                    {!googleClientId && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          alert("Render Environment में GOOGLE_CLIENT_ID सेट करते ही यह बटन सक्रिय हो जाएगा।");
+                        }}
+                        className="w-full max-w-xs flex items-center justify-center gap-2.5 py-2.5 px-4 rounded-full bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-xs shadow-xs transition active:scale-95"
+                      >
+                        <svg className="w-4 h-4" viewBox="0 0 24 24">
+                          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+                        </svg>
+                        <span>Google से 1-Tap लॉगिन</span>
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Quick Helper Notes */}
+            <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200/80 text-[11px] text-slate-600 space-y-1.5">
+              <div className="flex items-start gap-1.5 font-bold text-slate-800">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 mt-0.5 shrink-0" />
+                <span>पहले से पंजीकृत सदस्य / एडमिन सीधे लॉगिन होंगे।</span>
+              </div>
+              <div className="flex items-start gap-1.5 font-bold text-slate-800">
+                <CheckCircle2 className="w-3.5 h-3.5 text-blue-600 mt-0.5 shrink-0" />
+                <span>नए सदस्यों की Google फ़ोटो व ईमेल अपने-आप लेकर फॉर्म खुलेगा।</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================
+            VIEW 2: NEW REGISTRATION (GOOGLE DATA PRE-FILLED + MANUAL FIELDS)
+            ======================================================== */}
+        {viewState === "complete_kyc" && (
+          <form onSubmit={handleCompleteRegistration} className="space-y-3 pt-1 animate-scale-in">
+            
+            {/* Top Google Verified Badge & Avatar Photo */}
             <div className="text-center pt-1 pb-1">
               <input
                 type="file"
@@ -484,56 +405,68 @@ export default function AppEntryPage() {
               />
               <div
                 onClick={() => fileInputRef.current?.click()}
-                className="w-20 h-20 rounded-full border-4 border-blue-500/20 p-1 bg-slate-50 mx-auto relative cursor-pointer group hover:border-blue-500 transition shadow-xs flex items-center justify-center overflow-hidden"
-                title="फोटो चुनें"
+                className="w-20 h-20 rounded-full border-4 border-emerald-500/30 p-1 bg-slate-50 mx-auto relative cursor-pointer group hover:border-emerald-500 transition shadow-xs flex items-center justify-center overflow-hidden"
+                title="फ़ोटो बदलें"
               >
                 {photo ? (
                   <img
                     src={photo}
-                    alt="Uploaded Avatar"
+                    alt="Member Avatar"
                     className="w-full h-full object-cover rounded-full"
                   />
                 ) : (
                   <div className="w-full h-full rounded-full bg-blue-50 text-blue-600 flex flex-col items-center justify-center">
-                    <Camera className="w-6 h-6 stroke-[2]" />
-                    <span className="text-[8px] font-bold mt-0.5 text-blue-700">फोटो चुनें</span>
+                    <User className="w-6 h-6 stroke-[2]" />
                   </div>
                 )}
-                <span className="absolute bottom-0 right-0 p-1 bg-blue-600 text-white rounded-full shadow-xs">
-                  <Camera className="w-3 h-3" />
+                <span className="absolute bottom-0 right-0 p-1 bg-emerald-600 text-white rounded-full shadow-xs">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
                 </span>
               </div>
-              <p className="text-[10px] text-slate-400 mt-1">
-                अपनी प्रोफ़ाइल फ़ोटो लगाएं (वैकल्पिक / सुरक्षित)
-              </p>
-            </div>
-          )}
 
-          {/* Form Fields: Only shown before OTP is sent */}
-          {!otpSent && (
+              <div className="inline-flex items-center gap-1 mt-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 text-[10px] font-bold border border-emerald-200">
+                <span>Google फ़ोटो व ईमेल सत्यापित ✓</span>
+              </div>
+            </div>
+
             <div className="space-y-2.5">
               
-              {/* Full Name (in Register mode) */}
-              {mode === "register" && (
-                <div>
-                  <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider block mb-1">
-                    पूरा नाम (Full Name) *
-                  </label>
-                  <div className="relative">
-                    <User className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="text"
-                      required
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      placeholder="उदा. राहुल कुमार"
-                      className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
-                    />
-                  </div>
+              {/* Google Verified Email (Locked) */}
+              <div>
+                <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider block mb-1">
+                  ईमेल आईडी (Google Verified)
+                </label>
+                <div className="relative">
+                  <Mail className="w-4 h-4 text-emerald-600 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="email"
+                    disabled
+                    value={email}
+                    className="w-full pl-9 pr-8 py-2 bg-emerald-50/50 border border-emerald-200 rounded-xl text-xs font-mono font-bold text-emerald-900 cursor-not-allowed"
+                  />
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 absolute right-3 top-1/2 -translate-y-1/2" />
                 </div>
-              )}
+              </div>
 
-              {/* Mobile Number (Always visible in both modes) */}
+              {/* Full Name (Pre-filled from Google, editable) */}
+              <div>
+                <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider block mb-1">
+                  पूरा नाम (Full Name) *
+                </label>
+                <div className="relative">
+                  <User className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    required
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="उदा. राहुल कुमार"
+                    className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
+                  />
+                </div>
+              </div>
+
+              {/* Mobile Number (Manual Field) */}
               <div>
                 <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider block mb-1">
                   मोबाइल नंबर (Mobile Number) *
@@ -550,170 +483,91 @@ export default function AppEntryPage() {
                     onChange={(e) => setMobile(e.target.value.replace(/\D/g, ""))}
                     placeholder="9876543210"
                     className="w-full pl-3 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-r-xl text-xs font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
+                    autoFocus
                   />
                 </div>
               </div>
 
-              {/* Email Address (in Register mode - for communication and records) */}
-              {mode === "register" && (
-                <div>
-                  <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider block mb-1">
-                    ईमेल आईडी (Gmail / Email) - सूचना हेतु
-                  </label>
-                  <div className="relative">
-                    <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="apnamail@gmail.com (वैकल्पिक)"
-                      className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
-                    />
-                  </div>
+              {/* Aadhaar Number (Manual Field) */}
+              <div>
+                <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider block mb-1">
+                  आधार नंबर (12-Digit Aadhaar) *
+                </label>
+                <div className="relative">
+                  <ShieldCheck className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    required
+                    maxLength={12}
+                    value={aadhaar}
+                    onChange={(e) => setAadhaar(e.target.value.replace(/\D/g, ""))}
+                    placeholder="12-अंकों का आधार नंबर"
+                    className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
+                  />
                 </div>
-              )}
+              </div>
 
-              {/* Aadhaar Number (in Register mode) */}
-              {mode === "register" && (
-                <div>
-                  <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider block mb-1">
-                    आधार नंबर (12-Digit Aadhaar) *
-                  </label>
-                  <div className="relative">
-                    <ShieldCheck className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="text"
-                      required
-                      maxLength={12}
-                      value={aadhaar}
-                      onChange={(e) => setAadhaar(e.target.value.replace(/\D/g, ""))}
-                      placeholder="12-अंकों का आधार नंबर"
-                      className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
-                    />
-                  </div>
+              {/* PAN Number (Manual Field - Optional) */}
+              <div>
+                <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider block mb-1">
+                  पैन नंबर (PAN Card)
+                </label>
+                <div className="relative">
+                  <CreditCard className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    maxLength={10}
+                    value={pan}
+                    onChange={(e) => setPan(e.target.value.toUpperCase())}
+                    placeholder="ABCDE1234F (वैकल्पिक)"
+                    className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold uppercase text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
+                  />
                 </div>
-              )}
+              </div>
 
-              {/* PAN Number (in Register mode) */}
-              {mode === "register" && (
-                <div>
-                  <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider block mb-1">
-                    पैन नंबर (PAN Card)
-                  </label>
-                  <div className="relative">
-                    <CreditCard className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="text"
-                      maxLength={10}
-                      value={pan}
-                      onChange={(e) => setPan(e.target.value.toUpperCase())}
-                      placeholder="ABCDE1234F (वैकल्पिक)"
-                      className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold uppercase text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Button: Send SMS OTP */}
-              <div className="pt-1">
+              {/* Submit Registration Button */}
+              <div className="pt-2">
                 <button
                   type="submit"
-                  disabled={loadingOtp}
-                  className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-black text-xs shadow-md shadow-blue-500/25 transition active:scale-95 flex items-center justify-center gap-2"
+                  disabled={submitting}
+                  className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black text-xs shadow-md shadow-emerald-500/25 transition active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
                 >
-                  {loadingOtp ? (
+                  {submitting ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>SMS OTP भेजा जा रहा है...</span>
+                      <span>सदस्यता जोड़ी जा रही है...</span>
                     </>
                   ) : (
                     <>
-                      <Smartphone className="w-4 h-4" />
-                      <span>मोबाइल SMS OTP प्राप्त करें (Get SMS OTP)</span>
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>रजिस्ट्रेशन पूरा करें और सदस्य बनें (Join DFI)</span>
                     </>
                   )}
                 </button>
               </div>
-            </div>
-          )}
 
-          {/* OTP Verification Box (Revealed when OTP is sent) */}
-          {otpSent && (
-            <div className="space-y-3 pt-1 animate-scale-in">
-              <div className="p-2.5 rounded-xl bg-blue-50 border border-blue-200 text-center">
-                <p className="text-[11px] font-bold text-blue-900">
-                  मोबाइल +91 {mobile.replace(/\D/g, "").slice(-10)} पर SMS OTP भेजा गया है
-                </p>
-                <p className="text-[10px] text-blue-600 mt-0.5">
-                  कृपया अपने मोबाइल का SMS इनबॉक्स देखें।
-                </p>
-              </div>
-
-              <div>
-                <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider block mb-1 text-center">
-                  6-अंकीय SMS OTP कोड दर्ज करें
-                </label>
-                <input
-                  type="text"
-                  required
-                  maxLength={6}
-                  value={otp}
-                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
-                  placeholder="• • • • • •"
-                  className="w-full py-2.5 text-center bg-slate-50 border border-slate-300 rounded-xl text-lg font-mono font-black tracking-widest text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
-                  autoFocus
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={verifyingOtp}
-                className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black text-xs shadow-md shadow-emerald-500/25 transition active:scale-95 flex items-center justify-center gap-2"
-              >
-                {verifyingOtp ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>सत्यापन किया जा रहा है...</span>
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle2 className="w-4 h-4" />
-                    <span>सत्यापित करें और लॉगिन करें (Login)</span>
-                  </>
-                )}
-              </button>
-
-              <div className="flex items-center justify-between px-1 pt-1">
-                <button
-                  type="button"
-                  onClick={handleSendMobileOtp}
-                  disabled={loadingOtp}
-                  className="text-[10px] font-bold text-blue-600 hover:underline flex items-center gap-1"
-                >
-                  <RefreshCw className="w-3 h-3" />
-                  <span>OTP नहीं मिला? पुनः भेजें</span>
-                </button>
-
+              <div className="text-center pt-1">
                 <button
                   type="button"
                   onClick={() => {
-                    setOtpSent(false);
-                    setOtp("");
+                    setViewState("initial");
+                    setErrorMsg("");
+                    setStatusMsg("");
                   }}
-                  className="text-[10px] font-bold text-slate-500 hover:underline"
+                  className="text-[10px] font-bold text-slate-500 hover:text-slate-800 hover:underline"
                 >
-                  नंबर बदलें
+                  ← वापस जाएं (Google अकाउंट बदलें)
                 </button>
               </div>
             </div>
-          )}
-        </form>
+          </form>
+        )}
 
         {/* Security Footer Notice */}
         <div className="pt-2 border-t border-slate-100 text-center">
           <p className="text-[10px] text-slate-400 flex items-center justify-center gap-1">
             <Lock className="w-3 h-3 text-emerald-600" />
-            <span>Google Firebase 256-Bit SSL एन्क्रिप्टेड • स्थायी ऑटो-लॉगिन</span>
+            <span>Google SSL एन्क्रिप्टेड • स्थायी ऑटो-लॉगिन सुरक्षित</span>
           </p>
         </div>
       </div>
