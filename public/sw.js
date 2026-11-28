@@ -3,7 +3,7 @@
  * Automatic Background Updates & Resilient Offline Caching
  */
 
-const CACHE_NAME = 'dfi-pwa-v2026.1';
+const CACHE_NAME = 'dfi-pwa-v2026.2';
 const CORE_ASSETS = [
   '/',
   '/manifest.json',

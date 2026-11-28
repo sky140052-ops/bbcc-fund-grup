@@ -1,13 +1,7 @@
 "use client";
 
-import { initializeApp, getApps, getApp } from "firebase/app";
 import type { FirebaseApp } from "firebase/app";
-import {
-  getAuth,
-  RecaptchaVerifier,
-  signInWithPhoneNumber,
-} from "firebase/auth";
-import type { Auth, ConfirmationResult } from "firebase/auth";
+import type { Auth, ConfirmationResult, RecaptchaVerifier } from "firebase/auth";
 
 export interface FirebaseConfigType {
   apiKey: string;
@@ -43,17 +37,16 @@ export async function fetchRemoteFirebaseConfig(): Promise<FirebaseConfigType> {
       }
     }
   } catch (e) {
-    console.warn("Could not fetch remote Firebase config, using defaults:", e);
+    console.warn("Could not fetch remote Firebase config:", e);
   }
   return DEFAULT_FIREBASE_CONFIG;
 }
 
-export function getFirebaseApp(customConfig?: Partial<FirebaseConfigType>): FirebaseApp | null {
-  if (typeof window === "undefined") {
-    return null;
-  }
+export async function getFirebaseAppAsync(customConfig?: Partial<FirebaseConfigType>): Promise<FirebaseApp | null> {
+  if (typeof window === "undefined") return null;
   try {
     if (!cachedApp) {
+      const { initializeApp, getApps, getApp } = await import("firebase/app");
       if (getApps().length > 0) {
         cachedApp = getApp();
       } else {
@@ -68,14 +61,13 @@ export function getFirebaseApp(customConfig?: Partial<FirebaseConfigType>): Fire
   }
 }
 
-export function getFirebaseAuth(customConfig?: Partial<FirebaseConfigType>): Auth | null {
-  if (typeof window === "undefined") {
-    return null;
-  }
+export async function getFirebaseAuthAsync(customConfig?: Partial<FirebaseConfigType>): Promise<Auth | null> {
+  if (typeof window === "undefined") return null;
   try {
     if (!cachedAuth) {
-      const app = getFirebaseApp(customConfig);
+      const app = await getFirebaseAppAsync(customConfig);
       if (!app) return null;
+      const { getAuth } = await import("firebase/auth");
       cachedAuth = getAuth(app);
       cachedAuth.languageCode = "hi";
     }
@@ -87,52 +79,56 @@ export function getFirebaseAuth(customConfig?: Partial<FirebaseConfigType>): Aut
 }
 
 /**
- * Creates or resets a reCAPTCHA verifier attached to a DOM container.
+ * Safely creates or resets a reCAPTCHA verifier dynamically in browser only
  */
-export function createRecaptchaVerifier(
+export async function createRecaptchaVerifier(
   containerId: string = "recaptcha-container",
   customConfig?: Partial<FirebaseConfigType>,
   onVerify?: () => void,
   onExpire?: () => void
-): RecaptchaVerifier | null {
+): Promise<RecaptchaVerifier | null> {
   if (typeof window === "undefined") return null;
 
-  const auth = getFirebaseAuth(customConfig);
-  if (!auth) {
-    throw new Error("Firebase Auth सक्रिय नहीं हो सका। कृपया इंटरनेट कनेक्शन जांचें।");
-  }
-
-  // Clear existing window verifier if present
-  if ((window as any).recaptchaVerifier) {
-    try {
-      (window as any).recaptchaVerifier.clear();
-    } catch {
-      // ignore
+  try {
+    const auth = await getFirebaseAuthAsync(customConfig);
+    if (!auth) {
+      throw new Error("Firebase Auth सक्रिय नहीं हो सका। कृपया इंटरनेट कनेक्शन जांचें।");
     }
-    (window as any).recaptchaVerifier = null;
-  }
 
-  // Clear DOM container
-  const container = document.getElementById(containerId);
-  if (container) {
-    container.innerHTML = "";
-  }
+    const { RecaptchaVerifier } = await import("firebase/auth");
 
-  const verifier = new RecaptchaVerifier(auth, containerId, {
-    size: "invisible",
-    callback: () => {
-      if (onVerify) onVerify();
-    },
-    "expired-callback": () => {
-      if (onExpire) onExpire();
-    },
-  });
+    // Clear existing window verifier if present
+    if ((window as any).recaptchaVerifier) {
+      try {
+        (window as any).recaptchaVerifier.clear();
+      } catch {
+        // ignore
+      }
+      (window as any).recaptchaVerifier = null;
+    }
 
-  if (typeof window !== "undefined") {
+    // Clear DOM container
+    const container = document.getElementById(containerId);
+    if (container) {
+      container.innerHTML = "";
+    }
+
+    const verifier = new RecaptchaVerifier(auth, containerId, {
+      size: "invisible",
+      callback: () => {
+        if (onVerify) onVerify();
+      },
+      "expired-callback": () => {
+        if (onExpire) onExpire();
+      },
+    });
+
     (window as any).recaptchaVerifier = verifier;
+    return verifier;
+  } catch (err: any) {
+    console.warn("createRecaptchaVerifier error:", err);
+    throw err;
   }
-
-  return verifier;
 }
 
 /**
@@ -142,10 +138,11 @@ export async function sendFirebasePhoneOtp(
   mobileNumber: string,
   verifier: RecaptchaVerifier
 ): Promise<ConfirmationResult> {
-  const auth = getFirebaseAuth();
+  const auth = await getFirebaseAuthAsync();
   if (!auth) {
     throw new Error("Firebase Auth उपलब्ध नहीं है।");
   }
+  const { signInWithPhoneNumber } = await import("firebase/auth");
   const cleanDigits = mobileNumber.replace(/\D/g, "");
   const formattedNumber = cleanDigits.startsWith("91") && cleanDigits.length === 12
     ? `+${cleanDigits}`
