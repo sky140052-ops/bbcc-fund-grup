@@ -34,6 +34,7 @@ export async function GET() {
         ...settings,
         monthly_contribution_amount: monthlyAmount,
         platform_fee: platformFee,
+        google_client_id: settings.google_client_id || process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID || "",
       },
       total_monthly_payable: totalMonthlyPayable,
       currentDay,
@@ -117,6 +118,10 @@ async function handleUpdate(req: NextRequest) {
     if (body.brevo_sender_email !== undefined) {
       updates.brevo_sender_email = String(body.brevo_sender_email).trim();
       process.env.BREVO_SENDER_EMAIL = updates.brevo_sender_email;
+    }
+    if (body.google_client_id !== undefined) {
+      updates.google_client_id = String(body.google_client_id).trim();
+      process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID = updates.google_client_id;
     }
     if (body.smtp_email !== undefined) {
       updates.smtp_email = String(body.smtp_email).trim();

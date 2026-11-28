@@ -170,6 +170,11 @@ function AdminPageContent() {
   const [savingMonthlyAmount, setSavingMonthlyAmount] = useState<boolean>(false);
   const [monthlyAmountMsg, setMonthlyAmountMsg] = useState<string | null>(null);
 
+  // Google 1-Tap Client ID Settings State
+  const [googleClientIdInput, setGoogleClientIdInput] = useState("");
+  const [savingGoogleSettings, setSavingGoogleSettings] = useState(false);
+  const [googleSettingsMsg, setGoogleSettingsMsg] = useState<string | null>(null);
+
   // Fresh Public Launch & Database Reset States
   const [showResetModal, setShowResetModal] = useState<boolean>(false);
   const [resetStep, setResetStep] = useState<"initial" | "otp_sent" | "success">("initial");
@@ -208,6 +213,9 @@ function AdminPageContent() {
           }
           if (typeof data.settings.platform_fee === "number") {
             setPlatformFeeInput(data.settings.platform_fee);
+          }
+          if (data.settings.google_client_id) {
+            setGoogleClientIdInput(data.settings.google_client_id);
           }
         }
         if (typeof data.currentDay === "number") {
@@ -311,6 +319,31 @@ function AdminPageContent() {
       setAdminQrCodeInput(compressed);
     } catch {
       alert("QR कोड लोड करने में विफल।");
+    }
+  };
+
+  // Save Google 1-Tap OAuth Client ID
+  const handleSaveGoogleSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingGoogleSettings(true);
+    setGoogleSettingsMsg(null);
+    try {
+      const res = await fetch("/api/admin/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          google_client_id: googleClientIdInput.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Google सेटिंग्स सेव करने में विफल।");
+      setSettings(data.settings);
+      setGoogleSettingsMsg("✓ Google Client ID सफलतापूर्वक सुरक्षित हो गई!");
+      setTimeout(() => setGoogleSettingsMsg(null), 3500);
+    } catch (err: any) {
+      setGoogleSettingsMsg("त्रुटि: " + (err.message || "सेव विफल"));
+    } finally {
+      setSavingGoogleSettings(false);
     }
   };
 
@@ -1122,7 +1155,7 @@ function AdminPageContent() {
               </div>
             </div>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {/* Admin Profile */}
             <div className="p-6 rounded-3xl bg-white border border-slate-200 shadow-sm space-y-3">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block">
@@ -1238,6 +1271,58 @@ function AdminPageContent() {
                 {upiSettingsMsg && (
                   <p className="text-[11px] text-emerald-700 font-bold text-center">
                     {upiSettingsMsg}
+                  </p>
+                )}
+              </form>
+            </div>
+
+            {/* Google 1-Tap & Google Sign-In Settings */}
+            <div className="p-6 rounded-3xl bg-white border border-slate-200 shadow-sm space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                  Google 1-Tap ऑटो लॉगिन
+                </span>
+                <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
+                  settings.google_client_id ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"
+                }`}>
+                  {settings.google_client_id ? "सक्रिय (Active)" : "असक्रिय"}
+                </span>
+              </div>
+
+              <p className="text-xs text-slate-600 leading-snug">
+                उपयोगकर्ता बिना OTP के सीधे 1-टच में अपने Google/Gmail अकाउंट से लॉगिन व रजिस्टर कर सकेंगे।
+              </p>
+
+              <form onSubmit={handleSaveGoogleSettings} className="space-y-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    Google OAuth Client ID
+                  </label>
+                  <input
+                    type="text"
+                    value={googleClientIdInput}
+                    onChange={(e) => setGoogleClientIdInput(e.target.value)}
+                    placeholder="उदा. 123456789-abc.apps.googleusercontent.com"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    Google Cloud Console से OAuth 2.0 Web Client ID यहाँ पेस्ट करें।
+                  </p>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={savingGoogleSettings}
+                  className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-xs shadow-md transition disabled:opacity-50"
+                >
+                  {savingGoogleSettings ? "सेव हो रहा है..." : "Google सेटिंग्स सेव करें"}
+                </button>
+
+                {googleSettingsMsg && (
+                  <p className={`text-[11px] font-bold text-center ${
+                    googleSettingsMsg.startsWith("त्रुटि") ? "text-rose-600" : "text-emerald-700"
+                  }`}>
+                    {googleSettingsMsg}
                   </p>
                 )}
               </form>

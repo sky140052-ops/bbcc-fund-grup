@@ -123,6 +123,7 @@ export interface SystemSettings {
   admin_account_holder?: string;
   brevo_api_key?: string; // Brevo API key (v3 SMTP API)
   brevo_sender_email?: string; // Verified sender email in Brevo
+  google_client_id?: string; // Google OAuth Client ID for 1-Tap Google Sign-In
   smtp_email?: string; // Optional Gmail SMTP address
   smtp_password?: string; // Optional Gmail SMTP App Password
   reset_otp?: string; // Confirmation OTP for Fresh Public Launch & Database Reset
