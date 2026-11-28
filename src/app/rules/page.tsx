@@ -125,14 +125,31 @@ export default function RulesPage() {
           })}
         </div>
 
-        <div className="bg-slate-50 border-t border-slate-200 p-6 sm:p-8 text-center">
+        <div className="bg-slate-50 border-t border-slate-200 p-6 sm:p-8 text-center space-y-4">
           <p className="text-sm font-semibold text-slate-700">
             ग्रुप में जुड़कर अथवा लॉगिन करके प्रत्येक सदस्य इन सभी नियमों की पूर्ण सहमति देता है।
           </p>
-          <div className="mt-4 flex justify-center gap-4">
+          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs font-bold text-slate-600">
+            <Link href="/contact" className="hover:text-blue-600">
+              संपर्क करें (Contact Us)
+            </Link>
+            <span>•</span>
+            <Link href="/terms" className="hover:text-blue-600">
+              नियम व शर्तें (Terms)
+            </Link>
+            <span>•</span>
+            <Link href="/privacy" className="hover:text-blue-600">
+              गोपनीयता नीति (Privacy)
+            </Link>
+            <span>•</span>
+            <Link href="/refund" className="hover:text-blue-600">
+              रिफंड नीति (Refund)
+            </Link>
+          </div>
+          <div className="pt-2 flex justify-center gap-4">
             <Link
               href="/login"
-              className="px-6 py-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl font-bold shadow-md shadow-brand-500/20 text-sm transition"
+              className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-md shadow-blue-500/20 text-sm transition"
             >
               लॉगिन करें (Go to Login)
             </Link>

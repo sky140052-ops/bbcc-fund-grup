@@ -3,7 +3,7 @@
  * Automatic Background Updates & Resilient Offline Caching
  */
 
-const CACHE_NAME = 'dfi-pwa-v2026.3';
+const CACHE_NAME = 'dfi-pwa-v2026.4';
 const CORE_ASSETS = [
   '/',
   '/manifest.json',
@@ -13,6 +13,10 @@ const CORE_ASSETS = [
   '/pay',
   '/loan-apply',
   '/rules',
+  '/contact',
+  '/terms',
+  '/privacy',
+  '/refund',
 ];
 
 // 1. Install Event: Skip waiting immediately to activate latest version

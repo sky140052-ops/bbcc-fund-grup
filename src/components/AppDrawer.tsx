@@ -249,30 +249,30 @@ export default function AppDrawer({
             </span>
             <div className="space-y-1">
               <Link
-                href="/dashboard?tab=my_fund"
+                href="/contact"
                 onClick={onClose}
                 className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/15 text-white text-sm font-semibold transition active:scale-98"
               >
                 <HelpCircle className="w-4 h-4 text-blue-200" />
-                <span>सामान्य प्रश्न (FAQs & Rules)</span>
+                <span>संपर्क करें (Contact & Office)</span>
               </Link>
 
               <a
-                href="mailto:support@dfi.org?subject=DFI%20Help%20Support"
+                href="mailto:sky140052@gmail.com?subject=DFI%20Help%20Support"
                 className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/15 text-white text-sm font-semibold transition active:scale-98"
               >
                 <Mail className="w-4 h-4 text-blue-200" />
-                <span>ईमेल सहायता (Send E-mail)</span>
+                <span>ईमेल सहायता (sky140052@gmail.com)</span>
               </a>
 
               <a
-                href="https://wa.me/919140052000?text=नमस्ते%20DFI%20इमरजेंसी%20हेल्पलाइन"
+                href="https://wa.me/917543952488?text=नमस्ते%20DFI%20इमरजेंसी%20हेल्पलाइन"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/15 text-white text-sm font-semibold transition active:scale-98"
               >
                 <PhoneCall className="w-4 h-4 text-emerald-300" />
-                <span>WhatsApp व कॉल हेल्पलाइन</span>
+                <span>कॉल व WhatsApp (+91 7543952488)</span>
               </a>
             </div>
           </div>
@@ -303,9 +303,33 @@ export default function AppDrawer({
                 <span>ऐप रेटिंग: 4.9 ★★★★★</span>
               </div>
 
-              <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-blue-100 text-xs font-medium">
+              <div className="pt-2 border-t border-white/10 space-y-1">
+                <Link
+                  href="/terms"
+                  onClick={onClose}
+                  className="flex items-center gap-3 px-3 py-1.5 rounded-lg hover:bg-white/15 text-blue-100 text-xs font-semibold transition"
+                >
+                  <span>• नियम व शर्तें (Terms & Conditions)</span>
+                </Link>
+                <Link
+                  href="/privacy"
+                  onClick={onClose}
+                  className="flex items-center gap-3 px-3 py-1.5 rounded-lg hover:bg-white/15 text-blue-100 text-xs font-semibold transition"
+                >
+                  <span>• गोपनीयता नीति (Privacy Policy)</span>
+                </Link>
+                <Link
+                  href="/refund"
+                  onClick={onClose}
+                  className="flex items-center gap-3 px-3 py-1.5 rounded-lg hover:bg-white/15 text-blue-100 text-xs font-semibold transition"
+                >
+                  <span>• रिफंड नीति (Refund Policy)</span>
+                </Link>
+              </div>
+
+              <div className="flex items-center gap-3 px-3 py-2 rounded-xl text-blue-100 text-xs font-medium">
                 <ShieldCheck className="w-4 h-4 text-emerald-300 flex-shrink-0" />
-                <span>सुरक्षित 256-bit SSL प्रमाणीकरण</span>
+                <span>सुरक्षित 256-bit SSL • PhonePe अधिकृत</span>
               </div>
             </div>
           </div>

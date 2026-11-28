@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   Camera,
   User,
@@ -19,6 +20,7 @@ import {
   KeyRound,
   LogIn,
   UserPlus,
+  MapPin,
 } from "lucide-react";
 import { compressImage } from "../lib/compress";
 
@@ -1164,12 +1166,38 @@ export default function AppEntryPage() {
           </form>
         )}
 
-        {/* Security Footer Notice */}
-        <div className="pt-2 border-t border-slate-100 text-center">
-          <p className="text-[10px] text-slate-400 flex items-center justify-center gap-1">
+        {/* Security & Official Compliance Footer Notice */}
+        <div className="pt-3 border-t border-slate-100 text-center space-y-2">
+          <p className="text-[10px] text-slate-400 flex items-center justify-center gap-1 font-medium">
             <Lock className="w-3 h-3 text-emerald-600" />
-            <span>Google SSL एन्क्रिप्टेड • 10-वर्षीय स्थायी ऑटो-लॉगिन सुरक्षित</span>
+            <span>256-Bit SSL सुरक्षित • PhonePe व UPI अधिकृत</span>
           </p>
+          <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/70 text-[10px] text-slate-500 leading-normal space-y-1">
+            <p className="font-bold text-slate-700 flex items-center justify-center gap-1">
+              <MapPin className="w-3 h-3 text-rose-500 shrink-0" />
+              <span>दहिला, परजुआर, अरेर, मधुबनी, बिहार - 847229</span>
+            </p>
+            <p>
+              हेल्पलाइन: <a href="tel:+917543952488" className="font-bold text-slate-700 hover:underline">+91 7543952488</a> • ईमेल: <a href="mailto:sky140052@gmail.com" className="font-bold text-slate-700 hover:underline">sky140052@gmail.com</a>
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center justify-center gap-x-2.5 gap-y-1 text-[10px] font-semibold text-slate-500 pt-0.5">
+            <Link href="/contact" className="hover:text-blue-600 transition">
+              संपर्क करें (Contact)
+            </Link>
+            <span>•</span>
+            <Link href="/terms" className="hover:text-blue-600 transition">
+              नियम व शर्तें (Terms)
+            </Link>
+            <span>•</span>
+            <Link href="/privacy" className="hover:text-blue-600 transition">
+              गोपनीयता (Privacy)
+            </Link>
+            <span>•</span>
+            <Link href="/refund" className="hover:text-blue-600 transition">
+              रिफंड नीति (Refund)
+            </Link>
+          </div>
         </div>
       </div>
     </div>
