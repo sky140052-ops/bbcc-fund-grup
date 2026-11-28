@@ -268,41 +268,11 @@ export default function PublicPayPage() {
     : "";
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-slate-100 flex flex-col">
-      {/* Top Header */}
-      <header className="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-20">
-        <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center font-black text-white text-lg shadow-lg shadow-blue-500/20">
-              DFI
-            </div>
-            <div>
-              <h1 className="text-sm font-bold tracking-tight text-white flex items-center gap-1.5">
-                इमरजेंसी सेवा ग्रुप
-                <span className="bg-emerald-500/20 text-emerald-400 text-[10px] font-bold px-1.5 py-0.5 rounded border border-emerald-500/30">
-                  Verified
-                </span>
-              </h1>
-              <p className="text-[11px] text-slate-400">सुरक्षित UPI व डायरेक्ट भुगतान पोर्टल</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Link
-              href="/loan-apply"
-              className="text-xs font-semibold px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg border border-slate-700 flex items-center gap-1 transition"
-            >
-              <CreditCard className="w-3.5 h-3.5 text-blue-400" />
-              <span>लोन आवेदन</span>
-            </Link>
-          </div>
-        </div>
-      </header>
-
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col pb-24 sm:pb-8">
       {/* Main Container */}
-      <main className="max-w-2xl mx-auto w-full px-4 py-6 flex-1">
+      <main className="max-w-xl mx-auto w-full px-3 sm:px-4 py-4 sm:py-6 flex-1">
         {/* Navigation Tabs */}
-        <div className="grid grid-cols-2 p-1 bg-slate-800/80 border border-slate-700/60 rounded-2xl mb-6 shadow-xl">
+        <div className="grid grid-cols-2 p-1 bg-slate-800/80 border border-slate-700/60 rounded-2xl mb-5 shadow-xl">
           <button
             type="button"
             onClick={() => setActiveTab("deposit")}
