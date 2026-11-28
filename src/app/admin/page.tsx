@@ -44,6 +44,7 @@ import {
 } from "lucide-react";
 import { Member, Contribution, Loan, SystemSettings } from "../../lib/types";
 import { compressImage } from "../../lib/compress";
+import { performLogout } from "../../lib/clientLogout";
 
 function AdminPageContent() {
   const router = useRouter();
@@ -918,13 +919,9 @@ function AdminPageContent() {
     }
   };
 
-  // Logout
+  // Instant Logout
   const handleLogout = async () => {
-    try {
-      await fetch("/api/auth/logout", { method: "POST" });
-    } finally {
-      router.push("/");
-    }
+    await performLogout();
   };
 
   return (

@@ -94,7 +94,7 @@ export default function AppEntryPage() {
         g.accounts.id.initialize({
           client_id: clientId,
           callback: handleGoogleCredentialResponse,
-          auto_select: true, // One-Tap bottom-sheet / popup
+          auto_select: false, // Prevents auto-loop login right after logout
           cancel_on_tap_outside: false,
         });
 

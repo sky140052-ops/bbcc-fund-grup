@@ -33,6 +33,7 @@ import {
 } from "lucide-react";
 import { Member, Contribution, Loan, SystemSettings } from "../../lib/types";
 import { compressImage } from "../../lib/compress";
+import { performLogout } from "../../lib/clientLogout";
 
 function MemberDashboardContent() {
   const router = useRouter();
@@ -174,18 +175,9 @@ function MemberDashboardContent() {
     fetchDashboardData();
   }, []);
 
-  // Logout
+  // Instant Logout
   const handleLogout = async () => {
-    try {
-      await fetch("/api/auth/logout", { method: "POST" });
-    } finally {
-      if (typeof window !== "undefined") {
-        localStorage.removeItem("dfi_token");
-        localStorage.removeItem("dfi_user");
-        sessionStorage.clear();
-      }
-      router.push("/login");
-    }
+    await performLogout();
   };
 
   // Handle Screenshot Upload for Monthly Deposit (Auto-compressed)

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Menu, Settings, ShieldCheck, Sliders, LogOut } from "lucide-react";
 import AppDrawer from "./AppDrawer";
+import { performLogout } from "../lib/clientLogout";
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -62,19 +63,9 @@ export default function Navbar() {
     };
   }, [pathname]);
 
+  // Instant Logout
   const handleLogout = async () => {
-    try {
-      if (typeof window !== "undefined") {
-        localStorage.removeItem("dfi_token");
-        localStorage.removeItem("dfi_user_email");
-      }
-      await fetch("/api/auth/logout", { method: "POST" });
-      setUser(null);
-      router.push("/");
-      window.location.reload();
-    } catch {
-      router.push("/");
-    }
+    await performLogout();
   };
 
   const isAdminRoute = pathname.startsWith("/admin");
