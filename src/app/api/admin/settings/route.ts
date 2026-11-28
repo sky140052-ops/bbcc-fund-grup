@@ -35,6 +35,13 @@ export async function GET() {
         monthly_contribution_amount: monthlyAmount,
         platform_fee: platformFee,
         google_client_id: settings.google_client_id || process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID || "",
+        firebase_api_key: settings.firebase_api_key || process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "AIzaSyAMDD-oB-6UOmu43In05hxN90_Fl6sf1xA",
+        firebase_auth_domain: settings.firebase_auth_domain || process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "dfi-app-6eb4b.firebaseapp.com",
+        firebase_project_id: settings.firebase_project_id || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "dfi-app-6eb4b",
+        firebase_storage_bucket: settings.firebase_storage_bucket || process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "dfi-app-6eb4b.firebasestorage.app",
+        firebase_messaging_sender_id: settings.firebase_messaging_sender_id || process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "414935880259",
+        firebase_app_id: settings.firebase_app_id || process.env.NEXT_PUBLIC_FIREBASE_APP_ID || "1:414935880259:web:5969afbeed90c98b7bfaf6",
+        firebase_measurement_id: settings.firebase_measurement_id || process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID || "G-CW6WEJYT2D",
       },
       total_monthly_payable: totalMonthlyPayable,
       currentDay,
@@ -121,7 +128,27 @@ async function handleUpdate(req: NextRequest) {
     }
     if (body.google_client_id !== undefined) {
       updates.google_client_id = String(body.google_client_id).trim();
-      process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID = updates.google_client_id;
+    }
+    if (body.firebase_api_key !== undefined) {
+      updates.firebase_api_key = String(body.firebase_api_key).trim();
+    }
+    if (body.firebase_auth_domain !== undefined) {
+      updates.firebase_auth_domain = String(body.firebase_auth_domain).trim();
+    }
+    if (body.firebase_project_id !== undefined) {
+      updates.firebase_project_id = String(body.firebase_project_id).trim();
+    }
+    if (body.firebase_storage_bucket !== undefined) {
+      updates.firebase_storage_bucket = String(body.firebase_storage_bucket).trim();
+    }
+    if (body.firebase_messaging_sender_id !== undefined) {
+      updates.firebase_messaging_sender_id = String(body.firebase_messaging_sender_id).trim();
+    }
+    if (body.firebase_app_id !== undefined) {
+      updates.firebase_app_id = String(body.firebase_app_id).trim();
+    }
+    if (body.firebase_measurement_id !== undefined) {
+      updates.firebase_measurement_id = String(body.firebase_measurement_id).trim();
     }
     if (body.smtp_email !== undefined) {
       updates.smtp_email = String(body.smtp_email).trim();

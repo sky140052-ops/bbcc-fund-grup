@@ -98,6 +98,13 @@ const DEFAULT_SYSTEM_SETTINGS: SystemSettings = {
   platform_fee: 3, // Flat ₹3 platform maintenance fee
   admin_upi_id: "sky140052@okaxis",
   admin_upi_name: "DFI इमरजेंसी सेवा",
+  firebase_api_key: "AIzaSyAMDD-oB-6UOmu43In05hxN90_Fl6sf1xA",
+  firebase_auth_domain: "dfi-app-6eb4b.firebaseapp.com",
+  firebase_project_id: "dfi-app-6eb4b",
+  firebase_storage_bucket: "dfi-app-6eb4b.firebasestorage.app",
+  firebase_messaging_sender_id: "414935880259",
+  firebase_app_id: "1:414935880259:web:5969afbeed90c98b7bfaf6",
+  firebase_measurement_id: "G-CW6WEJYT2D",
   updated_at: new Date().toISOString(),
 };
 

@@ -176,6 +176,14 @@ function AdminPageContent() {
   const [savingGoogleSettings, setSavingGoogleSettings] = useState(false);
   const [googleSettingsMsg, setGoogleSettingsMsg] = useState<string | null>(null);
 
+  // Firebase Mobile OTP Settings State
+  const [firebaseApiKeyInput, setFirebaseApiKeyInput] = useState("");
+  const [firebaseAuthDomainInput, setFirebaseAuthDomainInput] = useState("");
+  const [firebaseProjectIdInput, setFirebaseProjectIdInput] = useState("");
+  const [firebaseAppIdInput, setFirebaseAppIdInput] = useState("");
+  const [savingFirebaseSettings, setSavingFirebaseSettings] = useState(false);
+  const [firebaseSettingsMsg, setFirebaseSettingsMsg] = useState<string | null>(null);
+
   // Fresh Public Launch & Database Reset States
   const [showResetModal, setShowResetModal] = useState<boolean>(false);
   const [resetStep, setResetStep] = useState<"initial" | "otp_sent" | "success">("initial");
@@ -217,6 +225,18 @@ function AdminPageContent() {
           }
           if (data.settings.google_client_id) {
             setGoogleClientIdInput(data.settings.google_client_id);
+          }
+          if (data.settings.firebase_api_key) {
+            setFirebaseApiKeyInput(data.settings.firebase_api_key);
+          }
+          if (data.settings.firebase_auth_domain) {
+            setFirebaseAuthDomainInput(data.settings.firebase_auth_domain);
+          }
+          if (data.settings.firebase_project_id) {
+            setFirebaseProjectIdInput(data.settings.firebase_project_id);
+          }
+          if (data.settings.firebase_app_id) {
+            setFirebaseAppIdInput(data.settings.firebase_app_id);
           }
         }
         if (typeof data.currentDay === "number") {
@@ -345,6 +365,34 @@ function AdminPageContent() {
       setGoogleSettingsMsg("त्रुटि: " + (err.message || "सेव विफल"));
     } finally {
       setSavingGoogleSettings(false);
+    }
+  };
+
+  // Save Firebase Phone Auth Settings
+  const handleSaveFirebaseSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingFirebaseSettings(true);
+    setFirebaseSettingsMsg(null);
+    try {
+      const res = await fetch("/api/admin/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          firebase_api_key: firebaseApiKeyInput.trim(),
+          firebase_auth_domain: firebaseAuthDomainInput.trim(),
+          firebase_project_id: firebaseProjectIdInput.trim(),
+          firebase_app_id: firebaseAppIdInput.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Firebase सेटिंग्स सेव करने में विफल।");
+      setSettings(data.settings);
+      setFirebaseSettingsMsg("✓ Firebase Mobile OTP सेटिंग्स सफलतापूर्वक सुरक्षित कर दी गईं!");
+      setTimeout(() => setFirebaseSettingsMsg(null), 3500);
+    } catch (err: any) {
+      setFirebaseSettingsMsg("त्रुटि: " + (err.message || "सेव विफल"));
+    } finally {
+      setSavingFirebaseSettings(false);
     }
   };
 
@@ -1320,6 +1368,95 @@ function AdminPageContent() {
                     googleSettingsMsg.startsWith("त्रुटि") ? "text-rose-600" : "text-emerald-700"
                   }`}>
                     {googleSettingsMsg}
+                  </p>
+                )}
+              </form>
+            </div>
+
+            {/* Google Firebase Phone Auth (Mobile SMS OTP) Settings */}
+            <div className="p-6 rounded-3xl bg-white border border-slate-200 shadow-sm space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                  Firebase Mobile SMS OTP
+                </span>
+                <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
+                  settings.firebase_api_key ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"
+                }`}>
+                  {settings.firebase_api_key ? "सक्रिय (10,000 Free OTP/Month)" : "असक्रिय"}
+                </span>
+              </div>
+
+              <p className="text-xs text-slate-600 leading-snug">
+                Google Firebase द्वारा हर महीने 10,000 SMS OTP सीधे उपयोगकर्ताओं के मोबाइल नंबर पर बिल्कुल फ्री भेजे जाते हैं।
+              </p>
+
+              <form onSubmit={handleSaveFirebaseSettings} className="space-y-2.5">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-700 mb-0.5">
+                    Firebase API Key (apiKey)
+                  </label>
+                  <input
+                    type="text"
+                    value={firebaseApiKeyInput}
+                    onChange={(e) => setFirebaseApiKeyInput(e.target.value)}
+                    placeholder="AIzaSyAMDD-oB-6UOmu43In05hxN90_Fl6sf1xA"
+                    className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-700 mb-0.5">
+                      Auth Domain
+                    </label>
+                    <input
+                      type="text"
+                      value={firebaseAuthDomainInput}
+                      onChange={(e) => setFirebaseAuthDomainInput(e.target.value)}
+                      placeholder="dfi-app-6eb4b.firebaseapp.com"
+                      className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-700 mb-0.5">
+                      Project ID
+                    </label>
+                    <input
+                      type="text"
+                      value={firebaseProjectIdInput}
+                      onChange={(e) => setFirebaseProjectIdInput(e.target.value)}
+                      placeholder="dfi-app-6eb4b"
+                      className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-700 mb-0.5">
+                    App ID (appId)
+                  </label>
+                  <input
+                    type="text"
+                    value={firebaseAppIdInput}
+                    onChange={(e) => setFirebaseAppIdInput(e.target.value)}
+                    placeholder="1:414935880259:web:5969afbeed90c98b7bfaf6"
+                    className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={savingFirebaseSettings}
+                  className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-xs shadow-md transition disabled:opacity-50"
+                >
+                  {savingFirebaseSettings ? "सेव हो रहा है..." : "Firebase सेटिंग्स सेव करें"}
+                </button>
+
+                {firebaseSettingsMsg && (
+                  <p className={`text-[11px] font-bold text-center ${
+                    firebaseSettingsMsg.startsWith("त्रुटि") ? "text-rose-600" : "text-emerald-700"
+                  }`}>
+                    {firebaseSettingsMsg}
                   </p>
                 )}
               </form>
