@@ -28,6 +28,8 @@ import {
   Copy,
   Upload,
   X,
+  Mail,
+  Share2,
 } from "lucide-react";
 import { Member, Contribution, Loan, SystemSettings } from "../../lib/types";
 import { compressImage } from "../../lib/compress";
@@ -177,7 +179,12 @@ function MemberDashboardContent() {
     try {
       await fetch("/api/auth/logout", { method: "POST" });
     } finally {
-      router.push("/");
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("dfi_token");
+        localStorage.removeItem("dfi_user");
+        sessionStorage.clear();
+      }
+      router.push("/login");
     }
   };
 
@@ -425,176 +432,7 @@ function MemberDashboardContent() {
         </button>
       </div>
 
-      {/* 2. Hero Curved Banner: "Get money, when you need it" (Slide 1 in reference image) */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white p-3.5 sm:p-4 shadow-md shadow-blue-500/15">
-        {/* Decorative blur circle */}
-        <div className="absolute -right-4 -bottom-6 w-32 h-32 bg-white/10 rounded-full blur-xl pointer-events-none" />
-
-        <div className="relative z-10 flex items-center justify-between gap-2.5">
-          <div className="space-y-1 max-w-[70%]">
-            <span className="inline-block text-[10px] font-bold tracking-wide uppercase text-blue-200">
-              Get money, when you need it
-            </span>
-            <div className="text-[11px] text-blue-100 font-medium">
-              अधिकतम आपातकालीन लोन पात्रता
-            </div>
-            <div className="text-2xl font-black tracking-tight text-white my-0.5">
-              ₹ {maxLoanEligible.toLocaleString("en-IN")}
-            </div>
-            <div className="pt-0.5">
-              <button
-                onClick={() => {
-                  setActiveTab("loan");
-                  router.replace("/dashboard?tab=loan", { scroll: false });
-                }}
-                className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-white text-blue-700 hover:bg-blue-50 font-bold text-[11px] shadow-xs transition active:scale-95"
-              >
-                <span>तुरंत लोन लें (Get Now)</span>
-                <ArrowRight className="w-3 h-3" />
-              </button>
-            </div>
-          </div>
-
-          {/* Right Gold Money Graphic */}
-          <div className="flex flex-col items-center justify-center p-2 rounded-xl bg-white/15 border border-white/20 backdrop-blur-xs flex-shrink-0 text-center">
-            <div className="w-11 h-11 rounded-xl bg-gradient-to-tr from-amber-400 to-yellow-300 text-slate-900 flex items-center justify-center shadow-xs text-xl font-black">
-              💰
-            </div>
-            <span className="text-[9px] font-bold text-amber-200 mt-1">DFI सुरक्षा</span>
-          </div>
-        </div>
-      </div>
-
-      {/* 3. 4-Grid Quick Action Tiles (Slide 1 in reference image: Bank, Health, Refer, 24*7) */}
-      <div className="grid grid-cols-4 gap-2 text-center py-0.5">
-        {/* 1. Bank Balance / मासिक बचत */}
-        <button
-          onClick={() => {
-            setActiveTab("my_fund");
-            router.replace("/dashboard?tab=my_fund", { scroll: false });
-          }}
-          className="flex flex-col items-center justify-start group active:scale-95 transition"
-        >
-          <div className="w-12 h-12 rounded-2xl bg-blue-50 group-hover:bg-blue-100 text-blue-600 flex items-center justify-center shadow-2xs transition">
-            <Building className="w-5 h-5 stroke-[2]" />
-          </div>
-          <span className="text-[11px] font-bold text-slate-800 mt-1.5 leading-tight">
-            मासिक बचत
-          </span>
-          <span className="text-[9px] font-semibold text-blue-600">
-            ₹{monthlyDepositAmount}
-          </span>
-        </button>
-
-        {/* 2. Health Insurance / आकस्मिक लोन */}
-        <button
-          onClick={() => {
-            setActiveTab("loan");
-            router.replace("/dashboard?tab=loan", { scroll: false });
-          }}
-          className="flex flex-col items-center justify-start group active:scale-95 transition"
-        >
-          <div className="w-12 h-12 rounded-2xl bg-rose-50 group-hover:bg-rose-100 text-rose-600 flex items-center justify-center shadow-2xs transition">
-            <DollarSign className="w-5 h-5 stroke-[2]" />
-          </div>
-          <span className="text-[11px] font-bold text-slate-800 mt-1.5 leading-tight">
-            आकस्मिक लोन
-          </span>
-          <span className="text-[9px] font-semibold text-rose-600">
-            90% तुरंत
-          </span>
-        </button>
-
-        {/* 3. Refer & Earn / पारदर्शिता डायरेक्टरी */}
-        <button
-          onClick={() => {
-            setActiveTab("transparency");
-            router.replace("/dashboard?tab=transparency", { scroll: false });
-          }}
-          className="flex flex-col items-center justify-start group active:scale-95 transition"
-        >
-          <div className="w-12 h-12 rounded-2xl bg-emerald-50 group-hover:bg-emerald-100 text-emerald-600 flex items-center justify-center shadow-2xs transition">
-            <Users className="w-5 h-5 stroke-[2]" />
-          </div>
-          <span className="text-[11px] font-bold text-slate-800 mt-1.5 leading-tight">
-            पारदर्शिता
-          </span>
-          <span className="text-[9px] font-semibold text-emerald-600">
-            कम्युनिटी
-          </span>
-        </button>
-
-        {/* 4. 24*7 Support / हेल्पलाइन */}
-        <a
-          href="https://wa.me/919140052000?text=नमस्ते%20DFI%20इमरजेंसी%20हेल्पलाइन"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex flex-col items-center justify-start group active:scale-95 transition"
-        >
-          <div className="w-12 h-12 rounded-2xl bg-amber-50 group-hover:bg-amber-100 text-amber-600 flex items-center justify-center shadow-2xs transition">
-            <Phone className="w-5 h-5 stroke-[2]" />
-          </div>
-          <span className="text-[11px] font-bold text-slate-800 mt-1.5 leading-tight">
-            24*7 सहायता
-          </span>
-          <span className="text-[9px] font-semibold text-amber-600">
-            हेल्पलाइन
-          </span>
-        </a>
-      </div>
-
-      {/* 4. Social Proof Feed: "Yesterday's loan disbursement" (Slide 1 in reference image) */}
-      <div className="p-3 rounded-2xl bg-white border border-slate-200/80 shadow-xs space-y-2">
-        <div className="flex items-center justify-between px-0.5">
-          <div>
-            <h2 className="text-xs font-bold text-slate-900 tracking-tight">
-              Yesterday's loan disbursement
-            </h2>
-            <p className="text-[9px] text-slate-400">
-              100% पारदर्शी एवं सुरक्षित समुदाय फंड
-            </p>
-          </div>
-          <button
-            onClick={() => {
-              setActiveTab("transparency");
-              router.replace("/dashboard?tab=transparency", { scroll: false });
-            }}
-            className="text-[10px] font-bold text-blue-600 hover:text-blue-700 flex items-center gap-0.5"
-          >
-            <span>सभी देखें</span>
-            <ArrowRight className="w-3 h-3" />
-          </button>
-        </div>
-
-        {/* Horizontal Carousel of Activity Cards */}
-        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-          {displayFeed.map((item, idx) => (
-            <div
-              key={idx}
-              className="w-28 flex-shrink-0 p-2 rounded-xl bg-slate-50 border border-slate-200/60 flex flex-col items-center text-center space-y-1"
-            >
-              <div className="w-9 h-9 rounded-full overflow-hidden bg-white border border-slate-200 shadow-2xs flex items-center justify-center font-bold text-blue-600 text-xs">
-                {item.photo ? (
-                  <img src={item.photo} alt={item.name} className="w-full h-full object-cover" />
-                ) : (
-                  item.name.charAt(0)
-                )}
-              </div>
-              <div className="text-[10px] font-bold text-slate-800 truncate w-full">
-                {item.name}
-              </div>
-              <div className="text-xs font-black text-slate-900">
-                ₹{item.amount.toLocaleString("en-IN")}
-              </div>
-              <span className="text-[8px] font-bold px-1.5 py-0.2 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                {item.tag}
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* 5. Navigation Tabs - Mobile Native Segmented Control */}
+      {/* Navigation Tabs - Mobile Native Segmented Control */}
       <div className="grid grid-cols-4 gap-1 p-1 rounded-xl bg-slate-100 border border-slate-200/70 w-full">
         <button
           onClick={() => {
@@ -607,7 +445,7 @@ function MemberDashboardContent() {
               : "text-slate-600 hover:text-slate-900"
           }`}
         >
-          मासिक बचत
+          होम
         </button>
 
         <button
@@ -621,7 +459,7 @@ function MemberDashboardContent() {
               : "text-slate-600 hover:text-slate-900"
           }`}
         >
-          लोन (90%)
+          लोन
         </button>
 
         <button
@@ -635,7 +473,7 @@ function MemberDashboardContent() {
               : "text-slate-600 hover:text-slate-900"
           }`}
         >
-          मेरी प्रोफाइल
+          प्रोफाइल
         </button>
 
         <button
@@ -649,15 +487,183 @@ function MemberDashboardContent() {
               : "text-slate-600 hover:text-slate-900"
           }`}
         >
-          पारदर्शिता
+          समुदाय
         </button>
       </div>
 
       {/* ======================================================== */}
-      {/* TAB 1: ACTIVE FUND & MONTHLY DEPOSIT                     */}
+      {/* TAB 1: HOME & ACTIVE FUND (Dedicated Screen)             */}
       {/* ======================================================== */}
       {activeTab === "my_fund" && (
         <div className="space-y-3.5 animate-fade-in">
+          {/* 1. Hero Curved Banner: "Get money, when you need it" */}
+          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white p-3.5 sm:p-4 shadow-md shadow-blue-500/15">
+            {/* Decorative blur circle */}
+            <div className="absolute -right-4 -bottom-6 w-32 h-32 bg-white/10 rounded-full blur-xl pointer-events-none" />
+
+            <div className="relative z-10 flex items-center justify-between gap-2.5">
+              <div className="space-y-1 max-w-[70%]">
+                <span className="inline-block text-[10px] font-bold tracking-wide uppercase text-blue-200">
+                  Get money, when you need it
+                </span>
+                <div className="text-[11px] text-blue-100 font-medium">
+                  अधिकतम आपातकालीन लोन पात्रता
+                </div>
+                <div className="text-2xl font-black tracking-tight text-white my-0.5">
+                  ₹ {maxLoanEligible.toLocaleString("en-IN")}
+                </div>
+                <div className="pt-0.5">
+                  <button
+                    onClick={() => {
+                      setActiveTab("loan");
+                      router.replace("/dashboard?tab=loan", { scroll: false });
+                    }}
+                    className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-white text-blue-700 hover:bg-blue-50 font-bold text-[11px] shadow-xs transition active:scale-95"
+                  >
+                    <span>तुरंत लोन लें (Get Now)</span>
+                    <ArrowRight className="w-3 h-3" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Right Gold Money Graphic */}
+              <div className="flex flex-col items-center justify-center p-2 rounded-xl bg-white/15 border border-white/20 backdrop-blur-xs flex-shrink-0 text-center">
+                <div className="w-11 h-11 rounded-xl bg-gradient-to-tr from-amber-400 to-yellow-300 text-slate-900 flex items-center justify-center shadow-xs text-xl font-black">
+                  💰
+                </div>
+                <span className="text-[9px] font-bold text-amber-200 mt-1">DFI सुरक्षा</span>
+              </div>
+            </div>
+          </div>
+
+          {/* 2. 4-Grid Quick Action Tiles */}
+          <div className="grid grid-cols-4 gap-2 text-center py-0.5">
+            {/* 1. Bank Balance / मासिक बचत */}
+            <button
+              onClick={() => {
+                setActiveTab("my_fund");
+                router.replace("/dashboard?tab=my_fund", { scroll: false });
+              }}
+              className="flex flex-col items-center justify-start group active:scale-95 transition"
+            >
+              <div className="w-12 h-12 rounded-2xl bg-blue-50 group-hover:bg-blue-100 text-blue-600 flex items-center justify-center shadow-2xs transition">
+                <Building className="w-5 h-5 stroke-[2]" />
+              </div>
+              <span className="text-[11px] font-bold text-slate-800 mt-1.5 leading-tight">
+                मासिक बचत
+              </span>
+              <span className="text-[9px] font-semibold text-blue-600">
+                ₹{monthlyDepositAmount}
+              </span>
+            </button>
+
+            {/* 2. Health Insurance / आकस्मिक लोन */}
+            <button
+              onClick={() => {
+                setActiveTab("loan");
+                router.replace("/dashboard?tab=loan", { scroll: false });
+              }}
+              className="flex flex-col items-center justify-start group active:scale-95 transition"
+            >
+              <div className="w-12 h-12 rounded-2xl bg-rose-50 group-hover:bg-rose-100 text-rose-600 flex items-center justify-center shadow-2xs transition">
+                <DollarSign className="w-5 h-5 stroke-[2]" />
+              </div>
+              <span className="text-[11px] font-bold text-slate-800 mt-1.5 leading-tight">
+                आकस्मिक लोन
+              </span>
+              <span className="text-[9px] font-semibold text-rose-600">
+                90% तुरंत
+              </span>
+            </button>
+
+            {/* 3. Refer & Earn / पारदर्शिता डायरेक्टरी */}
+            <button
+              onClick={() => {
+                setActiveTab("transparency");
+                router.replace("/dashboard?tab=transparency", { scroll: false });
+              }}
+              className="flex flex-col items-center justify-start group active:scale-95 transition"
+            >
+              <div className="w-12 h-12 rounded-2xl bg-emerald-50 group-hover:bg-emerald-100 text-emerald-600 flex items-center justify-center shadow-2xs transition">
+                <Users className="w-5 h-5 stroke-[2]" />
+              </div>
+              <span className="text-[11px] font-bold text-slate-800 mt-1.5 leading-tight">
+                पारदर्शिता
+              </span>
+              <span className="text-[9px] font-semibold text-emerald-600">
+                कम्युनिटी
+              </span>
+            </button>
+
+            {/* 4. 24*7 Support / हेल्पलाइन */}
+            <a
+              href="https://wa.me/919140052000?text=नमस्ते%20DFI%20इमरजेंसी%20हेल्पलाइन"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex flex-col items-center justify-start group active:scale-95 transition"
+            >
+              <div className="w-12 h-12 rounded-2xl bg-amber-50 group-hover:bg-amber-100 text-amber-600 flex items-center justify-center shadow-2xs transition">
+                <Phone className="w-5 h-5 stroke-[2]" />
+              </div>
+              <span className="text-[11px] font-bold text-slate-800 mt-1.5 leading-tight">
+                24*7 सहायता
+              </span>
+              <span className="text-[9px] font-semibold text-amber-600">
+                हेल्पलाइन
+              </span>
+            </a>
+          </div>
+
+          {/* 3. Social Proof Feed: "Yesterday's loan disbursement" */}
+          <div className="p-3 rounded-2xl bg-white border border-slate-200/80 shadow-xs space-y-2">
+            <div className="flex items-center justify-between px-0.5">
+              <div>
+                <h2 className="text-xs font-bold text-slate-900 tracking-tight">
+                  Yesterday's loan disbursement
+                </h2>
+                <p className="text-[9px] text-slate-400">
+                  100% पारदर्शी एवं सुरक्षित समुदाय फंड
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setActiveTab("transparency");
+                  router.replace("/dashboard?tab=transparency", { scroll: false });
+                }}
+                className="text-[10px] font-bold text-blue-600 hover:text-blue-700 flex items-center gap-0.5"
+              >
+                <span>सभी देखें</span>
+                <ArrowRight className="w-3 h-3" />
+              </button>
+            </div>
+
+            {/* Horizontal Carousel of Activity Cards */}
+            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+              {displayFeed.map((item, idx) => (
+                <div
+                  key={idx}
+                  className="w-28 flex-shrink-0 p-2 rounded-xl bg-slate-50 border border-slate-200/60 flex flex-col items-center text-center space-y-1"
+                >
+                  <div className="w-9 h-9 rounded-full overflow-hidden bg-white border border-slate-200 shadow-2xs flex items-center justify-center font-bold text-blue-600 text-xs">
+                    {item.photo ? (
+                      <img src={item.photo} alt={item.name} className="w-full h-full object-cover" />
+                    ) : (
+                      item.name.charAt(0)
+                    )}
+                  </div>
+                  <div className="text-[10px] font-bold text-slate-800 truncate w-full">
+                    {item.name}
+                  </div>
+                  <div className="text-xs font-black text-slate-900">
+                    ₹{item.amount.toLocaleString("en-IN")}
+                  </div>
+                  <span className="text-[8px] font-bold px-1.5 py-0.2 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    {item.tag}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
           {/* Summary Cards (Standard App Size) */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
             {/* Card 1: Monthly Deposit Window */}
@@ -1133,42 +1139,97 @@ function MemberDashboardContent() {
       )}
 
       {/* ======================================================== */}
-      {/* TAB 3: MY PROFILE & KYC (Standard App View)               */}
+      {/* TAB 3: MY PROFILE & KYC (Dedicated Standalone Screen)     */}
       {/* ======================================================== */}
       {activeTab === "my_profile" && (
         <div className="space-y-3 animate-fade-in">
-          <div className="bg-white rounded-2xl p-3 sm:p-3.5 border border-slate-200/80 shadow-xs space-y-3">
-            <div className="flex items-center gap-3 pb-2.5 border-b border-slate-100">
-              {member?.photo ? (
-                <img
-                  src={member.photo}
-                  alt={member.name}
-                  className="w-12 h-12 rounded-full object-cover border border-blue-400 shadow-2xs"
+          {/* Main User Card with Large Circular Photo or Letter Avatar */}
+          <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-xs text-center space-y-3 relative overflow-hidden">
+            {/* Top decorative gradient glow */}
+            <div className="absolute top-0 left-0 right-0 h-16 bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-500 opacity-90" />
+
+            {/* Avatar Circle */}
+            <div className="relative pt-6 flex justify-center">
+              <div className="relative">
+                {member?.photo ? (
+                  <img
+                    src={member.photo}
+                    alt={member.name}
+                    className="w-20 h-20 rounded-full object-cover border-4 border-white shadow-md"
+                  />
+                ) : (
+                  <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-black text-3xl flex items-center justify-center border-4 border-white shadow-md">
+                    {member?.name ? member.name.charAt(0).toUpperCase() : "M"}
+                  </div>
+                )}
+                <span
+                  className="absolute bottom-1 right-1 w-4 h-4 bg-emerald-500 border-2 border-white rounded-full shadow-xs"
+                  title="सक्रिय सदस्य"
                 />
-              ) : (
-                <div className="w-12 h-12 rounded-full bg-blue-100 text-blue-700 font-bold text-lg flex items-center justify-center">
-                  {member?.name?.charAt(0)}
-                </div>
-              )}
-              <div>
-                <h2 className="text-sm sm:text-base font-black text-slate-900">{member?.name}</h2>
-                <p className="text-[11px] text-slate-500 font-mono mt-0.5">📞 {member?.mobile}</p>
-                <p className="text-[11px] text-slate-500 font-mono">✉️ {member?.email}</p>
               </div>
             </div>
 
-            {/* Documents & KYC Details */}
-            <div className="space-y-2 text-xs">
-              {/* Aadhaar Details */}
-              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between gap-2">
-                <div>
-                  <span className="font-bold text-slate-600 block text-[10px]">
-                    आधार कार्ड (Aadhaar)
-                  </span>
-                  <span className="font-mono font-bold text-slate-900 text-xs">
-                    {member?.aadhaar_number ? `XXXX-XXXX-${member.aadhaar_number.slice(-4)}` : "दर्ज नहीं"}
-                  </span>
-                </div>
+            {/* Name & Credentials */}
+            <div className="space-y-0.5">
+              <h2 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
+                {member?.name || "सदस्य"}
+              </h2>
+              <p className="text-xs text-slate-500 font-mono font-medium">
+                +91 {member?.mobile}
+              </p>
+              {member?.email && (
+                <p className="text-[11px] text-slate-400 font-mono">
+                  {member?.email}
+                </p>
+              )}
+            </div>
+
+            {/* DFI Security Badge */}
+            <div className="flex justify-center">
+              <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-[10px] font-bold">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                <span>DFI प्रमाणित सदस्य • ID: {member?._id?.slice(-6)}</span>
+              </span>
+            </div>
+
+            {/* Financial Overview Chips */}
+            <div className="grid grid-cols-2 gap-2 pt-1 text-center">
+              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80">
+                <span className="text-[10px] text-slate-500 block">कुल जमा बचत</span>
+                <span className="text-sm font-black text-emerald-600">
+                  ₹{myTotalDeposited.toLocaleString("en-IN")}
+                </span>
+              </div>
+              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80">
+                <span className="text-[10px] text-slate-500 block">आपातकालीन लोन पात्रता</span>
+                <span className="text-sm font-black text-blue-600">
+                  ₹{maxLoanEligible.toLocaleString("en-IN")}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* KYC Documents Section */}
+          <div className="bg-white rounded-2xl p-3 sm:p-3.5 border border-slate-200/80 shadow-xs space-y-2">
+            <h3 className="text-xs font-bold text-slate-900 tracking-tight flex items-center gap-1.5">
+              <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
+              <span>सत्यापित पहचान दस्तावेज (KYC Documents)</span>
+            </h3>
+
+            {/* Aadhaar Details */}
+            <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between gap-2">
+              <div>
+                <span className="font-bold text-slate-600 block text-[10px]">
+                  आधार कार्ड (Aadhaar Card)
+                </span>
+                <span className="font-mono font-bold text-slate-900 text-xs">
+                  {member?.aadhaar_number ? `XXXX-XXXX-${member.aadhaar_number.slice(-4)}` : "दर्ज नहीं"}
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[9px] font-bold">
+                  सत्यापित
+                </span>
                 {member?.aadhaar_file && (
                   <a
                     href={member.aadhaar_file}
@@ -1182,17 +1243,22 @@ function MemberDashboardContent() {
                   </a>
                 )}
               </div>
+            </div>
 
-              {/* PAN Details */}
-              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between gap-2">
-                <div>
-                  <span className="font-bold text-slate-600 block text-[10px]">
-                    पैन कार्ड (PAN)
-                  </span>
-                  <span className="font-mono font-bold text-slate-900 text-xs">
-                    {member?.pan_number || "दर्ज नहीं"}
-                  </span>
-                </div>
+            {/* PAN Details */}
+            <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between gap-2">
+              <div>
+                <span className="font-bold text-slate-600 block text-[10px]">
+                  पैन कार्ड (PAN Card)
+                </span>
+                <span className="font-mono font-bold text-slate-900 text-xs">
+                  {member?.pan_number || "दर्ज नहीं"}
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[9px] font-bold">
+                  सत्यापित
+                </span>
                 {member?.pan_file && (
                   <a
                     href={member.pan_file}
@@ -1206,41 +1272,138 @@ function MemberDashboardContent() {
                   </a>
                 )}
               </div>
+            </div>
+          </div>
 
-              {/* Payment Details */}
-              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 space-y-2">
-                <span className="font-bold text-slate-600 block text-[10px]">
-                  पंजीकृत डिजिटल भुगतान विवरण
+          {/* Payment & Bank Details */}
+          <div className="bg-white rounded-2xl p-3 sm:p-3.5 border border-slate-200/80 shadow-xs space-y-2">
+            <h3 className="text-xs font-bold text-slate-900 tracking-tight flex items-center gap-1.5">
+              <CreditCard className="w-3.5 h-3.5 text-blue-600" />
+              <span>पंजीकृत बैंक व डिजिटल भुगतान विवरण</span>
+            </h3>
+
+            <div className="grid grid-cols-2 gap-2 text-[11px]">
+              <div className="p-2 rounded-xl bg-slate-50 border border-slate-200/80">
+                <span className="text-slate-400 text-[9px] block">UPI ID</span>
+                <span className="font-bold text-slate-800 text-xs truncate block">{member?.upi_id || "—"}</span>
+              </div>
+
+              <div className="p-2 rounded-xl bg-slate-50 border border-slate-200/80">
+                <span className="text-slate-400 text-[9px] block">PhonePe/GPay</span>
+                <span className="font-bold text-slate-800 font-mono text-xs truncate block">
+                  {member?.wallet_number || "—"}
                 </span>
-                <div className="grid grid-cols-2 gap-2 text-[11px]">
-                  <div className="p-2 rounded-lg bg-white border border-slate-200/80">
-                    <span className="text-slate-400 text-[9px] block">UPI ID</span>
-                    <span className="font-bold text-slate-800 text-xs truncate block">{member?.upi_id || "—"}</span>
-                  </div>
+              </div>
 
-                  <div className="p-2 rounded-lg bg-white border border-slate-200/80">
-                    <span className="text-slate-400 text-[9px] block">PhonePe/GPay</span>
-                    <span className="font-bold text-slate-800 font-mono text-xs truncate block">
-                      {member?.wallet_number || "—"}
-                    </span>
-                  </div>
+              <div className="p-2 rounded-xl bg-slate-50 border border-slate-200/80">
+                <span className="text-slate-400 text-[9px] block">खाता संख्या</span>
+                <span className="font-bold text-slate-800 font-mono text-xs truncate block">
+                  {member?.account_number || "—"}
+                </span>
+              </div>
 
-                  <div className="p-2 rounded-lg bg-white border border-slate-200/80">
-                    <span className="text-slate-400 text-[9px] block">खाता संख्या</span>
-                    <span className="font-bold text-slate-800 font-mono text-xs truncate block">
-                      {member?.account_number || "—"}
-                    </span>
-                  </div>
-
-                  <div className="p-2 rounded-lg bg-white border border-slate-200/80">
-                    <span className="text-slate-400 text-[9px] block">IFSC ({member?.bank_name || "Bank"})</span>
-                    <span className="font-bold text-slate-800 font-mono uppercase text-xs truncate block">
-                      {member?.ifsc || "—"}
-                    </span>
-                  </div>
-                </div>
+              <div className="p-2 rounded-xl bg-slate-50 border border-slate-200/80">
+                <span className="text-slate-400 text-[9px] block">IFSC ({member?.bank_name || "Bank"})</span>
+                <span className="font-bold text-slate-800 font-mono uppercase text-xs truncate block">
+                  {member?.ifsc || "—"}
+                </span>
               </div>
             </div>
+          </div>
+
+          {/* Help & Support (Reference Image Slide 3 Style) */}
+          <div className="bg-white rounded-2xl p-3 sm:p-3.5 border border-slate-200/80 shadow-xs space-y-1">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block px-1">
+              Help & Support (सहायता)
+            </span>
+
+            <a
+              href="https://wa.me/919140052000?text=नमस्ते%20DFI%20हेल्पलाइन%20सहायता"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 transition active:scale-98 group"
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                  <Phone className="w-4 h-4" />
+                </div>
+                <div className="text-left">
+                  <span className="text-xs font-bold text-slate-800 block">24*7 हेल्पलाइन व व्हाट्सएप</span>
+                  <span className="text-[10px] text-slate-400 block">+91 91400 52000</span>
+                </div>
+              </div>
+              <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-700" />
+            </a>
+
+            <a
+              href="mailto:help@bbccfund.org"
+              className="flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 transition active:scale-98 group"
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+                  <Mail className="w-4 h-4" />
+                </div>
+                <div className="text-left">
+                  <span className="text-xs font-bold text-slate-800 block">ईमेल सहायता</span>
+                  <span className="text-[10px] text-slate-400 block">help@bbccfund.org</span>
+                </div>
+              </div>
+              <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-700" />
+            </a>
+
+            <Link
+              href="/rules"
+              className="flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 transition active:scale-98 group"
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center">
+                  <FileText className="w-4 h-4" />
+                </div>
+                <div className="text-left">
+                  <span className="text-xs font-bold text-slate-800 block">DFI नियम एवं शर्तें</span>
+                  <span className="text-[10px] text-slate-400 block">100% सुरक्षित एवं पारदर्शी नियम</span>
+                </div>
+              </div>
+              <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-700" />
+            </Link>
+
+            <button
+              onClick={() => {
+                if (typeof window !== "undefined" && navigator.share) {
+                  navigator.share({
+                    title: "DFI - Digital Fund India",
+                    text: "DFI सुरक्षित समुदाय फंड एवं आकस्मिक लोन ऐप से जुड़ें।",
+                    url: window.location.origin,
+                  }).catch(() => {});
+                } else if (typeof window !== "undefined") {
+                  navigator.clipboard.writeText(window.location.origin);
+                  alert("ऐप लिंक कॉपी कर लिया गया है!");
+                }
+              }}
+              className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 transition active:scale-98 group"
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
+                  <Share2 className="w-4 h-4" />
+                </div>
+                <div className="text-left">
+                  <span className="text-xs font-bold text-slate-800 block">शेयर ऐप (Share App)</span>
+                  <span className="text-[10px] text-slate-400 block">दोस्तों व परिवार के साथ साझा करें</span>
+                </div>
+              </div>
+              <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-700" />
+            </button>
+          </div>
+
+          {/* Red Logout Button */}
+          <div className="pt-1">
+            <button
+              onClick={handleLogout}
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 font-bold text-xs transition active:scale-95 shadow-2xs"
+            >
+              <LogOut className="w-4 h-4" />
+              <span>लॉगआउट करें (Log out)</span>
+            </button>
           </div>
         </div>
       )}

@@ -134,9 +134,9 @@ function MobileBottomNavContent() {
     const dashboardItems = [
       {
         id: "my_fund",
-        label: "बचत",
+        label: "होम",
         href: "/dashboard?tab=my_fund",
-        icon: CreditCard,
+        icon: Home,
         isActive: currentTab === "my_fund",
       },
       {
