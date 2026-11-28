@@ -20,6 +20,7 @@ import {
   CheckCircle2,
   XCircle,
   AlertTriangle,
+  AlertCircle,
   RefreshCw,
   LogOut,
   Mail,
@@ -196,6 +197,59 @@ function AdminPageContent() {
 
   const [payLink, setPayLink] = useState("");
   const [loanApplyLink, setLoanApplyLink] = useState("");
+
+  // Direct Mark Payment State (Admin can directly record payment for any member)
+  const [markPaymentMember, setMarkPaymentMember] = useState<Member | null>(null);
+  const [markPaymentMonth, setMarkPaymentMonth] = useState<string>("");
+  const [markPaymentAmount, setMarkPaymentAmount] = useState<number>(100);
+  const [markPaymentDate, setMarkPaymentDate] = useState<string>("");
+  const [markPaymentMode, setMarkPaymentMode] = useState<string>("नकद (Cash)");
+  const [markPaymentNote, setMarkPaymentNote] = useState<string>("");
+  const [submittingMarkPayment, setSubmittingMarkPayment] = useState<boolean>(false);
+  const [markPaymentMsg, setMarkPaymentMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  const openMarkPaymentModal = (m?: Member) => {
+    setMarkPaymentMember(m || (members.length > 0 ? members[0] : null));
+    setMarkPaymentMonth(new Date().toISOString().slice(0, 7));
+    setMarkPaymentAmount(settings?.monthly_contribution_amount || 100);
+    setMarkPaymentDate(new Date().toISOString().slice(0, 10));
+    setMarkPaymentMode("नकद (Cash)");
+    setMarkPaymentNote("");
+    setMarkPaymentMsg(null);
+  };
+
+  const handleDirectMarkPayment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!markPaymentMember) return;
+    setSubmittingMarkPayment(true);
+    setMarkPaymentMsg(null);
+    try {
+      const res = await fetch("/api/admin/mark-payment", {
+        method: "POST",
+        headers: getAdminAuthHeaders(),
+        body: JSON.stringify({
+          member_id: markPaymentMember._id,
+          month: markPaymentMonth,
+          amount: markPaymentAmount,
+          payment_date: markPaymentDate,
+          payment_mode: markPaymentMode,
+          note: markPaymentNote,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "भुगतान मार्क करने में विफल।");
+      setMarkPaymentMsg({ type: "success", text: data.message });
+      fetchTransactions();
+      fetchMembers();
+      setTimeout(() => {
+        setMarkPaymentMember(null);
+      }, 1500);
+    } catch (err: any) {
+      setMarkPaymentMsg({ type: "error", text: err.message || "त्रुटि हुई।" });
+    } finally {
+      setSubmittingMarkPayment(false);
+    }
+  };
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -2197,6 +2251,15 @@ function AdminPageContent() {
                       <td className="py-3 px-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
                           <button
+                            type="button"
+                            onClick={() => openMarkPaymentModal(m)}
+                            title="डायरेक्ट जमा मार्क करें"
+                            className="p-1.5 px-2 rounded-lg bg-emerald-50 text-emerald-800 hover:bg-emerald-100 flex items-center gap-1 font-bold text-xs border border-emerald-200 transition"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>जमा मार्क</span>
+                          </button>
+                          <button
                             onClick={() => setViewMember(m)}
                             className="p-1.5 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100"
                           >
@@ -2254,6 +2317,15 @@ function AdminPageContent() {
                       </div>
 
                       <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => openMarkPaymentModal(m)}
+                          className="py-1 px-2 rounded-xl bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200 active:scale-95 flex items-center gap-1 font-bold text-[10px]"
+                          title="डायरेक्ट जमा मार्क करें"
+                        >
+                          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                          <span>जमा मार्क</span>
+                        </button>
                         <button
                           type="button"
                           onClick={() => setViewMember(m)}
@@ -2519,8 +2591,16 @@ function AdminPageContent() {
               <h3 className="text-xl font-black text-slate-900">कुल जमा फंड</h3>
               <p className="text-xs text-slate-500">सभी सदस्यों द्वारा जमा कुल राशि</p>
             </div>
-            <div className="flex items-center gap-4">
-              <span className="text-3xl font-black text-emerald-600">₹{totalPool}</span>
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="text-3xl font-black text-emerald-600 mr-2">₹{totalPool}</span>
+              <button
+                type="button"
+                onClick={() => openMarkPaymentModal()}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-sm transition hover-lift active-press"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>+ डायरेक्ट पेमेंट मार्क करें</span>
+              </button>
               <a
                 href="/api/admin/export?type=contributions"
                 download
@@ -3457,6 +3537,198 @@ function AdminPageContent() {
                 </button>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* MODAL: DIRECT MARK PAYMENT (ADMIN MANUAL APPROVAL)       */}
+      {/* ======================================================== */}
+      {markPaymentMember && (
+        <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-100 animate-scale-in">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-slate-900">
+                    डायरेक्ट जमा 'Paid' मार्क करें
+                  </h3>
+                  <p className="text-[10px] text-slate-500">
+                    बिना स्क्रीनशॉट के सदस्य का भुगतान तुरंत सफल करें
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setMarkPaymentMember(null)}
+                className="p-1 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Selected Member Info */}
+            <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200/80 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                {markPaymentMember.photo ? (
+                  <img
+                    src={markPaymentMember.photo}
+                    alt={markPaymentMember.name}
+                    className="w-10 h-10 rounded-full object-cover border border-slate-200"
+                  />
+                ) : (
+                  <div className="w-10 h-10 rounded-full bg-blue-600 text-white font-black text-sm flex items-center justify-center">
+                    {markPaymentMember.name.charAt(0)}
+                  </div>
+                )}
+                <div>
+                  <div className="font-bold text-slate-900 text-xs">{markPaymentMember.name}</div>
+                  <div className="text-[10px] text-slate-500 font-mono">{markPaymentMember.mobile}</div>
+                </div>
+              </div>
+
+              {members.length > 1 && (
+                <select
+                  value={markPaymentMember._id}
+                  onChange={(e) => {
+                    const found = members.find((m) => m._id === e.target.value);
+                    if (found) setMarkPaymentMember(found);
+                  }}
+                  className="text-[11px] font-bold bg-white border border-slate-200 rounded-lg p-1.5 text-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                >
+                  {members.map((m) => (
+                    <option key={m._id} value={m._id}>
+                      {m.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+
+            {/* Feedback Messages */}
+            {markPaymentMsg && (
+              <div
+                className={`p-3 rounded-xl text-xs font-bold flex items-center gap-2 ${
+                  markPaymentMsg.type === "success"
+                    ? "bg-emerald-50 border border-emerald-200 text-emerald-800"
+                    : "bg-rose-50 border border-rose-200 text-rose-800"
+                }`}
+              >
+                {markPaymentMsg.type === "success" ? (
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                ) : (
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                )}
+                <span>{markPaymentMsg.text}</span>
+              </div>
+            )}
+
+            {/* Mark Form */}
+            <form onSubmit={handleDirectMarkPayment} className="space-y-3 text-xs">
+              <div className="grid grid-cols-2 gap-3">
+                {/* Month */}
+                <div>
+                  <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider block mb-1">
+                    अंशदान माह (Month) *
+                  </label>
+                  <input
+                    type="month"
+                    required
+                    value={markPaymentMonth}
+                    onChange={(e) => setMarkPaymentMonth(e.target.value)}
+                    className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                {/* Amount */}
+                <div>
+                  <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider block mb-1">
+                    जमा राशि (₹) *
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    min={1}
+                    value={markPaymentAmount}
+                    onChange={(e) => setMarkPaymentAmount(Number(e.target.value))}
+                    className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                {/* Date */}
+                <div>
+                  <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider block mb-1">
+                    भुगतान तिथि (Date) *
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={markPaymentDate}
+                    onChange={(e) => setMarkPaymentDate(e.target.value)}
+                    className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                {/* Payment Mode */}
+                <div>
+                  <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider block mb-1">
+                    माध्यम (Mode)
+                  </label>
+                  <select
+                    value={markPaymentMode}
+                    onChange={(e) => setMarkPaymentMode(e.target.value)}
+                    className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="नकद (Cash / Hand-to-Hand)">नकद (Cash)</option>
+                    <option value="PhonePe / Google Pay / UPI">PhonePe / UPI</option>
+                    <option value="बैंक ट्रांसफर (NEFT / IMPS)">बैंक ट्रांसफर</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Note / Remarks */}
+              <div>
+                <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider block mb-1">
+                  टिप्पणी (Note / Remarks)
+                </label>
+                <input
+                  type="text"
+                  value={markPaymentNote}
+                  onChange={(e) => setMarkPaymentNote(e.target.value)}
+                  placeholder="उदा. नकद प्राप्त / एडमिन द्वारा सत्यापित"
+                  className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="pt-2 flex items-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setMarkPaymentMember(null)}
+                  className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-700 font-bold hover:bg-slate-50 transition"
+                >
+                  रद्द करें
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingMarkPayment}
+                  className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black shadow-md shadow-emerald-500/20 transition active:scale-95 flex items-center justify-center gap-1.5 disabled:opacity-50"
+                >
+                  {submittingMarkPayment ? (
+                    <span>दर्ज हो रहा है...</span>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>✓ 'Paid' मार्क करें</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
