@@ -137,30 +137,28 @@ export default function Navbar() {
   // Left: Hamburger Menu | Center: DFI Logo & Name | Right: Settings Gear
   return (
     <>
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-xs">
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 h-14 sm:h-16 flex items-center justify-between">
+      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-2xs">
+        <div className="max-w-md sm:max-w-4xl mx-auto px-3.5 sm:px-6 h-13 sm:h-14 flex items-center justify-between">
           {/* Left: Slide-out Drawer Hamburger Menu button */}
           <button
             onClick={() => setDrawerOpen(true)}
-            className="p-2 -ml-1 text-slate-700 hover:text-blue-600 hover:bg-slate-100 rounded-xl transition active:scale-90"
+            className="p-1.5 -ml-1 text-slate-700 hover:text-blue-600 hover:bg-slate-100 rounded-lg transition active:scale-90"
             aria-label="मेनू खोलें"
             title="मेन्यू बार"
           >
-            <Menu className="w-6 h-6 stroke-[2.2]" />
+            <Menu className="w-5 h-5 stroke-[2.2]" />
           </button>
 
           {/* Center: DFI Logo and Name (Clean, minimal, centered) */}
-          <Link href={user ? "/dashboard" : "/"} className="flex items-center gap-2">
-            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-tr from-blue-700 via-indigo-600 to-sky-500 flex items-center justify-center text-white shadow-md shadow-blue-500/20 font-black text-sm sm:text-base tracking-wider flex-shrink-0">
+          <Link href={user ? "/dashboard" : "/"} className="flex items-center gap-1.5">
+            <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-blue-700 via-indigo-600 to-sky-500 flex items-center justify-center text-white shadow-xs font-black text-xs tracking-wider flex-shrink-0">
               DFI
             </div>
-            <div className="flex flex-col text-left">
-              <div className="flex items-center gap-1.5 leading-tight">
-                <span className="text-base sm:text-lg font-black tracking-tight text-slate-900">
-                  DFI इमरजेंसी सेवा
-                </span>
-                <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              </div>
+            <div className="flex items-center gap-1 leading-tight">
+              <span className="text-sm sm:text-base font-black tracking-tight text-slate-900">
+                DFI इमरजेंसी सेवा
+              </span>
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
             </div>
           </Link>
 
@@ -169,26 +167,26 @@ export default function Navbar() {
             {isUserAdmin ? (
               <Link
                 href="/admin"
-                className="p-2 text-amber-600 hover:bg-amber-50 rounded-xl transition active:scale-90"
+                className="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition active:scale-90"
                 title="एडमिन मोड"
               >
-                <Sliders className="w-5 h-5 stroke-[2.2]" />
+                <Sliders className="w-5 h-5 stroke-[2]" />
               </Link>
             ) : user ? (
               <button
                 onClick={() => setDrawerOpen(true)}
-                className="p-1.5 text-slate-700 hover:text-blue-600 hover:bg-slate-100 rounded-xl transition active:scale-90 flex items-center gap-1"
+                className="p-1.5 text-slate-600 hover:text-blue-600 hover:bg-slate-100 rounded-lg transition active:scale-90 flex items-center"
                 title="सेटिंग्स एवं प्रोफाइल"
               >
-                <Settings className="w-5 h-5 text-slate-600 hover:text-blue-600 stroke-[2.2]" />
+                <Settings className="w-5 h-5 stroke-[2]" />
               </button>
             ) : (
               <Link
                 href="/?open_login=true"
-                className="p-2 text-blue-600 hover:bg-blue-50 rounded-xl transition active:scale-90"
+                className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition active:scale-90"
                 title="लॉगिन"
               >
-                <Settings className="w-5 h-5 stroke-[2.2]" />
+                <Settings className="w-5 h-5 stroke-[2]" />
               </Link>
             )}
           </div>

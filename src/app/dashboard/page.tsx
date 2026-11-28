@@ -385,103 +385,103 @@ function MemberDashboardContent() {
         ];
 
   return (
-    <div className="max-w-4xl mx-auto px-3 sm:px-6 py-4 sm:py-6 space-y-4 sm:space-y-6 pb-28 sm:pb-8">
-      {/* 1. Top Member Greeting Bar (Clean & Professional) */}
-      <div className="flex items-center justify-between gap-3 p-3 sm:p-4 rounded-2xl bg-white border border-slate-200/80 shadow-xs">
-        <div className="flex items-center gap-3 min-w-0">
+    <div className="max-w-md mx-auto px-3.5 py-2.5 space-y-3 pb-24">
+      {/* 1. Top Member Greeting Bar (Standard Native App Proportions) */}
+      <div className="flex items-center justify-between px-1 py-0.5">
+        <div className="flex items-center gap-2.5 min-w-0">
           {member?.photo ? (
             <img
               src={member.photo}
               alt={member.name}
-              className="w-12 h-12 rounded-2xl object-cover border-2 border-blue-500 shadow-sm flex-shrink-0"
+              className="w-10 h-10 rounded-full object-cover border border-blue-400 shadow-2xs flex-shrink-0"
             />
           ) : (
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-black text-xl flex items-center justify-center shadow-sm flex-shrink-0">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-bold text-sm flex items-center justify-center shadow-2xs flex-shrink-0">
               {member?.name ? member.name.charAt(0).toUpperCase() : "M"}
             </div>
           )}
           <div className="min-w-0">
             <div className="flex items-center gap-1.5">
-              <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
-                सक्रिय DFI सदस्य
+              <span className="text-xs font-bold text-slate-800 truncate">
+                नमस्ते, {member?.name?.split(" ")[0] || "सदस्य"} 🙏
               </span>
-              <span className="text-[11px] text-slate-400 font-mono truncate">ID: {member?._id?.slice(-6)}</span>
+              <span className="px-1.5 py-0.2 rounded-full bg-emerald-100 text-emerald-800 text-[9px] font-bold">
+                सक्रिय
+              </span>
             </div>
-            <h1 className="text-base sm:text-lg font-black text-slate-900 tracking-tight truncate mt-0.5">
-              नमस्ते, {member?.name || "सदस्य"} 🙏
-            </h1>
+            <p className="text-[10px] text-slate-400 truncate">
+              ID: {member?._id?.slice(-6)} • DFI आपातकालीन सुरक्षा
+            </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <button
-            onClick={fetchDashboardData}
-            className="p-2 sm:px-3 sm:py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition active:scale-95 flex items-center gap-1.5"
-            title="रिफ्रेश करें"
-          >
-            <RefreshCw className="w-3.5 h-3.5 text-slate-600" />
-            <span className="hidden sm:inline">रिफ्रेश</span>
-          </button>
-        </div>
+        <button
+          onClick={fetchDashboardData}
+          className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 transition active:scale-90 flex items-center gap-1"
+          title="रिफ्रेश करें"
+        >
+          <RefreshCw className="w-3.5 h-3.5" />
+          <span className="text-[10px] font-semibold hidden sm:inline">रिफ्रेश</span>
+        </button>
       </div>
 
       {/* 2. Hero Curved Banner: "Get money, when you need it" (Slide 1 in reference image) */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white p-5 sm:p-6 shadow-xl shadow-blue-500/20">
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white p-3.5 sm:p-4 shadow-md shadow-blue-500/15">
         {/* Decorative blur circle */}
-        <div className="absolute -right-6 -bottom-8 w-44 h-44 bg-white/10 rounded-full blur-2xl pointer-events-none" />
+        <div className="absolute -right-4 -bottom-6 w-32 h-32 bg-white/10 rounded-full blur-xl pointer-events-none" />
 
-        <div className="relative z-10 flex items-center justify-between gap-3">
-          <div className="space-y-1.5 max-w-[68%]">
-            <span className="inline-block text-[10px] sm:text-[11px] font-black tracking-wider uppercase text-blue-200">
+        <div className="relative z-10 flex items-center justify-between gap-2.5">
+          <div className="space-y-1 max-w-[70%]">
+            <span className="inline-block text-[10px] font-bold tracking-wide uppercase text-blue-200">
               Get money, when you need it
             </span>
-            <div className="text-xs sm:text-sm text-blue-100 font-medium">
+            <div className="text-[11px] text-blue-100 font-medium">
               अधिकतम आपातकालीन लोन पात्रता
             </div>
-            <div className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight text-white">
+            <div className="text-2xl font-black tracking-tight text-white my-0.5">
               ₹ {maxLoanEligible.toLocaleString("en-IN")}
             </div>
-            <div className="pt-1.5">
+            <div className="pt-0.5">
               <button
                 onClick={() => {
                   setActiveTab("loan");
                   router.replace("/dashboard?tab=loan", { scroll: false });
                 }}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-white text-blue-700 hover:bg-blue-50 font-black text-xs shadow-md transition active:scale-95"
+                className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-white text-blue-700 hover:bg-blue-50 font-bold text-[11px] shadow-xs transition active:scale-95"
               >
                 <span>तुरंत लोन लें (Get Now)</span>
-                <ArrowRight className="w-3.5 h-3.5" />
+                <ArrowRight className="w-3 h-3" />
               </button>
             </div>
           </div>
 
-          {/* Right Gold Money Bag Graphic */}
-          <div className="flex flex-col items-center justify-center p-3 rounded-2xl bg-white/15 border border-white/20 backdrop-blur-xs flex-shrink-0 text-center">
-            <div className="w-13 h-13 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-tr from-amber-400 to-yellow-300 text-slate-900 flex items-center justify-center shadow-lg text-2xl sm:text-3xl font-black">
+          {/* Right Gold Money Graphic */}
+          <div className="flex flex-col items-center justify-center p-2 rounded-xl bg-white/15 border border-white/20 backdrop-blur-xs flex-shrink-0 text-center">
+            <div className="w-11 h-11 rounded-xl bg-gradient-to-tr from-amber-400 to-yellow-300 text-slate-900 flex items-center justify-center shadow-xs text-xl font-black">
               💰
             </div>
-            <span className="text-[10px] font-bold text-amber-200 mt-1">DFI सुरक्षा</span>
+            <span className="text-[9px] font-bold text-amber-200 mt-1">DFI सुरक्षा</span>
           </div>
         </div>
       </div>
 
       {/* 3. 4-Grid Quick Action Tiles (Slide 1 in reference image: Bank, Health, Refer, 24*7) */}
-      <div className="grid grid-cols-4 gap-2 sm:gap-3 text-center">
+      <div className="grid grid-cols-4 gap-2 text-center py-0.5">
         {/* 1. Bank Balance / मासिक बचत */}
         <button
           onClick={() => {
             setActiveTab("my_fund");
             router.replace("/dashboard?tab=my_fund", { scroll: false });
           }}
-          className="flex flex-col items-center justify-center p-2 sm:p-3 rounded-2xl bg-blue-50 hover:bg-blue-100/70 border border-blue-100/80 transition active:scale-95 group shadow-xs"
+          className="flex flex-col items-center justify-start group active:scale-95 transition"
         >
-          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-blue-100 group-hover:bg-blue-200 text-blue-600 flex items-center justify-center mb-1.5 transition">
-            <Building className="w-5 h-5 sm:w-6 sm:h-6" />
+          <div className="w-12 h-12 rounded-2xl bg-blue-50 group-hover:bg-blue-100 text-blue-600 flex items-center justify-center shadow-2xs transition">
+            <Building className="w-5 h-5 stroke-[2]" />
           </div>
-          <span className="text-[11px] sm:text-xs font-black text-slate-800 leading-tight">
+          <span className="text-[11px] font-bold text-slate-800 mt-1.5 leading-tight">
             मासिक बचत
           </span>
-          <span className="text-[9px] sm:text-[10px] font-bold text-blue-600">
+          <span className="text-[9px] font-semibold text-blue-600">
             ₹{monthlyDepositAmount}
           </span>
         </button>
@@ -492,15 +492,15 @@ function MemberDashboardContent() {
             setActiveTab("loan");
             router.replace("/dashboard?tab=loan", { scroll: false });
           }}
-          className="flex flex-col items-center justify-center p-2 sm:p-3 rounded-2xl bg-rose-50 hover:bg-rose-100/70 border border-rose-100/80 transition active:scale-95 group shadow-xs"
+          className="flex flex-col items-center justify-start group active:scale-95 transition"
         >
-          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-rose-100 group-hover:bg-rose-200 text-rose-600 flex items-center justify-center mb-1.5 transition">
-            <DollarSign className="w-5 h-5 sm:w-6 sm:h-6" />
+          <div className="w-12 h-12 rounded-2xl bg-rose-50 group-hover:bg-rose-100 text-rose-600 flex items-center justify-center shadow-2xs transition">
+            <DollarSign className="w-5 h-5 stroke-[2]" />
           </div>
-          <span className="text-[11px] sm:text-xs font-black text-slate-800 leading-tight">
+          <span className="text-[11px] font-bold text-slate-800 mt-1.5 leading-tight">
             आकस्मिक लोन
           </span>
-          <span className="text-[9px] sm:text-[10px] font-bold text-rose-600">
+          <span className="text-[9px] font-semibold text-rose-600">
             90% तुरंत
           </span>
         </button>
@@ -511,16 +511,16 @@ function MemberDashboardContent() {
             setActiveTab("transparency");
             router.replace("/dashboard?tab=transparency", { scroll: false });
           }}
-          className="flex flex-col items-center justify-center p-2 sm:p-3 rounded-2xl bg-emerald-50 hover:bg-emerald-100/70 border border-emerald-100/80 transition active:scale-95 group shadow-xs"
+          className="flex flex-col items-center justify-start group active:scale-95 transition"
         >
-          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-emerald-100 group-hover:bg-emerald-200 text-emerald-600 flex items-center justify-center mb-1.5 transition">
-            <Users className="w-5 h-5 sm:w-6 sm:h-6" />
+          <div className="w-12 h-12 rounded-2xl bg-emerald-50 group-hover:bg-emerald-100 text-emerald-600 flex items-center justify-center shadow-2xs transition">
+            <Users className="w-5 h-5 stroke-[2]" />
           </div>
-          <span className="text-[11px] sm:text-xs font-black text-slate-800 leading-tight">
+          <span className="text-[11px] font-bold text-slate-800 mt-1.5 leading-tight">
             पारदर्शिता
           </span>
-          <span className="text-[9px] sm:text-[10px] font-bold text-emerald-600">
-            समुदाय फंड
+          <span className="text-[9px] font-semibold text-emerald-600">
+            कम्युनिटी
           </span>
         </button>
 
@@ -529,28 +529,28 @@ function MemberDashboardContent() {
           href="https://wa.me/919140052000?text=नमस्ते%20DFI%20इमरजेंसी%20हेल्पलाइन"
           target="_blank"
           rel="noopener noreferrer"
-          className="flex flex-col items-center justify-center p-2 sm:p-3 rounded-2xl bg-amber-50 hover:bg-amber-100/70 border border-amber-100/80 transition active:scale-95 group shadow-xs"
+          className="flex flex-col items-center justify-start group active:scale-95 transition"
         >
-          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-amber-100 group-hover:bg-amber-200 text-amber-600 flex items-center justify-center mb-1.5 transition">
-            <Phone className="w-5 h-5 sm:w-6 sm:h-6" />
+          <div className="w-12 h-12 rounded-2xl bg-amber-50 group-hover:bg-amber-100 text-amber-600 flex items-center justify-center shadow-2xs transition">
+            <Phone className="w-5 h-5 stroke-[2]" />
           </div>
-          <span className="text-[11px] sm:text-xs font-black text-slate-800 leading-tight">
+          <span className="text-[11px] font-bold text-slate-800 mt-1.5 leading-tight">
             24*7 सहायता
           </span>
-          <span className="text-[9px] sm:text-[10px] font-bold text-amber-600">
+          <span className="text-[9px] font-semibold text-amber-600">
             हेल्पलाइन
           </span>
         </a>
       </div>
 
       {/* 4. Social Proof Feed: "Yesterday's loan disbursement" (Slide 1 in reference image) */}
-      <div className="p-4 rounded-3xl bg-white border border-slate-200/80 shadow-xs space-y-3">
-        <div className="flex items-center justify-between">
+      <div className="p-3 rounded-2xl bg-white border border-slate-200/80 shadow-xs space-y-2">
+        <div className="flex items-center justify-between px-0.5">
           <div>
-            <h2 className="text-xs sm:text-sm font-black text-slate-900 tracking-tight">
-              हालिया स्वीकृतियां एवं लोन वितरण (Disbursements)
+            <h2 className="text-xs font-bold text-slate-900 tracking-tight">
+              Yesterday's loan disbursement
             </h2>
-            <p className="text-[10px] sm:text-[11px] text-slate-500 font-medium">
+            <p className="text-[9px] text-slate-400">
               100% पारदर्शी एवं सुरक्षित समुदाय फंड
             </p>
           </div>
@@ -559,7 +559,7 @@ function MemberDashboardContent() {
               setActiveTab("transparency");
               router.replace("/dashboard?tab=transparency", { scroll: false });
             }}
-            className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1"
+            className="text-[10px] font-bold text-blue-600 hover:text-blue-700 flex items-center gap-0.5"
           >
             <span>सभी देखें</span>
             <ArrowRight className="w-3 h-3" />
@@ -567,26 +567,26 @@ function MemberDashboardContent() {
         </div>
 
         {/* Horizontal Carousel of Activity Cards */}
-        <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-slate-200">
+        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
           {displayFeed.map((item, idx) => (
             <div
               key={idx}
-              className="w-36 sm:w-40 flex-shrink-0 p-3 rounded-2xl bg-slate-50/80 border border-slate-200/60 flex flex-col items-center text-center space-y-1 hover:border-blue-300 transition"
+              className="w-28 flex-shrink-0 p-2 rounded-xl bg-slate-50 border border-slate-200/60 flex flex-col items-center text-center space-y-1"
             >
-              <div className="w-11 h-11 rounded-full overflow-hidden bg-white border-2 border-slate-200 shadow-xs flex items-center justify-center font-black text-blue-700 text-sm">
+              <div className="w-9 h-9 rounded-full overflow-hidden bg-white border border-slate-200 shadow-2xs flex items-center justify-center font-bold text-blue-600 text-xs">
                 {item.photo ? (
                   <img src={item.photo} alt={item.name} className="w-full h-full object-cover" />
                 ) : (
                   item.name.charAt(0)
                 )}
               </div>
-              <div className="text-xs font-black text-slate-900 truncate w-full">
+              <div className="text-[10px] font-bold text-slate-800 truncate w-full">
                 {item.name}
               </div>
-              <div className="text-sm font-black text-blue-600">
+              <div className="text-xs font-black text-slate-900">
                 ₹{item.amount.toLocaleString("en-IN")}
               </div>
-              <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+              <span className="text-[8px] font-bold px-1.5 py-0.2 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
                 {item.tag}
               </span>
             </div>
@@ -595,20 +595,19 @@ function MemberDashboardContent() {
       </div>
 
       {/* 5. Navigation Tabs - Mobile Native Segmented Control */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 p-1.5 rounded-2xl bg-slate-200/80 w-full shadow-inner border border-slate-300/50">
+      <div className="grid grid-cols-4 gap-1 p-1 rounded-xl bg-slate-100 border border-slate-200/70 w-full">
         <button
           onClick={() => {
             setActiveTab("my_fund");
             router.replace("/dashboard?tab=my_fund", { scroll: false });
           }}
-          className={`flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition active-press ${
+          className={`py-1.5 px-0.5 rounded-lg text-[10px] font-bold transition truncate text-center ${
             activeTab === "my_fund"
-              ? "bg-white text-blue-700 shadow-md shadow-slate-300/60"
-              : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60"
+              ? "bg-white text-blue-700 shadow-xs"
+              : "text-slate-600 hover:text-slate-900"
           }`}
         >
-          <CreditCard className="w-4 h-4 flex-shrink-0" />
-          <span className="truncate">मासिक बचत (₹{monthlyDepositAmount})</span>
+          मासिक बचत
         </button>
 
         <button
@@ -616,14 +615,13 @@ function MemberDashboardContent() {
             setActiveTab("loan");
             router.replace("/dashboard?tab=loan", { scroll: false });
           }}
-          className={`flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition active-press ${
+          className={`py-1.5 px-0.5 rounded-lg text-[10px] font-bold transition truncate text-center ${
             activeTab === "loan"
-              ? "bg-white text-blue-700 shadow-md shadow-slate-300/60"
-              : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60"
+              ? "bg-white text-blue-700 shadow-xs"
+              : "text-slate-600 hover:text-slate-900"
           }`}
         >
-          <DollarSign className="w-4 h-4 flex-shrink-0" />
-          <span className="truncate">लोन (90%) व चुकता</span>
+          लोन (90%)
         </button>
 
         <button
@@ -631,14 +629,13 @@ function MemberDashboardContent() {
             setActiveTab("my_profile");
             router.replace("/dashboard?tab=my_profile", { scroll: false });
           }}
-          className={`flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition active-press ${
+          className={`py-1.5 px-0.5 rounded-lg text-[10px] font-bold transition truncate text-center ${
             activeTab === "my_profile"
-              ? "bg-white text-blue-700 shadow-md shadow-slate-300/60"
-              : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60"
+              ? "bg-white text-blue-700 shadow-xs"
+              : "text-slate-600 hover:text-slate-900"
           }`}
         >
-          <User className="w-4 h-4 flex-shrink-0" />
-          <span className="truncate">मेरी प्रोफाइल</span>
+          मेरी प्रोफाइल
         </button>
 
         <button
@@ -646,14 +643,13 @@ function MemberDashboardContent() {
             setActiveTab("transparency");
             router.replace("/dashboard?tab=transparency", { scroll: false });
           }}
-          className={`flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition active-press ${
+          className={`py-1.5 px-0.5 rounded-lg text-[10px] font-bold transition truncate text-center ${
             activeTab === "transparency"
-              ? "bg-white text-blue-700 shadow-md shadow-slate-300/60"
-              : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60"
+              ? "bg-white text-blue-700 shadow-xs"
+              : "text-slate-600 hover:text-slate-900"
           }`}
         >
-          <Users className="w-4 h-4 flex-shrink-0" />
-          <span className="truncate">समुदाय व पारदर्शिता</span>
+          पारदर्शिता
         </button>
       </div>
 
@@ -661,16 +657,16 @@ function MemberDashboardContent() {
       {/* TAB 1: ACTIVE FUND & MONTHLY DEPOSIT                     */}
       {/* ======================================================== */}
       {activeTab === "my_fund" && (
-        <div className="space-y-6 animate-fade-in">
-          {/* Summary Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+        <div className="space-y-3.5 animate-fade-in">
+          {/* Summary Cards (Standard App Size) */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
             {/* Card 1: Monthly Deposit Window */}
-            <div className="p-6 rounded-3xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white shadow-lg space-y-4 hover-lift transition-all">
+            <div className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white shadow-sm space-y-2.5">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold uppercase tracking-wider text-blue-200">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-blue-200">
                   मासिक निर्धारित अंशदान
                 </span>
-                <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                <span className={`px-2 py-0.2 rounded-full text-[9px] font-bold ${
                   ((currentDay >= 1 && currentDay <= 10) || Boolean(systemSettings?.allow_deposit_after_10th))
                     ? "bg-white/20 text-white"
                     : "bg-rose-500 text-white"
@@ -683,73 +679,73 @@ function MemberDashboardContent() {
                 </span>
               </div>
               <div>
-                <h3 className="text-3xl font-black">₹{monthlyDepositAmount}</h3>
-                <p className="text-xs text-blue-100 mt-1">
+                <h3 className="text-xl sm:text-2xl font-black">₹{monthlyDepositAmount}</h3>
+                <p className="text-[10px] text-blue-100 mt-0.5">
                   प्रति माह Direct UPI द्वारा देय{" "}
                   {platformFee > 0
-                    ? `(+₹${platformFee} मेंटेनेंस शुल्क = ₹${totalPayableAmount})`
+                    ? `(+₹${platformFee} शुल्क = ₹${totalPayableAmount})`
                     : "(शुल्क मुफ़्त - ₹0)"}
                 </p>
               </div>
 
               {((currentDay >= 1 && currentDay <= 10) || Boolean(systemSettings?.allow_deposit_after_10th)) ? (
-                <div className="space-y-1.5">
+                <div className="space-y-1">
                   <button
                     onClick={() => {
                       setDepositScreenshot("");
                       setShowDepositModal(true);
                     }}
-                    className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-white text-blue-700 font-bold text-xs sm:text-sm hover:bg-blue-50 transition shadow-md active-press"
+                    className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-white text-blue-700 font-bold text-xs hover:bg-blue-50 transition shadow-xs active-press"
                   >
-                    <QrCode className="w-4 h-4 text-blue-600" />
-                    <span>₹{totalPayableAmount} जमा करें (QR कोड / UPI)</span>
+                    <QrCode className="w-3.5 h-3.5 text-blue-600" />
+                    <span>₹{totalPayableAmount} जमा करें (QR / UPI)</span>
                   </button>
                   {currentDay > 10 && systemSettings?.allow_deposit_after_10th && (
-                    <p className="text-[10px] text-emerald-200 font-bold text-center">
-                      ★ एडमिन विशेष अनुमति द्वारा 10 तारीख के बाद भी जमा खुला है
+                    <p className="text-[9px] text-emerald-200 font-bold text-center">
+                      ★ एडमिन विशेष अनुमति द्वारा 10 के बाद भी सक्रिय
                     </p>
                   )}
                 </div>
               ) : (
-                <div className="p-3 rounded-2xl bg-black/20 border border-white/10 space-y-1 text-center">
-                  <div className="flex items-center justify-center gap-1.5 text-xs font-bold text-amber-200">
-                    <Lock className="w-3.5 h-3.5" />
+                <div className="p-2 rounded-xl bg-black/20 border border-white/10 space-y-0.5 text-center">
+                  <div className="flex items-center justify-center gap-1 text-[11px] font-bold text-amber-200">
+                    <Lock className="w-3 h-3" />
                     <span>जमा अवधि समाप्त (1-10 तारीख)</span>
                   </div>
-                  <p className="text-[11px] text-blue-100 leading-snug">
-                    आज {currentDay} तारीख है। 10 तारीख के बाद जमा बंद है। एडमिन द्वारा सक्रिय (Enable) करने पर ही बटन खुलेगा।
+                  <p className="text-[10px] text-blue-100 leading-snug">
+                    आज {currentDay} तारीख है। एडमिन अनुमति पर ही खुलेगा।
                   </p>
                 </div>
               )}
             </div>
 
             {/* Card 2: My Total Deposited */}
-            <div className="p-6 rounded-3xl bg-white border border-slate-200 shadow-sm space-y-4 hover-lift transition-all">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block">
+            <div className="p-3.5 sm:p-4 rounded-2xl bg-white border border-slate-200/80 shadow-xs space-y-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
                 मेरी कुल जमा राशि
               </span>
               <div>
-                <h3 className="text-3xl font-black text-slate-900">₹{myTotalDeposited}</h3>
-                <p className="text-xs text-slate-500 mt-1">
+                <h3 className="text-xl sm:text-2xl font-black text-slate-900">₹{myTotalDeposited}</h3>
+                <p className="text-[10px] text-slate-500 mt-0.5">
                   कुल सफल अंशदान: {myContributions.length} महीने
                 </p>
               </div>
-              <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+              <div className="p-2 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-[10px] font-bold flex items-center gap-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-emerald-600" />
                 <span>लोन पात्रता: ₹{maxLoanEligible} (कम्युनिटी फंड तक)</span>
               </div>
             </div>
 
             {/* Card 3: Community Total Pool */}
-            <div className="p-6 rounded-3xl bg-white border border-slate-200 shadow-sm space-y-4 hover-lift transition-all">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block">
+            <div className="p-3.5 sm:p-4 rounded-2xl bg-white border border-slate-200/80 shadow-xs space-y-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
                 ग्रुप कुल जमा फंड (Community Pool)
               </span>
               <div>
-                <h3 className="text-3xl font-black text-emerald-600">₹{communityPoolTotal}</h3>
-                <p className="text-xs text-slate-500 mt-1">सभी सदस्यों द्वारा कुल जमा राशि</p>
+                <h3 className="text-xl sm:text-2xl font-black text-emerald-600">₹{communityPoolTotal}</h3>
+                <p className="text-[10px] text-slate-500 mt-0.5">सभी सदस्यों द्वारा कुल जमा राशि</p>
               </div>
-              <div className="text-xs text-slate-500">
+              <div className="text-[10px] text-slate-500">
                 सुरक्षित एवं पारदर्शी बचत • 100% सदस्यों के लिए उपलब्ध
               </div>
             </div>
@@ -757,7 +753,7 @@ function MemberDashboardContent() {
 
           {depositMsg && (
             <div
-              className={`p-4 rounded-2xl text-xs sm:text-sm font-bold ${
+              className={`p-3 rounded-xl text-xs font-bold ${
                 depositMsg.type === "success"
                   ? "bg-emerald-50 border border-emerald-200 text-emerald-800"
                   : "bg-rose-50 border border-rose-200 text-rose-800"
@@ -767,61 +763,61 @@ function MemberDashboardContent() {
             </div>
           )}
 
-          {/* Deposit History */}
-          <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
-            <h3 className="font-black text-slate-900 text-base">
+          {/* Deposit History (Compact App View) */}
+          <div className="bg-white rounded-2xl p-3 sm:p-3.5 border border-slate-200/80 shadow-xs space-y-2">
+            <h3 className="font-bold text-slate-900 text-xs sm:text-sm">
               मेरा जमा इतिहास (My Deposit History)
             </h3>
             {myContributions.length === 0 ? (
-              <div className="py-8 text-center text-slate-400 text-xs">
+              <div className="py-5 text-center text-slate-400 text-[11px]">
                 आपने अभी तक कोई अंशदान जमा नहीं किया है। ऊपर दिए गए बटन से अपना पहला मासिक अंशदान (₹{totalPayableAmount}) जमा करें।
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
+                <table className="w-full text-left text-[11px]">
                   <thead>
-                    <tr className="border-b border-slate-100 text-slate-400 uppercase font-bold text-[11px]">
-                      <th className="py-3 px-4">जमा तारीख</th>
-                      <th className="py-3 px-4">माह (Month)</th>
-                      <th className="py-3 px-4">जमा राशि</th>
-                      <th className="py-3 px-4">स्क्रीनशॉट</th>
-                      <th className="py-3 px-4">स्थिति</th>
+                    <tr className="border-b border-slate-100 text-slate-400 uppercase font-bold text-[10px]">
+                      <th className="py-2 px-2.5">तारीख</th>
+                      <th className="py-2 px-2.5">माह</th>
+                      <th className="py-2 px-2.5">जमा राशि</th>
+                      <th className="py-2 px-2.5">स्क्रीनशॉट</th>
+                      <th className="py-2 px-2.5">स्थिति</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {myContributions.map((c) => (
                       <tr key={c._id}>
-                        <td className="py-3 px-4 font-semibold text-slate-700">
-                          {new Date(c.paid_at || c.submitted_at || Date.now()).toLocaleString("hi-IN")}
+                        <td className="py-2 px-2.5 font-medium text-slate-700 whitespace-nowrap">
+                          {new Date(c.paid_at || c.submitted_at || Date.now()).toLocaleDateString("hi-IN")}
                         </td>
-                        <td className="py-3 px-4 font-bold text-slate-800">{c.month}</td>
-                        <td className="py-3 px-4 font-black text-emerald-600 text-sm">
+                        <td className="py-2 px-2.5 font-bold text-slate-800">{c.month}</td>
+                        <td className="py-2 px-2.5 font-black text-emerald-600">
                           ₹{c.amount}
                         </td>
-                        <td className="py-3 px-4">
+                        <td className="py-2 px-2.5">
                           {c.payment_screenshot ? (
                             <button
                               onClick={() => setPreviewScreenshot(c.payment_screenshot!)}
-                              className="text-xs text-blue-600 font-bold hover:underline"
+                              className="text-[10px] text-blue-600 font-bold hover:underline"
                             >
                               प्रमाण देखें
                             </button>
                           ) : (
-                            <span className="text-slate-400 font-mono text-[11px]">—</span>
+                            <span className="text-slate-400 font-mono text-[10px]">—</span>
                           )}
                         </td>
-                        <td className="py-3 px-4">
+                        <td className="py-2 px-2.5">
                           {c.status === "paid" ? (
-                            <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
-                              सफल (Paid) {c.auto_approved ? "• स्वतः 24h" : ""}
+                            <span className="px-1.5 py-0.2 rounded-full bg-emerald-100 text-emerald-800 text-[9px] font-bold whitespace-nowrap">
+                              सफल {c.auto_approved ? "• 24h" : ""}
                             </span>
                           ) : c.status === "pending" ? (
-                            <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold animate-pulse">
-                              ⏳ सत्यापनाधीन (24h में स्वतः स्वीकृत)
+                            <span className="px-1.5 py-0.2 rounded-full bg-amber-100 text-amber-800 text-[9px] font-bold whitespace-nowrap animate-pulse">
+                              ⏳ सत्यापनाधीन
                             </span>
                           ) : (
-                            <span className="px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 text-[10px] font-bold">
-                              अस्वीकृत (Rejected)
+                            <span className="px-1.5 py-0.2 rounded-full bg-rose-100 text-rose-800 text-[9px] font-bold whitespace-nowrap">
+                              अस्वीकृत
                             </span>
                           )}
                         </td>
@@ -836,24 +832,24 @@ function MemberDashboardContent() {
       )}
 
       {/* ======================================================== */}
-      {/* TAB 2: LOAN APPLICATION & REPAYMENT                       */}
+      {/* TAB 2: LOAN APPLICATION & REPAYMENT (Standard App View)   */}
       {/* ======================================================== */}
       {activeTab === "loan" && (
-        <div className="space-y-6 animate-fade-in">
+        <div className="space-y-3 animate-fade-in">
           {/* Active Loan Status Card */}
           {activeLoan ? (
-            <div className="p-6 sm:p-8 rounded-3xl bg-white border-2 border-indigo-500 shadow-xl space-y-6">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+            <div className="p-3 sm:p-3.5 rounded-2xl bg-white border border-indigo-400 shadow-xs space-y-2.5">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pb-2 border-b border-slate-100">
                 <div>
-                  <div className="flex items-center gap-2">
-                    <span className="px-3 py-1 rounded-full bg-indigo-100 text-indigo-800 text-xs font-black uppercase tracking-wider">
+                  <div className="flex items-center gap-1.5">
+                    <span className="px-2 py-0.2 rounded-full bg-indigo-100 text-indigo-800 text-[10px] font-bold uppercase tracking-wider">
                       {activeLoan.status === "disbursed"
-                        ? "सक्रिय लोन (Active Loan)"
-                        : "आवेदन लंबित (Pending Approval)"}
+                        ? "सक्रिय लोन"
+                        : "आवेदन लंबित"}
                     </span>
-                    <span className="text-xs text-slate-400">ID: {activeLoan._id}</span>
+                    <span className="text-[10px] text-slate-400 font-mono">ID: {activeLoan._id?.slice(-6)}</span>
                   </div>
-                  <h3 className="text-2xl font-black text-slate-900 mt-1">
+                  <h3 className="text-sm sm:text-base font-black text-slate-900 mt-0.5">
                     ₹{activeLoan.requested_amount} का लोन रिकॉर्ड
                   </h3>
                 </div>
@@ -861,9 +857,9 @@ function MemberDashboardContent() {
                 {activeLoan.status === "disbursed" && (
                   <div>
                     {activeLoan.repayment_status === "pending_approval" ? (
-                      <div className="p-3 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs font-bold flex items-center gap-2">
-                        <Clock className="w-4 h-4 text-amber-600 animate-spin" />
-                        <span>चुकता स्क्रीनशॉट दर्ज है (24h में स्वतः स्वीकृत)</span>
+                      <div className="p-2 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-[11px] font-bold flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5 text-amber-600 animate-spin" />
+                        <span>चुकता स्क्रीनशॉट दर्ज है (24h में स्वतः)</span>
                       </div>
                     ) : ((currentDay <= 15) || Boolean(systemSettings?.allow_loan_repay_after_15th)) ? (
                       <div className="flex flex-col items-end gap-1">
@@ -872,25 +868,25 @@ function MemberDashboardContent() {
                             setRepayScreenshot("");
                             setShowRepayModal(true);
                           }}
-                          className="flex items-center gap-2 px-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm shadow-lg shadow-emerald-600/25 transition active-press"
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition active-press"
                         >
-                          <QrCode className="w-4 h-4" />
+                          <QrCode className="w-3.5 h-3.5" />
                           <span>लोन चुकता करें (Pay ₹{activeLoan.total_payable})</span>
                         </button>
                         {currentDay > 15 && systemSettings?.allow_loan_repay_after_15th && (
-                          <span className="text-[10px] text-emerald-600 font-bold">
-                            ★ एडमिन विशेष अनुमति द्वारा 15 तारीख के बाद भी भुगतान सक्रिय
+                          <span className="text-[9px] text-emerald-600 font-bold">
+                            ★ एडमिन विशेष अनुमति द्वारा 15 के बाद भी सक्रिय
                           </span>
                         )}
                       </div>
                     ) : (
-                      <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs space-y-1 max-w-sm">
-                        <div className="flex items-center gap-1.5 font-bold text-amber-800">
-                          <Lock className="w-4 h-4 text-amber-600 shrink-0" />
-                          <span>लोन चुकता करने की तारीख समाप्त (15 तारीख)</span>
+                      <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-[11px] space-y-0.5 max-w-sm">
+                        <div className="flex items-center gap-1 font-bold text-amber-800">
+                          <Lock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                          <span>लोन चुकता तारीख समाप्त (15 तारीख)</span>
                         </div>
-                        <p className="text-[11px] text-slate-600 leading-snug">
-                          आज {currentDay} तारीख है। 15 तारीख के बाद लोन चुकता बटन स्वतः बंद रहता है। कृपया एडमिन से संपर्क करके इसे चालू (Enable) करवाएं।
+                        <p className="text-[10px] text-slate-600 leading-snug">
+                          आज {currentDay} तारीख है। एडमिन अनुमति पर ही खुलेगा।
                         </p>
                       </div>
                     )}
@@ -899,31 +895,31 @@ function MemberDashboardContent() {
               </div>
 
               {/* Loan Breakdown Grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
-                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
-                  <span className="text-slate-400 block text-[10px]">आवेदन राशि:</span>
-                  <span className="font-black text-slate-800 text-base">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
+                <div className="p-2 rounded-xl bg-slate-50 border border-slate-200/80">
+                  <span className="text-slate-400 block text-[9px]">आवेदन राशि:</span>
+                  <span className="font-black text-slate-800 text-xs">
                     ₹{activeLoan.requested_amount}
                   </span>
                 </div>
 
-                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
-                  <span className="text-slate-400 block text-[10px]">5% प्रोसेसिंग शुल्क:</span>
-                  <span className="font-bold text-rose-600 text-sm">
+                <div className="p-2 rounded-xl bg-slate-50 border border-slate-200/80">
+                  <span className="text-slate-400 block text-[9px]">5% शुल्क:</span>
+                  <span className="font-bold text-rose-600 text-xs">
                     -₹{activeLoan.processing_fee_amount}
                   </span>
                 </div>
 
-                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
-                  <span className="text-slate-400 block text-[10px]">खाते में प्राप्त राशि (95%):</span>
-                  <span className="font-black text-emerald-700 text-base">
+                <div className="p-2 rounded-xl bg-slate-50 border border-slate-200/80">
+                  <span className="text-slate-400 block text-[9px]">प्राप्त (95%):</span>
+                  <span className="font-black text-emerald-700 text-xs">
                     ₹{activeLoan.disbursed_amount}
                   </span>
                 </div>
 
-                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
-                  <span className="text-slate-400 block text-[10px]">संचित ब्याज (1% p.m.):</span>
-                  <span className="font-bold text-amber-700 text-sm">
+                <div className="p-2 rounded-xl bg-slate-50 border border-slate-200/80">
+                  <span className="text-slate-400 block text-[9px]">ब्याज:</span>
+                  <span className="font-bold text-amber-700 text-xs">
                     +₹{activeLoan.interest_accumulated || 0}
                   </span>
                 </div>
@@ -931,24 +927,24 @@ function MemberDashboardContent() {
 
               {/* Screenshot Proof by Admin */}
               {activeLoan.payment_screenshot && (
-                <div className="p-4 rounded-2xl bg-blue-50 border border-blue-200 space-y-2">
+                <div className="p-2.5 rounded-xl bg-blue-50 border border-blue-200 space-y-1">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-blue-900 flex items-center gap-1.5">
-                      <CheckCircle2 className="w-4 h-4 text-blue-600" />
-                      <span>एडमिन द्वारा पैसा भेजने का स्क्रीनशॉट प्रमाण (UTR: {activeLoan.transaction_utr})</span>
+                    <span className="text-[10px] font-bold text-blue-900 flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3 text-blue-600" />
+                      <span>एडमिन स्क्रीनशॉट (UTR: {activeLoan.transaction_utr || "—"})</span>
                     </span>
                     <button
                       onClick={() => setPreviewScreenshot(activeLoan.payment_screenshot)}
-                      className="text-xs font-bold text-blue-700 hover:underline flex items-center gap-1"
+                      className="text-[10px] font-bold text-blue-700 hover:underline flex items-center gap-0.5"
                     >
-                      <Eye className="w-3.5 h-3.5" />
+                      <Eye className="w-3 h-3" />
                       <span>बड़ा देखें</span>
                     </button>
                   </div>
                   <img
                     src={activeLoan.payment_screenshot}
                     alt="Payment Proof"
-                    className="max-h-56 rounded-xl border border-blue-200 object-contain bg-white cursor-pointer"
+                    className="max-h-40 rounded-lg border border-blue-200 object-contain bg-white cursor-pointer"
                     onClick={() => setPreviewScreenshot(activeLoan.payment_screenshot)}
                   />
                 </div>
@@ -956,10 +952,10 @@ function MemberDashboardContent() {
             </div>
           ) : (
             /* Loan Application Form */
-            <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-6">
+            <div className="bg-white rounded-2xl p-3 sm:p-3.5 border border-slate-200/80 shadow-xs space-y-2.5">
               <div>
-                <h3 className="text-xl font-black text-slate-900">लोन के लिए आवेदन करें</h3>
-                <p className="text-xs sm:text-sm text-slate-500 mt-1">
+                <h3 className="text-xs sm:text-sm font-black text-slate-900">लोन के लिए आवेदन करें</h3>
+                <p className="text-[10px] text-slate-500 mt-0.5 leading-snug">
                   आपकी कुल जमा राशि ₹{myTotalDeposited} है एवं कुल कम्युनिटी फंड ₹{communityPoolTotal} है। आप अधिकतम <b>कम्युनिटी फंड (₹{maxLoanEligible})</b> तक
                   लोन ले सकते हैं।
                 </p>
@@ -967,7 +963,7 @@ function MemberDashboardContent() {
 
               {loanMsg && (
                 <div
-                  className={`p-4 rounded-2xl text-xs sm:text-sm font-bold ${
+                  className={`p-2 rounded-xl text-xs font-bold ${
                     loanMsg.type === "success"
                       ? "bg-emerald-50 border border-emerald-200 text-emerald-800"
                       : "bg-rose-50 border border-rose-200 text-rose-800"
@@ -978,37 +974,30 @@ function MemberDashboardContent() {
               )}
 
               {/* Terms alert */}
-              <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs space-y-1.5 font-medium">
-                <p className="font-bold flex items-center gap-1.5">
-                  <AlertCircle className="w-4 h-4 text-amber-700 shrink-0" />
+              <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-[10px] space-y-0.5 font-medium">
+                <p className="font-bold flex items-center gap-1 text-slate-800">
+                  <AlertCircle className="w-3 h-3 text-amber-700 shrink-0" />
                   <span>लोन नियम एवं शर्तें:</span>
                 </p>
-                <ul className="list-disc list-inside space-y-1 text-slate-700">
-                  <li>लोन राशि पर <b>1% प्रति माह (1% p.m.)</b> का ब्याज लगेगा।</li>
-                  <li>ब्याज की गणना लोन निकलने की तारीख से हर महीने की <b>10 तारीख</b> को होगी।</li>
-                  <li>
-                    लोन राशि में से <b>5% प्रोसेसिंग शुल्क</b> काटा जाएगा, और <b>95% राशि</b> सीधे
-                    आपके UPI/खाते में भेजी जाएगी।
-                  </li>
-                  <li>
-                    एडमिन द्वारा पैसा भेजने के बाद स्क्रीनशॉट प्रूफ पोर्टल पर सभी सदस्यों को दिखाई देगा।
-                  </li>
+                <ul className="list-disc list-inside space-y-0.5 text-slate-700 text-[9px]">
+                  <li>लोन राशि पर <b>1% प्रति माह</b> का ब्याज लगेगा (हर महीने की 10 तारीख को गणना)।</li>
+                  <li>लोन में से <b>5% शुल्क</b> कटेगा, और <b>95% राशि</b> भेजी जाएगी।</li>
                 </ul>
               </div>
 
-              <form onSubmit={handleApplyLoan} className="space-y-4">
+              <form onSubmit={handleApplyLoan} className="space-y-2.5">
                 <div>
-                  <div className="flex justify-between items-center mb-1.5">
-                    <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                  <div className="flex justify-between items-center mb-1">
+                    <label className="text-[9px] font-bold text-slate-700 uppercase tracking-wider">
                       आवश्यक लोन राशि (₹)
                     </label>
                     {maxLoanEligible > 0 && (
                       <button
                         type="button"
                         onClick={() => setLoanAmountInput(String(maxLoanEligible))}
-                        className="text-xs font-bold text-blue-600 hover:underline"
+                        className="text-[9px] font-bold text-blue-600 hover:underline"
                       >
-                        अधिकतम पात्रता (₹{maxLoanEligible}) चुनें
+                        अधिकतम (₹{maxLoanEligible}) चुनें
                       </button>
                     )}
                   </div>
@@ -1020,7 +1009,7 @@ function MemberDashboardContent() {
                     value={loanAmountInput}
                     onChange={(e) => setLoanAmountInput(e.target.value)}
                     placeholder={`उदा. ${maxLoanEligible > 0 ? maxLoanEligible : 500}`}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-base font-black font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-black font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
                   />
                 </div>
 
@@ -1144,39 +1133,39 @@ function MemberDashboardContent() {
       )}
 
       {/* ======================================================== */}
-      {/* TAB 3: MY PROFILE & KYC (READ-ONLY VIEW)                  */}
+      {/* TAB 3: MY PROFILE & KYC (Standard App View)               */}
       {/* ======================================================== */}
       {activeTab === "my_profile" && (
-        <div className="max-w-3xl mx-auto space-y-6 animate-fade-in">
-          <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-6 hover-lift transition-all">
-            <div className="flex items-center gap-4 pb-6 border-b border-slate-100">
+        <div className="space-y-3 animate-fade-in">
+          <div className="bg-white rounded-2xl p-3 sm:p-3.5 border border-slate-200/80 shadow-xs space-y-3">
+            <div className="flex items-center gap-3 pb-2.5 border-b border-slate-100">
               {member?.photo ? (
                 <img
                   src={member.photo}
                   alt={member.name}
-                  className="w-20 h-20 rounded-2xl object-cover border-2 border-blue-500 shadow-md"
+                  className="w-12 h-12 rounded-full object-cover border border-blue-400 shadow-2xs"
                 />
               ) : (
-                <div className="w-20 h-20 rounded-2xl bg-blue-100 text-blue-700 font-black text-3xl flex items-center justify-center">
+                <div className="w-12 h-12 rounded-full bg-blue-100 text-blue-700 font-bold text-lg flex items-center justify-center">
                   {member?.name?.charAt(0)}
                 </div>
               )}
               <div>
-                <h2 className="text-2xl font-black text-slate-900">{member?.name}</h2>
-                <p className="text-xs text-slate-500 font-mono mt-0.5">📞 {member?.mobile}</p>
-                <p className="text-xs text-slate-500 font-mono">✉️ {member?.email}</p>
+                <h2 className="text-sm sm:text-base font-black text-slate-900">{member?.name}</h2>
+                <p className="text-[11px] text-slate-500 font-mono mt-0.5">📞 {member?.mobile}</p>
+                <p className="text-[11px] text-slate-500 font-mono">✉️ {member?.email}</p>
               </div>
             </div>
 
             {/* Documents & KYC Details */}
-            <div className="space-y-4 text-xs">
+            <div className="space-y-2 text-xs">
               {/* Aadhaar Details */}
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between gap-2">
                 <div>
-                  <span className="font-bold text-slate-700 block uppercase tracking-wider text-[11px]">
-                    आधार कार्ड (Aadhaar Card)
+                  <span className="font-bold text-slate-600 block text-[10px]">
+                    आधार कार्ड (Aadhaar)
                   </span>
-                  <span className="font-mono font-bold text-slate-900 text-sm">
+                  <span className="font-mono font-bold text-slate-900 text-xs">
                     {member?.aadhaar_number ? `XXXX-XXXX-${member.aadhaar_number.slice(-4)}` : "दर्ज नहीं"}
                   </span>
                 </div>
@@ -1186,21 +1175,21 @@ function MemberDashboardContent() {
                     download={member.aadhaar_file_name || "Aadhaar.pdf"}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-600 text-white font-bold text-xs hover:bg-blue-700 transition w-fit"
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-600 text-white font-bold text-[10px] hover:bg-blue-700 transition"
                   >
-                    <Download className="w-3.5 h-3.5" />
-                    <span>दस्तावेज देखें / डाउनलोड करें</span>
+                    <Download className="w-3 h-3" />
+                    <span>देखें</span>
                   </a>
                 )}
               </div>
 
               {/* PAN Details */}
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between gap-2">
                 <div>
-                  <span className="font-bold text-slate-700 block uppercase tracking-wider text-[11px]">
-                    पैन कार्ड (PAN Card)
+                  <span className="font-bold text-slate-600 block text-[10px]">
+                    पैन कार्ड (PAN)
                   </span>
-                  <span className="font-mono font-bold text-slate-900 text-sm">
+                  <span className="font-mono font-bold text-slate-900 text-xs">
                     {member?.pan_number || "दर्ज नहीं"}
                   </span>
                 </div>
@@ -1210,42 +1199,42 @@ function MemberDashboardContent() {
                     download={member.pan_file_name || "PAN.pdf"}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-600 text-white font-bold text-xs hover:bg-blue-700 transition w-fit"
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-600 text-white font-bold text-[10px] hover:bg-blue-700 transition"
                   >
-                    <Download className="w-3.5 h-3.5" />
-                    <span>दस्तावेज देखें / डाउनलोड करें</span>
+                    <Download className="w-3 h-3" />
+                    <span>देखें</span>
                   </a>
                 )}
               </div>
 
               {/* Payment Details */}
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
-                <span className="font-bold text-slate-700 block uppercase tracking-wider text-[11px]">
+              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 space-y-2">
+                <span className="font-bold text-slate-600 block text-[10px]">
                   पंजीकृत डिजिटल भुगतान विवरण
                 </span>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="p-3 rounded-xl bg-white border border-slate-200">
-                    <span className="text-slate-400 text-[10px] block">UPI ID</span>
-                    <span className="font-bold text-slate-800">{member?.upi_id || "—"}</span>
+                <div className="grid grid-cols-2 gap-2 text-[11px]">
+                  <div className="p-2 rounded-lg bg-white border border-slate-200/80">
+                    <span className="text-slate-400 text-[9px] block">UPI ID</span>
+                    <span className="font-bold text-slate-800 text-xs truncate block">{member?.upi_id || "—"}</span>
                   </div>
 
-                  <div className="p-3 rounded-xl bg-white border border-slate-200">
-                    <span className="text-slate-400 text-[10px] block">PhonePe / GPay नंबर</span>
-                    <span className="font-bold text-slate-800 font-mono">
+                  <div className="p-2 rounded-lg bg-white border border-slate-200/80">
+                    <span className="text-slate-400 text-[9px] block">PhonePe/GPay</span>
+                    <span className="font-bold text-slate-800 font-mono text-xs truncate block">
                       {member?.wallet_number || "—"}
                     </span>
                   </div>
 
-                  <div className="p-3 rounded-xl bg-white border border-slate-200">
-                    <span className="text-slate-400 text-[10px] block">बैंक खाता संख्या</span>
-                    <span className="font-bold text-slate-800 font-mono">
+                  <div className="p-2 rounded-lg bg-white border border-slate-200/80">
+                    <span className="text-slate-400 text-[9px] block">खाता संख्या</span>
+                    <span className="font-bold text-slate-800 font-mono text-xs truncate block">
                       {member?.account_number || "—"}
                     </span>
                   </div>
 
-                  <div className="p-3 rounded-xl bg-white border border-slate-200">
-                    <span className="text-slate-400 text-[10px] block">IFSC कोड ({member?.bank_name || "Bank"})</span>
-                    <span className="font-bold text-slate-800 font-mono uppercase">
+                  <div className="p-2 rounded-lg bg-white border border-slate-200/80">
+                    <span className="text-slate-400 text-[9px] block">IFSC ({member?.bank_name || "Bank"})</span>
+                    <span className="font-bold text-slate-800 font-mono uppercase text-xs truncate block">
                       {member?.ifsc || "—"}
                     </span>
                   </div>
@@ -1257,43 +1246,41 @@ function MemberDashboardContent() {
       )}
 
       {/* ======================================================== */}
-      {/* TAB 4: COMMUNITY TRANSPARENCY (ALL MEMBERS & ALL HISTORY) */}
+      {/* TAB 4: TRANSPARENCY & COMMUNITY (Standard App View)       */}
       {/* ======================================================== */}
       {activeTab === "transparency" && (
-        <div className="space-y-8 animate-fade-in">
+        <div className="space-y-3 animate-fade-in">
           {/* Section 1: All Group Members Directory */}
-          <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-black text-slate-900">
-                  सभी जुड़े हुए सदस्य ({allMembers.length})
-                </h3>
-                <p className="text-xs text-slate-500">ग्रुप के सभी सक्रिय सदस्यों की सार्वजनिक सूची</p>
-              </div>
+          <div className="bg-white rounded-2xl p-3 sm:p-3.5 border border-slate-200/80 shadow-xs space-y-2.5">
+            <div>
+              <h3 className="text-xs sm:text-sm font-black text-slate-900">
+                DFI सदस्य डायरेक्टरी ({allMembers.length} सक्रिय सदस्य)
+              </h3>
+              <p className="text-[10px] text-slate-500">ग्रुप के सभी सक्रिय सदस्यों की सार्वजनिक सूची</p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {allMembers.map((m) => (
                 <div
                   key={m._id}
-                  className="flex items-center gap-3 p-3.5 rounded-2xl bg-slate-50 border border-slate-200 hover-lift transition-all"
+                  className="flex items-center gap-2.5 p-2 rounded-xl bg-slate-50 border border-slate-200/80"
                 >
                   {m.photo ? (
                     <img
                       src={m.photo}
                       alt={m.name}
-                      className="w-12 h-12 rounded-xl object-cover border border-slate-200 shadow-sm shrink-0"
+                      className="w-9 h-9 rounded-full object-cover border border-slate-200 shadow-2xs shrink-0"
                     />
                   ) : (
-                    <div className="w-12 h-12 rounded-xl bg-slate-200 text-slate-700 font-bold text-base flex items-center justify-center shrink-0">
+                    <div className="w-9 h-9 rounded-full bg-slate-200 text-slate-700 font-bold text-xs flex items-center justify-center shrink-0">
                       {m.name.charAt(0)}
                     </div>
                   )}
                   <div className="min-w-0">
-                    <p className="font-bold text-slate-900 text-xs sm:text-sm truncate">{m.name}</p>
-                    <p className="text-[11px] text-slate-500 font-mono">📞 {m.mobile}</p>
+                    <p className="font-bold text-slate-900 text-xs truncate">{m.name}</p>
+                    <p className="text-[10px] text-slate-500 font-mono">📞 {m.mobile}</p>
                     {m.upi_id && (
-                      <p className="text-[10px] text-emerald-700 truncate">UPI: {m.upi_id}</p>
+                      <p className="text-[9px] text-emerald-700 truncate">UPI: {m.upi_id}</p>
                     )}
                   </div>
                 </div>
@@ -1302,60 +1289,60 @@ function MemberDashboardContent() {
           </div>
 
           {/* Section 2: All Contributions Transparency */}
-          <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
+          <div className="bg-white rounded-2xl p-3 sm:p-3.5 border border-slate-200/80 shadow-xs space-y-2.5">
             <div>
-              <h3 className="text-lg font-black text-slate-900">
-                समूह जमा इतिहास (Community Contributions History)
+              <h3 className="text-xs sm:text-sm font-black text-slate-900">
+                समूह जमा इतिहास (Community Contributions)
               </h3>
-              <p className="text-xs text-slate-500">
-                किस सदस्य ने कब कितना पैसा जमा किया (कुल जमा: ₹{communityPoolTotal})
+              <p className="text-[10px] text-slate-500">
+                कुल कम्युनिटी फंड: ₹{communityPoolTotal}
               </p>
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
+              <table className="w-full text-left text-[11px]">
                 <thead>
-                  <tr className="border-b border-slate-100 text-slate-400 uppercase font-bold text-[11px]">
-                    <th className="py-3 px-4">सदस्य का नाम</th>
-                    <th className="py-3 px-4">जमा तारीख</th>
-                    <th className="py-3 px-4">माह</th>
-                    <th className="py-3 px-4">राशि</th>
-                    <th className="py-3 px-4">स्क्रीनशॉट प्रमाण</th>
-                    <th className="py-3 px-4">स्थिति</th>
+                  <tr className="border-b border-slate-100 text-slate-400 uppercase font-bold text-[10px]">
+                    <th className="py-2 px-2.5">सदस्य</th>
+                    <th className="py-2 px-2.5">तारीख</th>
+                    <th className="py-2 px-2.5">माह</th>
+                    <th className="py-2 px-2.5">राशि</th>
+                    <th className="py-2 px-2.5">प्रमाण</th>
+                    <th className="py-2 px-2.5">स्थिति</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {contributions.map((c) => (
                     <tr key={c._id}>
-                      <td className="py-3 px-4 font-bold text-slate-900">{c.member_name}</td>
-                      <td className="py-3 px-4 text-slate-600">
-                        {new Date(c.paid_at || c.submitted_at || Date.now()).toLocaleString("hi-IN")}
+                      <td className="py-2 px-2.5 font-bold text-slate-900 whitespace-nowrap">{c.member_name}</td>
+                      <td className="py-2 px-2.5 text-slate-600 whitespace-nowrap">
+                        {new Date(c.paid_at || c.submitted_at || Date.now()).toLocaleDateString("hi-IN")}
                       </td>
-                      <td className="py-3 px-4 font-semibold text-slate-800">{c.month}</td>
-                      <td className="py-3 px-4 font-black text-emerald-600 text-sm">₹{c.amount}</td>
-                      <td className="py-3 px-4">
+                      <td className="py-2 px-2.5 font-semibold text-slate-800">{c.month}</td>
+                      <td className="py-2 px-2.5 font-black text-emerald-600">₹{c.amount}</td>
+                      <td className="py-2 px-2.5">
                         {c.payment_screenshot ? (
                           <button
                             onClick={() => setPreviewScreenshot(c.payment_screenshot!)}
-                            className="text-xs text-blue-600 font-bold hover:underline"
+                            className="text-[10px] text-blue-600 font-bold hover:underline"
                           >
-                            स्क्रीनशॉट देखें
+                            देखें
                           </button>
                         ) : (
-                          <span className="text-slate-400 font-mono text-[11px]">—</span>
+                          <span className="text-slate-400 font-mono text-[10px]">—</span>
                         )}
                       </td>
-                      <td className="py-3 px-4">
+                      <td className="py-2 px-2.5">
                         {c.status === "paid" ? (
-                          <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
-                            स्वीकृत {c.auto_approved ? "(स्वतः 24h)" : ""}
+                          <span className="px-1.5 py-0.2 rounded-full bg-emerald-100 text-emerald-800 text-[9px] font-bold whitespace-nowrap">
+                            स्वीकृत {c.auto_approved ? "(24h)" : ""}
                           </span>
                         ) : c.status === "pending" ? (
-                          <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold animate-pulse">
-                            सत्यापनाधीन (24h में स्वतः स्वीकृत)
+                          <span className="px-1.5 py-0.2 rounded-full bg-amber-100 text-amber-800 text-[9px] font-bold whitespace-nowrap animate-pulse">
+                            सत्यापनाधीन
                           </span>
                         ) : (
-                          <span className="px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 text-[10px] font-bold">
+                          <span className="px-1.5 py-0.2 rounded-full bg-rose-100 text-rose-800 text-[9px] font-bold whitespace-nowrap">
                             अस्वीकृत
                           </span>
                         )}
@@ -1368,42 +1355,42 @@ function MemberDashboardContent() {
           </div>
 
           {/* Section 3: All Loans Transparency & Screenshots */}
-          <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
+          <div className="bg-white rounded-2xl p-3 sm:p-3.5 border border-slate-200/80 shadow-xs space-y-2.5">
             <div>
-              <h3 className="text-lg font-black text-slate-900">
-                समूह लोन इतिहास एवं पेमेंट स्क्रीनशॉट प्रमाण
+              <h3 className="text-xs sm:text-sm font-black text-slate-900">
+                समूह लोन इतिहास एवं पेमेंट प्रमाण
               </h3>
-              <p className="text-xs text-slate-500">
-                किस सदस्य ने कितना लोन लिया और एडमिन द्वारा पैसा भेजने का प्रमाण
+              <p className="text-[10px] text-slate-500">
+                किस सदस्य ने कितना लोन लिया और एडमिन भुगतान प्रमाण
               </p>
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
+              <table className="w-full text-left text-[11px]">
                 <thead>
-                  <tr className="border-b border-slate-100 text-slate-400 uppercase font-bold text-[11px]">
-                    <th className="py-3 px-4">सदस्य</th>
-                    <th className="py-3 px-4">लोन राशि</th>
-                    <th className="py-3 px-4">प्राप्त राशि (90%)</th>
-                    <th className="py-3 px-4">डिस्बर्सल तारीख</th>
-                    <th className="py-3 px-4">स्थिति</th>
-                    <th className="py-3 px-4">स्क्रीनशॉट प्रूफ</th>
+                  <tr className="border-b border-slate-100 text-slate-400 uppercase font-bold text-[10px]">
+                    <th className="py-2 px-2.5">सदस्य</th>
+                    <th className="py-2 px-2.5">लोन राशि</th>
+                    <th className="py-2 px-2.5">प्राप्त (90%)</th>
+                    <th className="py-2 px-2.5">तारीख</th>
+                    <th className="py-2 px-2.5">स्थिति</th>
+                    <th className="py-2 px-2.5">प्रमाण</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {allLoans.map((l) => (
                     <tr key={l._id}>
-                      <td className="py-3 px-4 font-bold text-slate-900">{l.member_name}</td>
-                      <td className="py-3 px-4 font-black text-slate-800">₹{l.requested_amount}</td>
-                      <td className="py-3 px-4 font-bold text-emerald-600">₹{l.disbursed_amount}</td>
-                      <td className="py-3 px-4 text-slate-600">
+                      <td className="py-2 px-2.5 font-bold text-slate-900 whitespace-nowrap">{l.member_name}</td>
+                      <td className="py-2 px-2.5 font-bold text-slate-800">₹{l.requested_amount}</td>
+                      <td className="py-2 px-2.5 font-black text-emerald-600">₹{l.disbursed_amount}</td>
+                      <td className="py-2 px-2.5 text-slate-500 whitespace-nowrap">
                         {l.disbursed_at
                           ? new Date(l.disbursed_at).toLocaleDateString("hi-IN")
                           : "लंबित"}
                       </td>
-                      <td className="py-3 px-4">
+                      <td className="py-2 px-2.5">
                         <span
-                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                          className={`px-1.5 py-0.2 rounded-full text-[9px] font-bold whitespace-nowrap ${
                             l.status === "repaid"
                               ? "bg-emerald-100 text-emerald-800"
                               : l.status === "disbursed"
@@ -1412,23 +1399,23 @@ function MemberDashboardContent() {
                           }`}
                         >
                           {l.status === "repaid"
-                            ? "चुकता (Repaid)"
+                            ? "चुकता"
                             : l.status === "disbursed"
-                            ? "सक्रिय लोन"
+                            ? "सक्रिय"
                             : "लंबित"}
                         </span>
                       </td>
-                      <td className="py-3 px-4">
+                      <td className="py-2 px-2.5">
                         {l.payment_screenshot ? (
                           <button
                             onClick={() => setPreviewScreenshot(l.payment_screenshot!)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 font-bold hover:bg-blue-100 transition"
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-blue-50 text-blue-700 font-bold hover:bg-blue-100 transition text-[10px]"
                           >
-                            <ImageIcon className="w-3.5 h-3.5" />
-                            <span>प्रमाण देखें</span>
+                            <ImageIcon className="w-3 h-3" />
+                            <span>देखें</span>
                           </button>
                         ) : (
-                          <span className="text-slate-400">—</span>
+                          <span className="text-slate-400 font-mono text-[10px]">—</span>
                         )}
                       </td>
                     </tr>

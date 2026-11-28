@@ -82,15 +82,15 @@ function MobileBottomNavContent() {
             // Elevated Center Approvals Button
             if (item.isCenter) {
               return (
-                <div key={item.id} className="flex flex-col items-center justify-center -mt-5 relative">
+                <div key={item.id} className="flex flex-col items-center justify-center -mt-3.5 relative">
                   <Link
                     href={item.href}
-                    className="w-13 h-13 p-3.5 rounded-full bg-gradient-to-tr from-amber-500 via-orange-500 to-amber-600 text-slate-950 shadow-lg shadow-amber-500/35 border-4 border-slate-900 flex items-center justify-center transition-all duration-150 active:scale-90 hover:scale-105"
+                    className="w-11 h-11 p-2.5 rounded-full bg-gradient-to-tr from-amber-500 via-orange-500 to-amber-600 text-slate-950 shadow-md shadow-amber-500/30 border-2 border-slate-900 flex items-center justify-center transition-all duration-150 active:scale-90 hover:scale-105"
                     title="जमा रसीदें व स्वीकृतियां"
                   >
-                    <Icon className="w-5 h-5 text-slate-950 stroke-[2.5]" />
+                    <Icon className="w-4.5 h-4.5 text-slate-950 stroke-[2.2]" />
                   </Link>
-                  <span className="text-[10px] font-black text-amber-400 tracking-tight mt-1">
+                  <span className="text-[9px] font-bold text-amber-400 tracking-tight mt-0.5">
                     {item.label}
                   </span>
                 </div>
@@ -183,15 +183,15 @@ function MobileBottomNavContent() {
             // Elevated Center Pay Button
             if (item.isCenter) {
               return (
-                <div key={item.id} className="flex flex-col items-center justify-center -mt-5 relative">
+                <div key={item.id} className="flex flex-col items-center justify-center -mt-3.5 relative">
                   <Link
                     href={item.href}
-                    className="w-13 h-13 p-3.5 rounded-full bg-gradient-to-tr from-blue-600 via-indigo-600 to-sky-500 text-white shadow-lg shadow-blue-500/35 border-4 border-white flex items-center justify-center transition-all duration-150 active:scale-90 hover:scale-105"
+                    className="w-11 h-11 p-2.5 rounded-full bg-gradient-to-tr from-blue-600 via-indigo-600 to-sky-500 text-white shadow-md shadow-blue-500/30 border-2 border-white flex items-center justify-center transition-all duration-150 active:scale-90 hover:scale-105"
                     title="तुरंत पे करें"
                   >
-                    <Wallet className="w-5 h-5 text-white stroke-[2.5]" />
+                    <Wallet className="w-4.5 h-4.5 text-white stroke-[2.2]" />
                   </Link>
-                  <span className="text-[10px] font-black text-blue-600 tracking-tight mt-1">
+                  <span className="text-[9px] font-bold text-blue-600 tracking-tight mt-0.5">
                     {item.label}
                   </span>
                 </div>
