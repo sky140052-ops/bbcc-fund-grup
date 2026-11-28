@@ -15,15 +15,19 @@ import {
   Lock,
   Sparkles,
   ArrowRight,
-  Shield,
+  RefreshCw,
+  KeyRound,
+  LogIn,
+  UserPlus,
 } from "lucide-react";
 import { compressImage } from "../lib/compress";
 
 export default function AppEntryPage() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const regFileInputRef = useRef<HTMLInputElement>(null);
 
-  // Auth flow states: "initial" (Google 1-Tap / Sign-In) | "complete_kyc" (fill remaining fields)
+  // Top level view: "initial" (Google 1-Tap & Email OTP) | "complete_kyc" (Google 1-Tap KYC completion)
   const [viewState, setViewState] = useState<"initial" | "complete_kyc">("initial");
   const [checkingSession, setCheckingSession] = useState(true);
 
@@ -32,18 +36,47 @@ export default function AppEntryPage() {
   const [googleLoading, setGoogleLoading] = useState<boolean>(false);
   const [savedCredential, setSavedCredential] = useState<string>("");
 
-  // Form Fields
+  // KYC Form Fields (for Google 1-Tap new users)
   const [photo, setPhoto] = useState<string>("");
   const [name, setName] = useState<string>("");
   const [email, setEmail] = useState<string>("");
   const [mobile, setMobile] = useState<string>("");
   const [aadhaar, setAadhaar] = useState<string>("");
   const [pan, setPan] = useState<string>("");
+  const [submittingKyc, setSubmittingKyc] = useState(false);
 
-  // Submitting & Feedback
-  const [submitting, setSubmitting] = useState(false);
+  // Manual Email & OTP States
+  const [emailTab, setEmailTab] = useState<"login" | "register">("login");
+  const [loginEmail, setLoginEmail] = useState("");
+  const [regName, setRegName] = useState("");
+  const [regEmail, setRegEmail] = useState("");
+  const [regMobile, setRegMobile] = useState("");
+  const [regAadhaar, setRegAadhaar] = useState("");
+  const [regPan, setRegPan] = useState("");
+  const [regPhoto, setRegPhoto] = useState("");
+
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpCode, setOtpCode] = useState("");
+  const [activeEmail, setActiveEmail] = useState("");
+  const [sendingOtp, setSendingOtp] = useState(false);
+  const [verifyingOtp, setVerifyingOtp] = useState(false);
+  const [resendTimer, setResendTimer] = useState(0);
+  const [needsRegNotice, setNeedsRegNotice] = useState(false);
+
+  // Feedback Messages
   const [statusMsg, setStatusMsg] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
+
+  // Countdown timer for OTP resend
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (resendTimer > 0) {
+      interval = setInterval(() => {
+        setResendTimer((prev) => (prev > 0 ? prev - 1 : 0));
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [resendTimer]);
 
   // 1. Handle Google Credential Response (Google 1-Tap & Standard Button)
   const handleGoogleCredentialResponse = useCallback(
@@ -127,7 +160,7 @@ export default function AppEntryPage() {
           g.accounts.id.renderButton(btnElem, {
             theme: "outline",
             size: "large",
-            width: 300,
+            width: 320,
             text: "continue_with",
             shape: "pill",
           });
@@ -208,7 +241,7 @@ export default function AppEntryPage() {
     };
   }, [router, initGoogleServices]);
 
-  // Handle Local Photo Selection & Compression
+  // Handle Photo Selection & Compression for Google KYC
   const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -220,7 +253,176 @@ export default function AppEntryPage() {
     }
   };
 
-  // 4. Submit Completed KYC Registration Form
+  // Handle Photo Selection & Compression for Manual Registration
+  const handleRegPhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const compressed = await compressImage(file, { maxWidth: 600, maxHeight: 600, quality: 0.8 });
+      setRegPhoto(compressed);
+    } catch {
+      setErrorMsg("फोटो लोड करने में त्रुटि हुई।");
+    }
+  };
+
+  // Switch Manual Email Tab
+  const switchEmailTab = (tab: "login" | "register") => {
+    setEmailTab(tab);
+    setOtpSent(false);
+    setOtpCode("");
+    setErrorMsg("");
+    setStatusMsg("");
+    setNeedsRegNotice(false);
+  };
+
+  // 4. Manual Email Login: Send OTP
+  const handleSendLoginOtp = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    setErrorMsg("");
+    setStatusMsg("");
+    setNeedsRegNotice(false);
+
+    const cleanEmail = loginEmail.trim().toLowerCase();
+    if (!cleanEmail || !cleanEmail.includes("@")) {
+      setErrorMsg("कृपया अपना मान्य ईमेल (Gmail) दर्ज करें।");
+      return;
+    }
+
+    setSendingOtp(true);
+    try {
+      const res = await fetch("/api/auth/otp/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: cleanEmail }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        if (data.needs_registration) {
+          setNeedsRegNotice(true);
+          throw new Error(data.error || "यह ईमेल पंजीकृत नहीं है। कृपया नया सदस्य पंजीकरण करें।");
+        }
+        throw new Error(data.error || "OTP भेजने में विफल।");
+      }
+
+      setActiveEmail(cleanEmail);
+      setOtpSent(true);
+      setResendTimer(30);
+      setStatusMsg(`✓ ईमेल ${cleanEmail} पर 6-अंकीय OTP भेजा गया है। अपना ईमेल चेक करें।`);
+    } catch (err: any) {
+      setErrorMsg(err.message || "OTP भेजने में त्रुटि हुई।");
+    } finally {
+      setSendingOtp(false);
+    }
+  };
+
+  // 5. Manual Email Registration: Send OTP
+  const handleSendRegisterOtp = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    setErrorMsg("");
+    setStatusMsg("");
+
+    const cleanName = regName.trim();
+    const cleanEmail = regEmail.trim().toLowerCase();
+    const cleanMobile = regMobile.replace(/\D/g, "").slice(-10);
+    const cleanAadhaar = regAadhaar.replace(/\D/g, "");
+    const cleanPan = regPan.toUpperCase().trim();
+
+    if (!cleanName) {
+      setErrorMsg("कृपया अपना पूरा नाम दर्ज करें।");
+      return;
+    }
+    if (!cleanEmail || !cleanEmail.includes("@")) {
+      setErrorMsg("कृपया अपना मान्य ईमेल (Gmail) पता दर्ज करें।");
+      return;
+    }
+    if (cleanMobile.length !== 10) {
+      setErrorMsg("कृपया 10-अंकीय मान्य मोबाइल नंबर दर्ज करें।");
+      return;
+    }
+    if (cleanAadhaar.length !== 12) {
+      setErrorMsg("कृपया 12-अंकों का आधार नंबर दर्ज करें।");
+      return;
+    }
+
+    setSendingOtp(true);
+    try {
+      const res = await fetch("/api/auth/otp/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: cleanName,
+          email: cleanEmail,
+          mobile: cleanMobile,
+          aadhaar_number: cleanAadhaar,
+          pan_number: cleanPan,
+          photo: regPhoto,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "रजिस्ट्रेशन OTP भेजने में विफल।");
+      }
+
+      setActiveEmail(cleanEmail);
+      setOtpSent(true);
+      setResendTimer(30);
+      setStatusMsg(`✓ ${cleanName} जी, आपके ईमेल ${cleanEmail} पर 6-अंकीय OTP भेजा गया है।`);
+    } catch (err: any) {
+      setErrorMsg(err.message || "OTP भेजने में त्रुटि हुई।");
+    } finally {
+      setSendingOtp(false);
+    }
+  };
+
+  // 6. Verify Email OTP (Works for both Login & Register)
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg("");
+    setStatusMsg("");
+
+    const cleanOtp = otpCode.replace(/\D/g, "").trim();
+    if (cleanOtp.length !== 6) {
+      setErrorMsg("कृपया 6-अंकीय पूरा OTP दर्ज करें।");
+      return;
+    }
+
+    setVerifyingOtp(true);
+    try {
+      const res = await fetch("/api/auth/otp/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: activeEmail,
+          otp: cleanOtp,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "अमान्य या समय समाप्त OTP!");
+      }
+
+      if (typeof window !== "undefined") {
+        if (data.token) localStorage.setItem("dfi_token", data.token);
+        if (data.user) localStorage.setItem("dfi_user", JSON.stringify(data.user));
+        if (data.user?.email) localStorage.setItem("dfi_user_email", data.user.email);
+        if (data.user?.mobile) localStorage.setItem("dfi_user_mobile", data.user.mobile);
+      }
+
+      setStatusMsg("✓ " + (data.message || "लॉगिन सफल! डैशबोर्ड लोड हो रहा है..."));
+      setTimeout(() => {
+        router.replace(data.redirectTo || "/dashboard");
+      }, 400);
+    } catch (err: any) {
+      setErrorMsg(err.message || "OTP सत्यापन में त्रुटि हुई।");
+    } finally {
+      setVerifyingOtp(false);
+    }
+  };
+
+  // 7. Submit Completed KYC Registration Form (From Google 1-Tap)
   const handleCompleteRegistration = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg("");
@@ -242,7 +444,7 @@ export default function AppEntryPage() {
       return;
     }
 
-    setSubmitting(true);
+    setSubmittingKyc(true);
 
     try {
       const res = await fetch("/api/auth/google", {
@@ -279,7 +481,7 @@ export default function AppEntryPage() {
     } catch (err: any) {
       setErrorMsg(err.message || "रजिस्ट्रेशन सबमिट करने में विफल।");
     } finally {
-      setSubmitting(false);
+      setSubmittingKyc(false);
     }
   };
 
@@ -317,9 +519,24 @@ export default function AppEntryPage() {
 
         {/* Feedback Messages */}
         {errorMsg && (
-          <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold flex items-center gap-2 animate-shake">
-            <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
-            <span>{errorMsg}</span>
+          <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold space-y-2 animate-shake">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+              <span>{errorMsg}</span>
+            </div>
+            {needsRegNotice && emailTab === "login" && (
+              <button
+                type="button"
+                onClick={() => {
+                  setRegEmail(loginEmail);
+                  switchEmailTab("register");
+                }}
+                className="w-full py-1.5 px-3 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold text-[11px] transition flex items-center justify-center gap-1.5"
+              >
+                <UserPlus className="w-3.5 h-3.5" />
+                <span>इस ईमेल से नया सदस्य पंजीकरण करें →</span>
+              </button>
+            )}
           </div>
         )}
         {statusMsg && (
@@ -330,21 +547,23 @@ export default function AppEntryPage() {
         )}
 
         {/* ========================================================
-            VIEW 1: INITIAL SCREEN (GOOGLE 1-TAP LOGIN & REGISTER)
+            VIEW 1: INITIAL SCREEN (GOOGLE 1-TAP + MANUAL EMAIL & OTP)
             ======================================================== */}
         {viewState === "initial" && (
           <div className="space-y-4 pt-1">
-            <div className="p-4 rounded-2xl bg-gradient-to-b from-blue-50/80 to-indigo-50/50 border border-blue-200/80 text-center space-y-3">
+            
+            {/* 1. Google 1-Tap Section */}
+            <div className="p-3.5 rounded-2xl bg-gradient-to-b from-blue-50/90 to-indigo-50/60 border border-blue-200/80 text-center space-y-2.5">
               <div className="flex items-center justify-center gap-1.5 text-xs font-black text-slate-900">
                 <Sparkles className="w-4 h-4 text-amber-500" />
-                <span>Google 1-Tap लॉगिन व रजिस्ट्रेशन</span>
+                <span>Google 1-Tap से तुरंत प्रवेश</span>
               </div>
-              <p className="text-[11px] text-slate-600 leading-snug">
-                अपने Google/Gmail अकाउंट से 1-टच में पहचान, नाम व फ़ोटो स्वतः सत्यापित करके सीधे प्रवेश करें।
+              <p className="text-[11px] text-slate-600 leading-tight">
+                बिना पासवर्ड या OTP के 1-टच में सुरक्षित लॉगिन या नया रजिस्ट्रेशन करें
               </p>
 
               {/* Native Google Button Mount Point */}
-              <div className="flex flex-col items-center justify-center min-h-[44px] pt-1">
+              <div className="flex flex-col items-center justify-center min-h-[44px] pt-0.5">
                 {googleLoading ? (
                   <div className="flex items-center gap-2 py-2 text-xs font-bold text-blue-600">
                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -374,22 +593,404 @@ export default function AppEntryPage() {
               </div>
             </div>
 
-            {/* Quick Helper Notes */}
-            <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200/80 text-[11px] text-slate-600 space-y-1.5">
-              <div className="flex items-start gap-1.5 font-bold text-slate-800">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 mt-0.5 shrink-0" />
-                <span>पहले से पंजीकृत सदस्य / एडमिन सीधे लॉगिन होंगे।</span>
-              </div>
-              <div className="flex items-start gap-1.5 font-bold text-slate-800">
-                <CheckCircle2 className="w-3.5 h-3.5 text-blue-600 mt-0.5 shrink-0" />
-                <span>नए सदस्यों की Google फ़ोटो व ईमेल अपने-आप लेकर फॉर्म खुलेगा।</span>
-              </div>
+            {/* Sleek Divider: OR via Email */}
+            <div className="relative my-3 flex items-center justify-center">
+              <div className="border-t border-slate-200 w-full" />
+              <span className="bg-white px-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest shrink-0">
+                अथवा ईमेल द्वारा (OR via Email)
+              </span>
+              <div className="border-t border-slate-200 w-full" />
             </div>
+
+            {/* Manual Email Mode Selector Tabs */}
+            <div className="grid grid-cols-2 p-1 bg-slate-100 rounded-2xl border border-slate-200 text-xs font-bold">
+              <button
+                type="button"
+                onClick={() => switchEmailTab("login")}
+                className={`py-2 rounded-xl transition flex items-center justify-center gap-1.5 ${
+                  emailTab === "login"
+                    ? "bg-white text-blue-700 shadow-xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                <LogIn className="w-3.5 h-3.5" />
+                <span>लॉगिन करें</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => switchEmailTab("register")}
+                className={`py-2 rounded-xl transition flex items-center justify-center gap-1.5 ${
+                  emailTab === "register"
+                    ? "bg-white text-blue-700 shadow-xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                <UserPlus className="w-3.5 h-3.5" />
+                <span>नया रजिस्ट्रेशन</span>
+              </button>
+            </div>
+
+            {/* =======================================
+                TAB A: MANUAL EMAIL LOGIN
+                ======================================= */}
+            {emailTab === "login" && (
+              <div className="space-y-3 pt-1">
+                {!otpSent ? (
+                  // Step A: Enter Email & Send OTP
+                  <form onSubmit={handleSendLoginOtp} className="space-y-3">
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider block mb-1">
+                        पंजीकृत ईमेल आईडी (Gmail Address) *
+                      </label>
+                      <div className="relative">
+                        <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="email"
+                          required
+                          value={loginEmail}
+                          onChange={(e) => setLoginEmail(e.target.value)}
+                          placeholder="उदा. name@gmail.com"
+                          className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
+                          autoFocus
+                        />
+                      </div>
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={sendingOtp || !loginEmail.trim()}
+                      className="w-full py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md shadow-blue-500/20 transition active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
+                    >
+                      {sendingOtp ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span>OTP भेजा जा रहा है...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Mail className="w-4 h-4" />
+                          <span>ईमेल पर OTP प्राप्त करें (Send OTP)</span>
+                        </>
+                      )}
+                    </button>
+                  </form>
+                ) : (
+                  // Step B: Enter Received OTP & Verify
+                  <form onSubmit={handleVerifyOtp} className="space-y-3 animate-scale-in">
+                    <div className="p-2.5 rounded-xl bg-blue-50/80 border border-blue-200 text-blue-900 text-xs flex items-center justify-between">
+                      <div className="truncate">
+                        <span className="text-[10px] text-blue-600 block font-bold">भेजा गया ईमेल:</span>
+                        <span className="font-mono font-bold text-xs">{activeEmail}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOtpSent(false);
+                          setOtpCode("");
+                        }}
+                        className="text-[11px] text-blue-700 font-bold hover:underline shrink-0 ml-2"
+                      >
+                        ईमेल बदलें
+                      </button>
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider block mb-1">
+                        ईमेल पर प्राप्त 6-अंकीय OTP दर्ज करें *
+                      </label>
+                      <div className="relative">
+                        <KeyRound className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          maxLength={6}
+                          required
+                          value={otpCode}
+                          onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ""))}
+                          placeholder="• • • • • •"
+                          className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-center text-lg font-mono font-black tracking-widest text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
+                          autoFocus
+                        />
+                      </div>
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={verifyingOtp || otpCode.length !== 6}
+                      className="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md shadow-emerald-500/20 transition active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
+                    >
+                      {verifyingOtp ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span>सत्यापित किया जा रहा है...</span>
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span>सत्यापित करें और लॉगिन करें</span>
+                        </>
+                      )}
+                    </button>
+
+                    <div className="text-center pt-1">
+                      {resendTimer > 0 ? (
+                        <p className="text-[11px] text-slate-400 font-medium">
+                          पुनः OTP भेजें ({resendTimer}s)
+                        </p>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleSendLoginOtp()}
+                          disabled={sendingOtp}
+                          className="text-[11px] font-bold text-blue-600 hover:text-blue-800 hover:underline flex items-center justify-center gap-1 mx-auto"
+                        >
+                          <RefreshCw className="w-3 h-3" />
+                          <span>पुनः नया OTP भेजें (Resend OTP)</span>
+                        </button>
+                      )}
+                    </div>
+                  </form>
+                )}
+              </div>
+            )}
+
+            {/* =======================================
+                TAB B: MANUAL EMAIL REGISTRATION
+                ======================================= */}
+            {emailTab === "register" && (
+              <div className="space-y-3 pt-1">
+                {!otpSent ? (
+                  // Step A: Fill Registration Details & Send OTP
+                  <form onSubmit={handleSendRegisterOtp} className="space-y-2.5">
+                    
+                    {/* Optional Photo Upload */}
+                    <div className="text-center pb-1">
+                      <input
+                        type="file"
+                        ref={regFileInputRef}
+                        accept="image/*"
+                        onChange={handleRegPhotoSelect}
+                        className="hidden"
+                      />
+                      <div
+                        onClick={() => regFileInputRef.current?.click()}
+                        className="w-16 h-16 rounded-full border-2 border-dashed border-blue-400/80 p-0.5 bg-blue-50/50 mx-auto relative cursor-pointer group hover:border-blue-600 transition shadow-xs flex items-center justify-center overflow-hidden"
+                        title="फ़ोटो अपलोड करें (वैकल्पिक)"
+                      >
+                        {regPhoto ? (
+                          <img
+                            src={regPhoto}
+                            alt="Reg Preview"
+                            className="w-full h-full object-cover rounded-full"
+                          />
+                        ) : (
+                          <div className="flex flex-col items-center justify-center text-blue-600">
+                            <Camera className="w-5 h-5" />
+                            <span className="text-[8px] font-bold mt-0.5">फ़ोटो जोड़ें</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Full Name */}
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider block mb-0.5">
+                        पूरा नाम (Full Name) *
+                      </label>
+                      <div className="relative">
+                        <User className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="text"
+                          required
+                          value={regName}
+                          onChange={(e) => setRegName(e.target.value)}
+                          placeholder="उदा. राहुल कुमार"
+                          className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Email */}
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider block mb-0.5">
+                        ईमेल आईडी (Email ID) *
+                      </label>
+                      <div className="relative">
+                        <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="email"
+                          required
+                          value={regEmail}
+                          onChange={(e) => setRegEmail(e.target.value)}
+                          placeholder="name@gmail.com"
+                          className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Mobile Number (+91, Manual Input Only - NO SMS OTP) */}
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider block mb-0.5">
+                        मोबाइल नंबर (10-Digit Mobile) *
+                      </label>
+                      <div className="relative flex">
+                        <span className="inline-flex items-center px-2.5 rounded-l-xl border border-r-0 border-slate-200 bg-slate-100 text-slate-600 text-xs font-bold">
+                          +91
+                        </span>
+                        <input
+                          type="tel"
+                          required
+                          maxLength={10}
+                          value={regMobile}
+                          onChange={(e) => setRegMobile(e.target.value.replace(/\D/g, ""))}
+                          placeholder="9876543210"
+                          className="w-full pl-3 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-r-xl text-xs font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Aadhaar Number (12 Digits Manual Input) */}
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider block mb-0.5">
+                        आधार कार्ड नंबर (12-Digit Aadhaar) *
+                      </label>
+                      <div className="relative">
+                        <ShieldCheck className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="text"
+                          required
+                          maxLength={12}
+                          value={regAadhaar}
+                          onChange={(e) => setRegAadhaar(e.target.value.replace(/\D/g, ""))}
+                          placeholder="12-अंकों का आधार नंबर"
+                          className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
+                        />
+                      </div>
+                    </div>
+
+                    {/* PAN Card (Optional) */}
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider block mb-0.5">
+                        पैन कार्ड नंबर (PAN Card - ऐच्छिक)
+                      </label>
+                      <div className="relative">
+                        <CreditCard className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="text"
+                          maxLength={10}
+                          value={regPan}
+                          onChange={(e) => setRegPan(e.target.value.toUpperCase())}
+                          placeholder="ABCDE1234F (वैकल्पिक)"
+                          className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold uppercase text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Submit Registration Form */}
+                    <div className="pt-1.5">
+                      <button
+                        type="submit"
+                        disabled={sendingOtp}
+                        className="w-full py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md shadow-blue-500/20 transition active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
+                      >
+                        {sendingOtp ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <span>OTP भेजा जा रहा है...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Mail className="w-4 h-4" />
+                            <span>ईमेल पर OTP प्राप्त करें (Send OTP)</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  // Step B: Enter Registration OTP & Join
+                  <form onSubmit={handleVerifyOtp} className="space-y-3 animate-scale-in">
+                    <div className="p-2.5 rounded-xl bg-blue-50/80 border border-blue-200 text-blue-900 text-xs flex items-center justify-between">
+                      <div className="truncate">
+                        <span className="text-[10px] text-blue-600 block font-bold">भेजा गया ईमेल:</span>
+                        <span className="font-mono font-bold text-xs">{activeEmail}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOtpSent(false);
+                          setOtpCode("");
+                        }}
+                        className="text-[11px] text-blue-700 font-bold hover:underline shrink-0 ml-2"
+                      >
+                        विवरण बदलें
+                      </button>
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider block mb-1">
+                        ईमेल पर भेजा गया 6-अंकीय OTP दर्ज करें *
+                      </label>
+                      <div className="relative">
+                        <KeyRound className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          maxLength={6}
+                          required
+                          value={otpCode}
+                          onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ""))}
+                          placeholder="• • • • • •"
+                          className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-center text-lg font-mono font-black tracking-widest text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
+                          autoFocus
+                        />
+                      </div>
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={verifyingOtp || otpCode.length !== 6}
+                      className="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs shadow-md shadow-emerald-500/20 transition active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
+                    >
+                      {verifyingOtp ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span>पंजीकरण पूरा किया जा रहा है...</span>
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span>OTP सत्यापित करें और सदस्य बनें (Join DFI)</span>
+                        </>
+                      )}
+                    </button>
+
+                    <div className="text-center pt-1">
+                      {resendTimer > 0 ? (
+                        <p className="text-[11px] text-slate-400 font-medium">
+                          पुनः OTP भेजें ({resendTimer}s)
+                        </p>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleSendRegisterOtp()}
+                          disabled={sendingOtp}
+                          className="text-[11px] font-bold text-blue-600 hover:text-blue-800 hover:underline flex items-center justify-center gap-1 mx-auto"
+                        >
+                          <RefreshCw className="w-3 h-3" />
+                          <span>पुनः नया OTP भेजें (Resend OTP)</span>
+                        </button>
+                      )}
+                    </div>
+                  </form>
+                )}
+              </div>
+            )}
           </div>
         )}
 
         {/* ========================================================
-            VIEW 2: NEW REGISTRATION (GOOGLE DATA PRE-FILLED + MANUAL FIELDS)
+            VIEW 2: NEW REGISTRATION FROM GOOGLE 1-TAP (KYC COMPLETION)
             ======================================================== */}
         {viewState === "complete_kyc" && (
           <form onSubmit={handleCompleteRegistration} className="space-y-3 pt-1 animate-scale-in">
@@ -461,12 +1062,12 @@ export default function AppEntryPage() {
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="उदा. राहुल कुमार"
-                    className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
+                    className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
                   />
                 </div>
               </div>
 
-              {/* Mobile Number (Manual Field) */}
+              {/* Mobile Number (Manual Field - NO SMS OTP) */}
               <div>
                 <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider block mb-1">
                   मोबाइल नंबर (Mobile Number) *
@@ -482,7 +1083,7 @@ export default function AppEntryPage() {
                     value={mobile}
                     onChange={(e) => setMobile(e.target.value.replace(/\D/g, ""))}
                     placeholder="9876543210"
-                    className="w-full pl-3 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-r-xl text-xs font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
+                    className="w-full pl-3 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-r-xl text-xs font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
                     autoFocus
                   />
                 </div>
@@ -502,7 +1103,7 @@ export default function AppEntryPage() {
                     value={aadhaar}
                     onChange={(e) => setAadhaar(e.target.value.replace(/\D/g, ""))}
                     placeholder="12-अंकों का आधार नंबर"
-                    className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
+                    className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
                   />
                 </div>
               </div>
@@ -520,7 +1121,7 @@ export default function AppEntryPage() {
                     value={pan}
                     onChange={(e) => setPan(e.target.value.toUpperCase())}
                     placeholder="ABCDE1234F (वैकल्पिक)"
-                    className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold uppercase text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
+                    className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold uppercase text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
                   />
                 </div>
               </div>
@@ -529,10 +1130,10 @@ export default function AppEntryPage() {
               <div className="pt-2">
                 <button
                   type="submit"
-                  disabled={submitting}
+                  disabled={submittingKyc}
                   className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black text-xs shadow-md shadow-emerald-500/25 transition active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
                 >
-                  {submitting ? (
+                  {submittingKyc ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
                       <span>सदस्यता जोड़ी जा रही है...</span>
@@ -567,7 +1168,7 @@ export default function AppEntryPage() {
         <div className="pt-2 border-t border-slate-100 text-center">
           <p className="text-[10px] text-slate-400 flex items-center justify-center gap-1">
             <Lock className="w-3 h-3 text-emerald-600" />
-            <span>Google SSL एन्क्रिप्टेड • स्थायी ऑटो-लॉगिन सुरक्षित</span>
+            <span>Google SSL एन्क्रिप्टेड • 10-वर्षीय स्थायी ऑटो-लॉगिन सुरक्षित</span>
           </p>
         </div>
       </div>
