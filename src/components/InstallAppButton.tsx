@@ -18,13 +18,19 @@ export default function InstallAppButton({
   const [showIosModal, setShowIosModal] = useState<boolean>(false);
 
   useEffect(() => {
-    // Check if running in standalone mode (already installed)
-    if (
-      typeof window !== "undefined" &&
-      (window.matchMedia("(display-mode: standalone)").matches ||
-        (window.navigator as any).standalone)
-    ) {
-      setIsInstalled(true);
+    // Check if running in standalone mode (already installed or inside native app)
+    if (typeof window !== "undefined") {
+      const isStandalone =
+        window.matchMedia("(display-mode: standalone)").matches ||
+        (window.navigator as any).standalone === true ||
+        document.referrer.includes("android-app://") ||
+        window.location.search.includes("mode=app") ||
+        window.location.search.includes("source=pwa") ||
+        localStorage.getItem("dfi_app_mode") === "true";
+
+      if (isStandalone) {
+        setIsInstalled(true);
+      }
     }
 
     // Detect iOS
@@ -73,16 +79,9 @@ export default function InstallAppButton({
     }
   };
 
+  // If already installed or running inside native Android / PWA app mode, DO NOT SHOW INSTALL BUTTON AT ALL!
   if (isInstalled) {
-    return (
-      <button
-        onClick={() => (window.location.href = "/dashboard")}
-        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-bold text-xs hover:bg-emerald-500/20 transition ${className}`}
-      >
-        <Check className="w-3.5 h-3.5" />
-        <span>ऐप इनस्टॉल्ड है • ओपन करें</span>
-      </button>
-    );
+    return null;
   }
 
   return (

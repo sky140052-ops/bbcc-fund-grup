@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState, useRef, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   ShieldCheck,
@@ -45,13 +45,28 @@ import {
 import { Member, Contribution, Loan, SystemSettings } from "../../lib/types";
 import { compressImage } from "../../lib/compress";
 
-export default function AdminPage() {
+function AdminPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   // Active Tab: "status" | "members" | "add_member" | "transactions" | "loans"
   const [activeTab, setActiveTab] = useState<
     "status" | "members" | "add_member" | "transactions" | "loans"
   >("status");
+
+  // Sync activeTab with URL param ?tab=...
+  useEffect(() => {
+    const tabParam = searchParams.get("tab");
+    if (
+      tabParam === "status" ||
+      tabParam === "members" ||
+      tabParam === "add_member" ||
+      tabParam === "transactions" ||
+      tabParam === "loans"
+    ) {
+      setActiveTab(tabParam as any);
+    }
+  }, [searchParams]);
 
   // Admin Profile & Integrations Status
   const [loadingStatus, setLoadingStatus] = useState(true);
@@ -880,33 +895,33 @@ export default function AdminPage() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-      {/* Top Header Bar */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 border-b border-slate-200">
+    <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-5 sm:py-8 space-y-6 sm:space-y-8">
+      {/* Top Admin Command Header */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 sm:pb-6 border-b border-slate-200">
         <div>
           <div className="flex items-center gap-2">
-            <span className="px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-800 text-xs font-black tracking-wider">
-              DFI MASTER ADMIN
+            <span className="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 text-[11px] font-black tracking-wider flex items-center gap-1 border border-amber-300">
+              <span>👑 DFI मास्टर एडमिन कंट्रोल</span>
             </span>
-            <span className="text-xs text-slate-500 font-semibold">• आपातकालीन सेवा कंट्रोल रूम</span>
+            <span className="text-xs text-slate-500 font-semibold hidden sm:inline">• आपातकालीन सेवा कंट्रोल रूम</span>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight mt-1">
-            DFI प्रशासनिक डैशबोर्ड (Admin Portal)
+          <h1 className="text-xl sm:text-3xl font-black text-slate-900 tracking-tight mt-1">
+            DFI प्रशासनिक नियंत्रण केंद्र (Admin Console)
           </h1>
-          <p className="text-xs sm:text-sm text-slate-500">
-            Brevo ईमेल API, Razorpay गेटवे, सदस्य KYC, जमा लेन-देन व लोन डिस्बर्सल
+          <p className="text-xs text-slate-500 mt-0.5">
+            सदस्य KYC सत्यापन, डायरेक्ट UPI जमा रसीद स्वीकृतियां, लोन डिस्बर्सल व सिस्टम सेटिंग्स
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
           <a
             href="/api/admin/export?type=all"
             download
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-sm hover-lift active-press"
+            className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-sm hover-lift active-press"
             title="सदस्य, जमा लेन-देन और लोन का पूरा डेटा एक्सेल फाइल में डाउनलोड करें"
           >
             <Download className="w-3.5 h-3.5" />
-            <span>एक्सेल फाइल डाउनलोड (.xlsx)</span>
+            <span>एक्सेल बैकअप (.xlsx)</span>
           </a>
 
           <button
@@ -917,15 +932,15 @@ export default function AdminPage() {
               fetchLoans();
               fetchSettings();
             }}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-50 transition shadow-sm hover-lift active-press"
+            className="flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-white border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-50 transition shadow-sm hover-lift active-press"
           >
             <RefreshCw className="w-3.5 h-3.5 text-slate-500" />
-            <span>रिफ्रेश</span>
+            <span className="hidden sm:inline">डेटा रिफ्रेश</span>
           </button>
 
           <button
             onClick={handleLogout}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-rose-50 border border-rose-200 text-xs font-bold text-rose-700 hover:bg-rose-100 transition shadow-sm hover-lift active-press"
+            className="flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-rose-50 border border-rose-200 text-xs font-bold text-rose-700 hover:bg-rose-100 transition shadow-sm hover-lift active-press"
           >
             <LogOut className="w-3.5 h-3.5" />
             <span>लॉगआउट</span>
@@ -933,66 +948,173 @@ export default function AdminPage() {
         </div>
       </div>
 
-      {/* Navigation Tabs */}
-      <div className="flex flex-wrap gap-2 p-1.5 rounded-2xl bg-slate-200/70 w-fit">
+      {/* Top 4-KPI Metric Cards Grid (Mobile First Native Android Look) */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        {/* Metric 1: Members */}
+        <div
+          onClick={() => {
+            setActiveTab("members");
+            router.replace("/admin?tab=members", { scroll: false });
+          }}
+          className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-xs hover:border-blue-400 cursor-pointer transition active:scale-95 group"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-500">कुल सदस्य</span>
+            <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition">
+              <Users className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-2 text-2xl sm:text-3xl font-black text-slate-900">{members.length}</div>
+          <div className="text-[11px] text-emerald-600 font-semibold mt-0.5">● पंजीकृत सदस्य</div>
+        </div>
+
+        {/* Metric 2: Total Pool */}
+        <div
+          onClick={() => {
+            setActiveTab("transactions");
+            router.replace("/admin?tab=transactions", { scroll: false });
+          }}
+          className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-xs hover:border-emerald-400 cursor-pointer transition active:scale-95 group"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-500">कुल संचित फंड</span>
+            <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:bg-emerald-600 group-hover:text-white transition">
+              <CreditCard className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-2 text-2xl sm:text-3xl font-black text-emerald-600">₹{totalPool}</div>
+          <div className="text-[11px] text-slate-400 font-semibold mt-0.5">स्वीकृत बचत राशि</div>
+        </div>
+
+        {/* Metric 3: Pending Deposit Approvals */}
+        <div
+          onClick={() => {
+            setActiveTab("transactions");
+            router.replace("/admin?tab=transactions", { scroll: false });
+          }}
+          className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-xs hover:border-amber-400 cursor-pointer transition active:scale-95 group"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-500">लंबित जमा रसीदें</span>
+            <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center group-hover:bg-amber-600 group-hover:text-white transition">
+              <Clock className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-2 text-2xl sm:text-3xl font-black text-amber-600">
+            {contributions.filter((c) => c.status === "pending").length}
+          </div>
+          <div className="text-[11px] text-amber-700 font-semibold mt-0.5">
+            {contributions.filter((c) => c.status === "pending").length > 0
+              ? "⚡ समीक्षाधीन स्क्रीनशॉट"
+              : "✓ कोई लंबित नहीं"}
+          </div>
+        </div>
+
+        {/* Metric 4: Pending Loans */}
+        <div
+          onClick={() => {
+            setActiveTab("loans");
+            router.replace("/admin?tab=loans", { scroll: false });
+          }}
+          className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-xs hover:border-indigo-400 cursor-pointer transition active:scale-95 group"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-500">लोन आवेदन</span>
+            <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition">
+              <DollarSign className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-2 text-2xl sm:text-3xl font-black text-indigo-600">
+            {loans.filter((l) => l.status === "pending").length}
+          </div>
+          <div className="text-[11px] text-indigo-600 font-semibold mt-0.5">
+            {loans.filter((l) => l.status === "pending").length > 0
+              ? "⚡ डिस्बर्सल हेतु लंबित"
+              : "✓ सामान्य"}
+          </div>
+        </div>
+      </div>
+
+      {/* Navigation Tabs - Native Android Segmented Bar */}
+      <div className="flex gap-1.5 p-1.5 rounded-2xl bg-slate-200/80 w-full overflow-x-auto no-scrollbar shadow-inner border border-slate-300/50 select-none">
         <button
-          onClick={() => setActiveTab("status")}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition ${
+          onClick={() => {
+            setActiveTab("status");
+            router.replace("/admin?tab=status", { scroll: false });
+          }}
+          className={`flex items-center gap-1.5 px-3.5 sm:px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition flex-shrink-0 active-press ${
             activeTab === "status"
-              ? "bg-white text-blue-700 shadow-md shadow-slate-300/50"
+              ? "bg-white text-slate-900 shadow-md shadow-slate-300/60"
               : "text-slate-600 hover:text-slate-900"
           }`}
         >
-          <Sliders className="w-4 h-4" />
-          <span>सिस्टम कनेक्शन (Brevo & Razorpay)</span>
+          <Sliders className="w-4 h-4 flex-shrink-0" />
+          <span>सिस्टम व सेटिंग्स</span>
         </button>
 
         <button
-          onClick={() => setActiveTab("members")}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition ${
+          onClick={() => {
+            setActiveTab("members");
+            router.replace("/admin?tab=members", { scroll: false });
+          }}
+          className={`flex items-center gap-1.5 px-3.5 sm:px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition flex-shrink-0 active-press ${
             activeTab === "members"
-              ? "bg-white text-blue-700 shadow-md shadow-slate-300/50"
+              ? "bg-white text-slate-900 shadow-md shadow-slate-300/60"
               : "text-slate-600 hover:text-slate-900"
           }`}
         >
-          <Users className="w-4 h-4" />
+          <Users className="w-4 h-4 flex-shrink-0" />
           <span>सदस्य सूची ({members.length})</span>
         </button>
 
         <button
-          onClick={() => setActiveTab("add_member")}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition ${
-            activeTab === "add_member"
-              ? "bg-white text-blue-700 shadow-md shadow-slate-300/50"
-              : "text-slate-600 hover:text-slate-900"
-          }`}
-        >
-          <UserPlus className="w-4 h-4" />
-          <span>नया सदस्य जोड़ें</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab("transactions")}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition ${
+          onClick={() => {
+            setActiveTab("transactions");
+            router.replace("/admin?tab=transactions", { scroll: false });
+          }}
+          className={`flex items-center gap-1.5 px-3.5 sm:px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition flex-shrink-0 active-press ${
             activeTab === "transactions"
-              ? "bg-white text-blue-700 shadow-md shadow-slate-300/50"
+              ? "bg-white text-slate-900 shadow-md shadow-slate-300/60"
               : "text-slate-600 hover:text-slate-900"
           }`}
         >
-          <CreditCard className="w-4 h-4" />
-          <span>जमा लेन-देन (₹{totalPool})</span>
+          <CreditCard className="w-4 h-4 flex-shrink-0" />
+          <span>जमा स्वीकृतियां</span>
+          {contributions.filter((c) => c.status === "pending").length > 0 && (
+            <span className="px-1.5 py-0.2 rounded-full bg-amber-500 text-white text-[10px] font-black animate-pulse">
+              {contributions.filter((c) => c.status === "pending").length}
+            </span>
+          )}
         </button>
 
         <button
-          onClick={() => setActiveTab("loans")}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition ${
+          onClick={() => {
+            setActiveTab("loans");
+            router.replace("/admin?tab=loans", { scroll: false });
+          }}
+          className={`flex items-center gap-1.5 px-3.5 sm:px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition flex-shrink-0 active-press ${
             activeTab === "loans"
-              ? "bg-white text-blue-700 shadow-md shadow-slate-300/50"
+              ? "bg-white text-slate-900 shadow-md shadow-slate-300/60"
               : "text-slate-600 hover:text-slate-900"
           }`}
         >
-          <DollarSign className="w-4 h-4" />
-          <span>लोन अप्रूवल व डिस्बर्सल ({loans.filter((l) => l.status === "pending").length})</span>
+          <DollarSign className="w-4 h-4 flex-shrink-0" />
+          <span>लोन अप्रूवल ({loans.filter((l) => l.status === "pending").length})</span>
+        </button>
+
+        <button
+          onClick={() => {
+            setActiveTab("add_member");
+            router.replace("/admin?tab=add_member", { scroll: false });
+          }}
+          className={`flex items-center gap-1.5 px-3.5 sm:px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition flex-shrink-0 active-press ${
+            activeTab === "add_member"
+              ? "bg-white text-slate-900 shadow-md shadow-slate-300/60"
+              : "text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          <UserPlus className="w-4 h-4 flex-shrink-0" />
+          <span>+ नया सदस्य</span>
         </button>
       </div>
 
@@ -1879,7 +2001,8 @@ export default function AdminPage() {
           </div>
 
           <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-            <div className="overflow-x-auto">
+            {/* Desktop Table View */}
+            <div className="overflow-x-auto hidden md:block">
               <table className="w-full text-left text-xs">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200 text-slate-400 uppercase font-bold text-[11px]">
@@ -1947,6 +2070,84 @@ export default function AdminPage() {
                   ))}
                 </tbody>
               </table>
+            </div>
+
+            {/* Mobile Cards View (Android Native Contacts Feel) */}
+            <div className="md:hidden divide-y divide-slate-100 p-2 space-y-3">
+              {members.length === 0 ? (
+                <div className="py-8 text-center text-slate-400 text-xs font-semibold">
+                  कोई सदस्य नहीं मिला
+                </div>
+              ) : (
+                members.map((m) => (
+                  <div
+                    key={m._id}
+                    className="p-3.5 bg-slate-50/80 rounded-2xl border border-slate-200/80 space-y-2.5 shadow-xs"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        {m.photo ? (
+                          <img
+                            src={m.photo}
+                            alt={m.name}
+                            className="w-11 h-11 rounded-2xl object-cover border border-slate-200"
+                          />
+                        ) : (
+                          <div className="w-11 h-11 rounded-2xl bg-blue-600 text-white font-black text-sm flex items-center justify-center">
+                            {m.name.charAt(0)}
+                          </div>
+                        )}
+                        <div>
+                          <div className="font-black text-slate-900 text-sm">{m.name}</div>
+                          <div className="text-[11px] text-slate-500 font-mono mt-0.5">{m.mobile}</div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setViewMember(m)}
+                          className="p-2 rounded-xl bg-blue-50 text-blue-700 hover:bg-blue-100 active:scale-95"
+                          title="विवरण देखें"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openEditModal(m)}
+                          className="p-2 rounded-xl bg-slate-200/70 text-slate-700 hover:bg-slate-300 active:scale-95"
+                          title="संपादित करें"
+                        >
+                          <Edit3 className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDeleteMemberId(m._id)}
+                          className="p-2 rounded-xl bg-rose-50 text-rose-700 hover:bg-rose-100 active:scale-95"
+                          title="हटाएं"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-200/60 text-[11px]">
+                      <div>
+                        <span className="text-slate-400 block text-[10px]">Aadhaar:</span>
+                        <span className="font-mono font-bold text-slate-700">
+                          {m.aadhaar_number ? `••••${m.aadhaar_number.slice(-4)}` : "—"}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block text-[10px]">UPI ID:</span>
+                        <span className="font-mono font-bold text-emerald-700 truncate block">
+                          {m.upi_id || m.wallet_number || "—"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>
@@ -2182,7 +2383,8 @@ export default function AdminPage() {
           </div>
 
           <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-            <div className="overflow-x-auto">
+            {/* Desktop Table View */}
+            <div className="overflow-x-auto hidden md:block">
               <table className="w-full text-left text-xs">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200 text-slate-400 uppercase font-bold text-[11px]">
@@ -2260,6 +2462,96 @@ export default function AdminPage() {
                 </tbody>
               </table>
             </div>
+
+            {/* Mobile Cards View (Android Native Approvals Feel) */}
+            <div className="md:hidden divide-y divide-slate-100 p-2 space-y-3">
+              {contributions.length === 0 ? (
+                <div className="py-8 text-center text-slate-400 text-xs font-semibold">
+                  कोई जमा रसीद नहीं मिली
+                </div>
+              ) : (
+                contributions.map((c) => (
+                  <div
+                    key={c._id}
+                    className="p-3.5 bg-slate-50/80 rounded-2xl border border-slate-200/80 space-y-2.5 shadow-xs"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <div className="font-black text-slate-900 text-sm">{c.member_name}</div>
+                        <div className="text-[11px] text-slate-500 font-mono flex items-center gap-1.5 mt-0.5">
+                          <span>{c.member_mobile}</span>
+                          <span>•</span>
+                          <span className="font-semibold text-slate-700">{c.month}</span>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-base font-black text-emerald-600 block">₹{c.amount}</span>
+                        <span className="text-[9px] text-slate-400">
+                          {new Date(c.paid_at || c.submitted_at || Date.now()).toLocaleDateString("hi-IN")}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-200/60 text-xs">
+                      {/* Screenshot Thumbnail / Proof */}
+                      <div>
+                        {c.payment_screenshot ? (
+                          <button
+                            type="button"
+                            onClick={() => setPreviewScreenshot(c.payment_screenshot!)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-blue-50 text-blue-700 font-bold border border-blue-200 text-xs active:scale-95"
+                          >
+                            <ImageIcon className="w-3.5 h-3.5" />
+                            <span>स्क्रीनशॉट देखें</span>
+                          </button>
+                        ) : (
+                          <span className="text-[11px] text-slate-400">कोई प्रमाण नहीं</span>
+                        )}
+                      </div>
+
+                      {/* Status Badge */}
+                      <div>
+                        {c.status === "paid" ? (
+                          <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
+                            स्वीकृत {c.auto_approved ? "(24h स्वतः)" : "(एडमिन)"}
+                          </span>
+                        ) : c.status === "pending" ? (
+                          <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold animate-pulse">
+                            ⏳ लंबित ({calcHoursRemaining(c.submitted_at)})
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 text-[10px] font-bold">
+                            अस्वीकृत
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Pending Action Buttons for Admin on Mobile */}
+                    {c.status === "pending" && (
+                      <div className="grid grid-cols-2 gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => handleApproveContribution(c._id)}
+                          className="w-full py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs shadow-sm transition active:scale-95 flex items-center justify-center gap-1"
+                        >
+                          <Check className="w-3.5 h-3.5" />
+                          <span>स्वीकार करें</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleRejectContribution(c._id)}
+                          className="w-full py-2 px-3 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs border border-rose-200 transition active:scale-95 flex items-center justify-center gap-1"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                          <span>अस्वीकारें</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -2269,10 +2561,10 @@ export default function AdminPage() {
       {/* ======================================================== */}
       {activeTab === "loans" && (
         <div className="space-y-6 animate-fade-in">
-          <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
+          <div className="bg-white rounded-3xl p-4 sm:p-6 border border-slate-200 shadow-sm space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <h3 className="text-xl font-black text-slate-900">
+                <h3 className="text-lg sm:text-xl font-black text-slate-900">
                   लोन आवेदन एवं डिस्बर्सल प्रबंधन
                 </h3>
                 <p className="text-xs text-slate-500">
@@ -2282,14 +2574,15 @@ export default function AdminPage() {
               <a
                 href="/api/admin/export?type=loans"
                 download
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm transition hover-lift active-press shrink-0"
+                className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm transition hover-lift active-press shrink-0"
               >
                 <Download className="w-3.5 h-3.5" />
                 <span>लोन इतिहास एक्सेल डाउनलोड (.xlsx)</span>
               </a>
             </div>
 
-            <div className="overflow-x-auto">
+            {/* Desktop Table View */}
+            <div className="overflow-x-auto hidden md:block">
               <table className="w-full text-left text-xs">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200 text-slate-400 uppercase font-bold text-[11px]">
@@ -2370,6 +2663,100 @@ export default function AdminPage() {
                   ))}
                 </tbody>
               </table>
+            </div>
+
+            {/* Mobile Cards View (Android Native Loan Manager) */}
+            <div className="md:hidden divide-y divide-slate-100 p-2 space-y-3">
+              {loans.length === 0 ? (
+                <div className="py-8 text-center text-slate-400 text-xs font-semibold">
+                  कोई लोन आवेदन नहीं मिला
+                </div>
+              ) : (
+                loans.map((l) => (
+                  <div
+                    key={l._id}
+                    className="p-3.5 bg-slate-50/80 rounded-2xl border border-slate-200/80 space-y-2.5 shadow-xs"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <div className="font-black text-slate-900 text-sm">{l.member_name}</div>
+                        <div className="text-[11px] text-slate-500 font-mono mt-0.5">{l.member_mobile}</div>
+                      </div>
+                      <span
+                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                          l.status === "repaid"
+                            ? "bg-emerald-100 text-emerald-800"
+                            : l.status === "disbursed"
+                            ? "bg-blue-100 text-blue-800"
+                            : "bg-amber-100 text-amber-800 animate-pulse"
+                        }`}
+                      >
+                        {l.status === "repaid" ? "चुकता (Repaid)" : l.status === "disbursed" ? "चालू लोन" : "लंबित आवेदन"}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-1 bg-white p-2.5 rounded-xl border border-slate-200/60 text-center">
+                      <div>
+                        <span className="text-[10px] text-slate-400 block">आवेदन</span>
+                        <span className="font-bold text-slate-900 text-xs">₹{l.requested_amount}</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-slate-400 block">10% फीस</span>
+                        <span className="font-bold text-rose-600 text-xs">-₹{l.processing_fee_amount}</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-slate-400 block">भेजने योग्य</span>
+                        <span className="font-black text-emerald-600 text-xs">₹{l.disbursed_amount}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between text-[11px] text-slate-600">
+                      <span>UPI / खाता:</span>
+                      <span className="font-mono font-bold text-slate-800">{l.member_upi || l.member_wallet || "—"}</span>
+                    </div>
+
+                    {/* Action on Mobile */}
+                    {l.status === "pending" ? (
+                      <button
+                        type="button"
+                        onClick={() => openDisburseModal(l)}
+                        className="w-full py-2.5 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black text-xs shadow-md shadow-blue-500/20 transition active:scale-95 flex items-center justify-center gap-1.5"
+                      >
+                        <Send className="w-3.5 h-3.5" />
+                        <span>पैसा भेजें व स्क्रीनशॉट प्रमाण डालें</span>
+                      </button>
+                    ) : l.repayment_status === "pending_approval" ? (
+                      <div className="flex items-center gap-2 pt-1">
+                        {l.repayment_screenshot && (
+                          <button
+                            type="button"
+                            onClick={() => setPreviewScreenshot(l.repayment_screenshot!)}
+                            className="flex-1 py-2 px-2.5 rounded-xl bg-blue-50 text-blue-700 font-bold text-xs border border-blue-200"
+                          >
+                            चुकता प्रमाण
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleApproveLoanRepay(l._id)}
+                          className="flex-1 py-2 px-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm"
+                        >
+                          चुकता स्वीकारें
+                        </button>
+                      </div>
+                    ) : l.payment_screenshot ? (
+                      <button
+                        type="button"
+                        onClick={() => setPreviewScreenshot(l.payment_screenshot!)}
+                        className="w-full py-2 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs flex items-center justify-center gap-1"
+                      >
+                        <ImageIcon className="w-3.5 h-3.5 text-blue-600" />
+                        <span>डिस्बर्सल स्क्रीनशॉट प्रमाण देखें</span>
+                      </button>
+                    ) : null}
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>
@@ -2924,5 +3311,22 @@ export default function AdminPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function AdminPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-slate-900 text-white flex items-center justify-center p-4">
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-10 h-10 border-4 border-amber-500 border-t-transparent rounded-full animate-spin" />
+            <p className="text-sm font-bold text-slate-300">DFI एडमिन कंसोल लोड हो रहा है...</p>
+          </div>
+        </div>
+      }
+    >
+      <AdminPageContent />
+    </Suspense>
   );
 }
