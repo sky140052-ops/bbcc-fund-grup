@@ -559,8 +559,9 @@ function AdminPageContent() {
     }
   };
 
-  // Approve Member Contribution (Deposit)
+  // Approve Member Contribution (or Re-approve if rejected)
   const handleApproveContribution = async (id: string) => {
+    if (!confirm("क्या आप इस अंशदान को स्वीकार करना चाहते हैं?")) return;
     try {
       const res = await fetch("/api/contributions", {
         method: "PUT",
@@ -571,15 +572,25 @@ function AdminPageContent() {
       if (!res.ok) throw new Error(data.error || "स्वीकार करने में त्रुटि।");
       alert(data.message || "अंशदान स्वीकृत!");
       fetchTransactions();
+      fetchAdminStatus();
     } catch (err: any) {
       alert(err.message || "त्रुटि आई।");
     }
   };
 
-  // Reject Member Contribution
-  const handleRejectContribution = async (id: string) => {
-    const reason = prompt("अस्वीकार करने का कारण दर्ज करें (वैकल्पिक):", "अमान्य स्क्रीनशॉट");
+  // Reject Member Contribution (Allowed even after 24 hrs or already paid)
+  const handleRejectContribution = async (id: string, wasApproved: boolean = false) => {
+    const confirmMsg = wasApproved
+      ? "⚠️ चेतावनी: यह अंशदान पहले से स्वीकृत है। क्या आप वाकई इसे अस्वीकार (Reject) करना चाहते हैं?\n\nअस्वीकार करने पर यह सदस्य के कुल जमा और कम्युनिटी फंड में से कट जाएगा।"
+      : "क्या आप इस अंशदान को अस्वीकार करना चाहते हैं?";
+    if (!confirm(confirmMsg)) return;
+
+    const reason = prompt(
+      "अस्वीकार करने का कारण दर्ज करें (यह सदस्य को भेजा जाएगा):",
+      "अमान्य अथवा फ़र्ज़ी भुगतान स्क्रीनशॉट"
+    );
     if (reason === null) return;
+
     try {
       const res = await fetch("/api/contributions", {
         method: "PUT",
@@ -588,16 +599,17 @@ function AdminPageContent() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "अस्वीकार करने में त्रुटि।");
-      alert(data.message || "अंशदान अस्वीकृत!");
+      alert(data.message || "अंशदान अस्वीकृत कर दिया गया है!");
       fetchTransactions();
+      fetchAdminStatus();
     } catch (err: any) {
       alert(err.message || "त्रुटि आई।");
     }
   };
 
-  // Approve Loan Repayment
+  // Approve Loan Repayment (Manual confirmation)
   const handleApproveLoanRepay = async (loanId: string) => {
-    if (!confirm("क्या आप इस सदस्य का लोन चुकता प्रमाण स्वीकार करना चाहते हैं?")) return;
+    if (!confirm("क्या आप इस सदस्य का लोन चुकता प्रमाण स्वीकार करना चाहते हैं? लोन खाता पूर्ण रूप से बंद (Repaid) हो जाएगा।")) return;
     try {
       const res = await fetch("/api/loans", {
         method: "PUT",
@@ -608,6 +620,40 @@ function AdminPageContent() {
       if (!res.ok) throw new Error(data.error || "स्वीकार करने में विफल।");
       alert(data.message || "लोन चुकता स्वीकृत!");
       fetchLoans();
+      fetchAdminStatus();
+    } catch (err: any) {
+      alert(err.message || "त्रुटि आई।");
+    }
+  };
+
+  // Reject Member Loan Repayment (Allowed even after 24 hrs or auto-approval or wrong screenshot)
+  const handleRejectLoanRepay = async (loanId: string, wasApproved: boolean = false) => {
+    const confirmMsg = wasApproved
+      ? "⚠️ चेतावनी: यह लोन पहले से स्वीकृत/चुकता (Repaid) है। क्या आप वाकई इसकी अदायगी को अस्वीकार (Reject) करना चाहते हैं?\n\nइससे यह लोन पुनः चालू (Disbursed) हो जाएगा और सदस्य को सही स्क्रीनशॉट भेजना होगा।"
+      : "क्या आप इस सदस्य की लोन अदायगी को अस्वीकार करना चाहते हैं?";
+    if (!confirm(confirmMsg)) return;
+
+    const reason = prompt(
+      "अस्वीकार करने का कारण दर्ज करें (यह सदस्य को ईमेल द्वारा भेजा जाएगा):",
+      "अमान्य अथवा फ़र्ज़ी भुगतान स्क्रीनशॉट"
+    );
+    if (reason === null) return;
+
+    try {
+      const res = await fetch("/api/loans", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          loan_id: loanId,
+          action: "admin_reject_repayment",
+          reason,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "लोन अदायगी अस्वीकार करने में त्रुटि।");
+      alert(data.message || "लोन अदायगी स्क्रीनशॉट अस्वीकृत! लोन पुनः सक्रिय (चालू) कर दिया गया है।");
+      fetchLoans();
+      fetchAdminStatus();
     } catch (err: any) {
       alert(err.message || "त्रुटि आई।");
     }
@@ -2677,14 +2723,35 @@ function AdminPageContent() {
                               स्वीकारें
                             </button>
                             <button
-                              onClick={() => handleRejectContribution(c._id)}
+                              onClick={() => handleRejectContribution(c._id, false)}
                               className="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs transition"
                             >
                               अस्वीकारें
                             </button>
                           </div>
+                        ) : c.status === "paid" ? (
+                          <div className="flex items-center justify-end gap-2">
+                            <span className="text-emerald-700 font-bold text-xs">पूर्ण</span>
+                            <button
+                              onClick={() => handleRejectContribution(c._id, true)}
+                              title="फ़र्ज़ी या गलत स्क्रीनशॉट होने पर 24 घंटे बाद भी अस्वीकृत (Reject) करें"
+                              className="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs transition active:scale-95 flex items-center gap-1 shadow-xs"
+                            >
+                              <X className="w-3 h-3 text-rose-600" />
+                              <span>अस्वीकारें (Reject)</span>
+                            </button>
+                          </div>
                         ) : (
-                          <span className="text-slate-400 text-xs">पूर्ण</span>
+                          <div className="flex items-center justify-end gap-2">
+                            <span className="text-rose-600 font-bold text-xs">अस्वीकृत</span>
+                            <button
+                              onClick={() => handleApproveContribution(c._id)}
+                              title="गलती से अस्वीकृत हुआ हो तो पुनः स्वीकारें"
+                              className="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 font-bold text-xs transition active:scale-95"
+                            >
+                              पुनः स्वीकारें
+                            </button>
+                          </div>
                         )}
                       </td>
                     </tr>
@@ -2757,8 +2824,8 @@ function AdminPageContent() {
                       </div>
                     </div>
 
-                    {/* Pending Action Buttons for Admin on Mobile */}
-                    {c.status === "pending" && (
+                    {/* Action Buttons for Admin on Mobile */}
+                    {c.status === "pending" ? (
                       <div className="grid grid-cols-2 gap-2 pt-1">
                         <button
                           type="button"
@@ -2770,11 +2837,36 @@ function AdminPageContent() {
                         </button>
                         <button
                           type="button"
-                          onClick={() => handleRejectContribution(c._id)}
+                          onClick={() => handleRejectContribution(c._id, false)}
                           className="w-full py-2 px-3 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs border border-rose-200 transition active:scale-95 flex items-center justify-center gap-1"
                         >
                           <X className="w-3.5 h-3.5" />
                           <span>अस्वीकारें</span>
+                        </button>
+                      </div>
+                    ) : c.status === "paid" ? (
+                      <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between">
+                        <span className="text-[11px] text-slate-500">24 घंटे बाद भी निरस्त करें:</span>
+                        <button
+                          type="button"
+                          onClick={() => handleRejectContribution(c._id, true)}
+                          className="py-1.5 px-3 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs border border-rose-200 transition active:scale-95 flex items-center gap-1 shadow-xs"
+                        >
+                          <X className="w-3.5 h-3.5 text-rose-600" />
+                          <span>अस्वीकारें (Reject)</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between">
+                        <span className="text-[11px] text-rose-600 truncate max-w-[180px]">
+                          कारण: {c.rejection_reason || "अमान्य प्रमाण"}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleApproveContribution(c._id)}
+                          className="py-1.5 px-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-xs border border-emerald-200 transition active:scale-95"
+                        >
+                          पुनः स्वीकारें
                         </button>
                       </div>
                     )}
@@ -2822,6 +2914,7 @@ function AdminPageContent() {
                     <th className="py-3 px-4">भेजने योग्य राशि (90%)</th>
                     <th className="py-3 px-4">UPI / भुगतान नंबर</th>
                     <th className="py-3 px-4">स्थिति</th>
+                    <th className="py-3 px-4">स्क्रीनशॉट प्रमाण</th>
                     <th className="py-3 px-4 text-right">कार्रवाई</th>
                   </tr>
                 </thead>
@@ -2839,17 +2932,77 @@ function AdminPageContent() {
                         {l.member_upi || l.member_wallet || "—"}
                       </td>
                       <td className="py-3 px-4">
-                        <span
-                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                            l.status === "repaid"
-                              ? "bg-emerald-100 text-emerald-800"
-                              : l.status === "disbursed"
-                              ? "bg-blue-100 text-blue-800"
-                              : "bg-amber-100 text-amber-800"
-                          }`}
-                        >
-                          {l.status === "repaid" ? "Repaid" : l.status === "disbursed" ? "चालू (Disbursed)" : "लंबित"}
-                        </span>
+                        {l.status === "repaid" ? (
+                          <div className="space-y-0.5">
+                            <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
+                              चुकता (Repaid)
+                            </span>
+                            {l.repayment_auto_approved && (
+                              <span className="block text-[9px] text-slate-400 font-medium">24h स्वतः स्वीकृत</span>
+                            )}
+                          </div>
+                        ) : l.status === "disbursed" ? (
+                          l.repayment_status === "pending_approval" ? (
+                            <div className="space-y-0.5">
+                              <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold animate-pulse">
+                                ⏳ चुकता समीक्षाधीन
+                              </span>
+                              <span className="block text-[9px] text-amber-700">
+                                {calcHoursRemaining(l.repayment_submitted_at)}
+                              </span>
+                            </div>
+                          ) : l.repayment_status === "rejected" ? (
+                            <div className="space-y-0.5">
+                              <span className="px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 text-[10px] font-bold">
+                                अदायगी अस्वीकृत
+                              </span>
+                              {l.repayment_note && (
+                                <span className="block text-[9px] text-rose-600 truncate max-w-[130px]" title={l.repayment_note}>
+                                  {l.repayment_note}
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 text-[10px] font-bold">
+                              चालू (Disbursed)
+                            </span>
+                          )
+                        ) : l.status === "pending" ? (
+                          <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold animate-pulse">
+                            लंबित आवेदन
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[10px] font-bold">
+                            अस्वीकृत
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="flex flex-col gap-1 items-start">
+                          {l.repayment_screenshot ? (
+                            <button
+                              type="button"
+                              onClick={() => setPreviewScreenshot(l.repayment_screenshot!)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold border border-blue-200 text-[11px] transition shadow-2xs"
+                            >
+                              <ImageIcon className="w-3.5 h-3.5 text-blue-600" />
+                              <span>📸 चुकता प्रमाण (सदस्य)</span>
+                            </button>
+                          ) : null}
+                          {l.payment_screenshot ? (
+                            <button
+                              type="button"
+                              onClick={() => setPreviewScreenshot(l.payment_screenshot!)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-[11px] transition"
+                            >
+                              <ImageIcon className="w-3.5 h-3.5 text-slate-500" />
+                              <span>डिस्बर्सल प्रमाण</span>
+                            </button>
+                          ) : null}
+                          {!l.repayment_screenshot && !l.payment_screenshot && (
+                            <span className="text-slate-400 text-xs">—</span>
+                          )}
+                        </div>
                       </td>
                       <td className="py-3 px-4 text-right">
                         {l.status === "pending" ? (
@@ -2862,31 +3015,44 @@ function AdminPageContent() {
                           </button>
                         ) : l.repayment_status === "pending_approval" ? (
                           <div className="flex items-center justify-end gap-1.5">
-                            {l.repayment_screenshot && (
-                              <button
-                                onClick={() => setPreviewScreenshot(l.repayment_screenshot!)}
-                                className="text-xs text-blue-600 font-bold hover:underline"
-                              >
-                                चुकता प्रमाण
-                              </button>
-                            )}
                             <button
                               onClick={() => handleApproveLoanRepay(l._id)}
                               className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm transition"
                             >
                               स्वीकारें
                             </button>
+                            <button
+                              onClick={() => handleRejectLoanRepay(l._id, false)}
+                              className="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs transition"
+                            >
+                              अस्वीकारें
+                            </button>
                           </div>
-                        ) : l.payment_screenshot ? (
-                          <button
-                            onClick={() => setPreviewScreenshot(l.payment_screenshot!)}
-                            className="text-xs text-blue-600 font-bold hover:underline flex items-center gap-1 ml-auto"
-                          >
-                            <ImageIcon className="w-3.5 h-3.5" />
-                            <span>स्क्रीनशॉट देखें</span>
-                          </button>
+                        ) : l.status === "repaid" || l.repayment_status === "approved" ? (
+                          <div className="flex items-center justify-end gap-2">
+                            <span className="text-emerald-700 font-bold text-xs">पूर्ण चुकता</span>
+                            <button
+                              onClick={() => handleRejectLoanRepay(l._id, true)}
+                              title="फ़र्ज़ी या गलत स्क्रीनशॉट होने पर 24 घंटे बाद भी अदायगी निरस्त (Reject) करें"
+                              className="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs transition active:scale-95 flex items-center gap-1 shadow-xs"
+                            >
+                              <X className="w-3 h-3 text-rose-600" />
+                              <span>अस्वीकारें (Reject)</span>
+                            </button>
+                          </div>
+                        ) : l.repayment_status === "rejected" ? (
+                          <div className="flex items-center justify-end gap-2">
+                            <span className="text-rose-600 font-bold text-xs">अस्वीकृत</span>
+                            <button
+                              onClick={() => handleApproveLoanRepay(l._id)}
+                              title="गलती से अस्वीकृत हुआ हो तो पुनः स्वीकारें"
+                              className="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 font-bold text-xs transition active:scale-95"
+                            >
+                              पुनः स्वीकारें
+                            </button>
+                          </div>
                         ) : (
-                          <span className="text-slate-400">—</span>
+                          <span className="text-slate-400 text-xs">अदायगी प्रतीक्षित</span>
                         )}
                       </td>
                     </tr>
@@ -2917,11 +3083,23 @@ function AdminPageContent() {
                           l.status === "repaid"
                             ? "bg-emerald-100 text-emerald-800"
                             : l.status === "disbursed"
-                            ? "bg-blue-100 text-blue-800"
+                            ? l.repayment_status === "pending_approval"
+                              ? "bg-amber-100 text-amber-800 animate-pulse"
+                              : l.repayment_status === "rejected"
+                              ? "bg-rose-100 text-rose-800"
+                              : "bg-blue-100 text-blue-800"
                             : "bg-amber-100 text-amber-800 animate-pulse"
                         }`}
                       >
-                        {l.status === "repaid" ? "चुकता (Repaid)" : l.status === "disbursed" ? "चालू लोन" : "लंबित आवेदन"}
+                        {l.status === "repaid"
+                          ? "चुकता (Repaid)"
+                          : l.status === "disbursed"
+                          ? l.repayment_status === "pending_approval"
+                            ? "चुकता समीक्षाधीन"
+                            : l.repayment_status === "rejected"
+                            ? "अदायगी अस्वीकृत"
+                            : "चालू लोन"
+                          : "लंबित आवेदन"}
                       </span>
                     </div>
 
@@ -2945,6 +3123,30 @@ function AdminPageContent() {
                       <span className="font-mono font-bold text-slate-800">{l.member_upi || l.member_wallet || "—"}</span>
                     </div>
 
+                    {/* Screenshots Section on Mobile */}
+                    <div className="space-y-1.5 pt-1">
+                      {l.repayment_screenshot && (
+                        <button
+                          type="button"
+                          onClick={() => setPreviewScreenshot(l.repayment_screenshot!)}
+                          className="w-full py-2 px-3 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold text-xs border border-blue-200 flex items-center justify-center gap-1.5 active:scale-95 transition"
+                        >
+                          <ImageIcon className="w-3.5 h-3.5 text-blue-600" />
+                          <span>📸 सदस्य का चुकता स्क्रीनशॉट देखें</span>
+                        </button>
+                      )}
+                      {l.payment_screenshot && (
+                        <button
+                          type="button"
+                          onClick={() => setPreviewScreenshot(l.payment_screenshot!)}
+                          className="w-full py-1.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-xs flex items-center justify-center gap-1"
+                        >
+                          <ImageIcon className="w-3.5 h-3.5 text-slate-500" />
+                          <span>📄 एडमिन का डिस्बर्सल स्क्रीनशॉट</span>
+                        </button>
+                      )}
+                    </div>
+
                     {/* Action on Mobile */}
                     {l.status === "pending" ? (
                       <button
@@ -2956,33 +3158,49 @@ function AdminPageContent() {
                         <span>पैसा भेजें व स्क्रीनशॉट प्रमाण डालें</span>
                       </button>
                     ) : l.repayment_status === "pending_approval" ? (
-                      <div className="flex items-center gap-2 pt-1">
-                        {l.repayment_screenshot && (
-                          <button
-                            type="button"
-                            onClick={() => setPreviewScreenshot(l.repayment_screenshot!)}
-                            className="flex-1 py-2 px-2.5 rounded-xl bg-blue-50 text-blue-700 font-bold text-xs border border-blue-200"
-                          >
-                            चुकता प्रमाण
-                          </button>
-                        )}
+                      <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-200/60">
                         <button
                           type="button"
                           onClick={() => handleApproveLoanRepay(l._id)}
-                          className="flex-1 py-2 px-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm"
+                          className="w-full py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm flex items-center justify-center gap-1 active:scale-95"
                         >
-                          चुकता स्वीकारें
+                          <Check className="w-3.5 h-3.5" />
+                          <span>चुकता स्वीकारें</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleRejectLoanRepay(l._id, false)}
+                          className="w-full py-2 px-3 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs border border-rose-200 flex items-center justify-center gap-1 active:scale-95"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                          <span>अस्वीकारें</span>
                         </button>
                       </div>
-                    ) : l.payment_screenshot ? (
-                      <button
-                        type="button"
-                        onClick={() => setPreviewScreenshot(l.payment_screenshot!)}
-                        className="w-full py-2 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs flex items-center justify-center gap-1"
-                      >
-                        <ImageIcon className="w-3.5 h-3.5 text-blue-600" />
-                        <span>डिस्बर्सल स्क्रीनशॉट प्रमाण देखें</span>
-                      </button>
+                    ) : l.status === "repaid" || l.repayment_status === "approved" ? (
+                      <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between">
+                        <span className="text-[11px] text-slate-500">24 घंटे बाद भी निरस्त करें:</span>
+                        <button
+                          type="button"
+                          onClick={() => handleRejectLoanRepay(l._id, true)}
+                          className="py-1.5 px-3 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs border border-rose-200 transition active:scale-95 flex items-center gap-1 shadow-xs"
+                        >
+                          <X className="w-3.5 h-3.5 text-rose-600" />
+                          <span>अदायगी अस्वीकारें (Reject)</span>
+                        </button>
+                      </div>
+                    ) : l.repayment_status === "rejected" ? (
+                      <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between">
+                        <span className="text-[11px] text-rose-600 truncate max-w-[180px]">
+                          कारण: {l.repayment_note || "अमान्य प्रमाण"}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleApproveLoanRepay(l._id)}
+                          className="py-1.5 px-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-xs border border-emerald-200 transition active:scale-95"
+                        >
+                          पुनः स्वीकारें
+                        </button>
+                      </div>
                     ) : null}
                   </div>
                 ))

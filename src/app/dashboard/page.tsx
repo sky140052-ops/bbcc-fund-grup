@@ -892,6 +892,24 @@ function MemberDashboardContent() {
                 )}
               </div>
 
+              {/* Rejection Alert if Admin rejected repayment */}
+              {activeLoan.status === "disbursed" && activeLoan.repayment_status === "rejected" && (
+                <div className="mt-3 p-3 rounded-xl bg-rose-50 border border-rose-300 text-rose-900 text-xs flex items-start gap-2 shadow-xs">
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-bold">⚠️ पिछला लोन अदायगी स्क्रीनशॉट एडमिन द्वारा अस्वीकृत हुआ था</p>
+                    {activeLoan.repayment_note && (
+                      <p className="text-[11px] text-rose-700 mt-0.5">
+                        <b>कारण:</b> {activeLoan.repayment_note}
+                      </p>
+                    )}
+                    <p className="text-[10px] text-slate-600 mt-1">
+                      कृपया सही भुगतान कर नया स्क्रीनशॉट पुनः अपलोड करें।
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* Loan Breakdown Grid */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
                 <div className="p-2 rounded-xl bg-slate-50 border border-slate-200/80">

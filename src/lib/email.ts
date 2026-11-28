@@ -815,8 +815,9 @@ export async function sendLoanRepaymentNotificationEmail(params: {
   memberEmail?: string;
   amount: number;
   screenshotUrl?: string;
+  rejectionReason?: string;
 }) {
-  const { type, memberName, memberEmail, amount, screenshotUrl } = params;
+  const { type, memberName, memberEmail, amount, screenshotUrl, rejectionReason } = params;
 
   if (type === "pending") {
     const subject = `📥 लोन अदायगी स्क्रीनशॉट - ${memberName} (₹${amount}) - [समीक्षाधीन]`;
@@ -878,6 +879,43 @@ export async function sendLoanRepaymentNotificationEmail(params: {
     `;
 
     // Broadcast to Admin AND ALL MEMBERS!
+    await sendBroadcastEmail({
+      subject,
+      htmlContent,
+      additionalRecipients: memberEmail ? [{ email: memberEmail, name: memberName }] : [],
+    });
+  } else if (type === "rejected") {
+    const subject = `❌ लोन अदायगी अस्वीकृत (Rejected) - ${memberName} (₹${amount})`;
+    const screenshotHtml = screenshotUrl
+      ? `<div style="margin: 18px 0; padding: 14px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 10px; text-align: center;">
+           <p style="margin: 0 0 10px 0; font-weight: bold; font-size: 13px; color: #991b1b;">अस्वीकृत स्क्रीनशॉट:</p>
+           <img src="${screenshotUrl}" alt="Rejected Proof" style="max-width: 100%; max-height: 380px; border-radius: 8px; border: 1px solid #fca5a5; display: inline-block;" />
+         </div>`
+      : "";
+
+    const htmlContent = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 14px; border: 1px solid #e2e8f0; overflow: hidden; padding: 24px;">
+        <div style="background: #dc2626; padding: 20px; border-radius: 10px; color: #ffffff; text-align: center;">
+          <h2 style="margin: 0; font-size: 20px;">लोन अदायगी अस्वीकृत (Rejected) ❌</h2>
+          <p style="margin: 6px 0 0 0; font-size: 13px; color: #fee2e2;">एडमिन द्वारा भुगतान स्क्रीनशॉट निरस्त किया गया</p>
+        </div>
+        <div style="padding: 20px 0; color: #334155;">
+          <p style="font-size: 15px;">सदस्य <b>${memberName}</b> द्वारा अपलोड किया गया <b>₹${amount}</b> का लोन अदायगी प्रमाण अस्वीकृत कर दिया गया है। <b>लोन खाता पुनः सक्रिय (चालू) है।</b></p>
+          <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 16px; margin: 16px 0;">
+            <p style="margin: 4px 0;"><b>सदस्य:</b> ${memberName}</p>
+            <p style="margin: 4px 0;"><b>बकाया लोन राशि:</b> ₹${amount}</p>
+            <p style="margin: 4px 0; color: #dc2626; font-weight: bold;"><b>अस्वीकृति का कारण:</b> ${rejectionReason || "अमान्य अथवा फ़र्ज़ी भुगतान स्क्रीनशॉट"}</p>
+            <p style="margin: 8px 0 0 0; color: #64748b; font-size: 12px;">कृपया सही भुगतान करके नया स्क्रीनशॉट अपलोड करें अथवा एडमिन से संपर्क करें।</p>
+          </div>
+          ${screenshotHtml}
+        </div>
+        <div style="font-size: 11px; color: #94a3b8; text-align: center; border-top: 1px solid #e2e8f0; padding-top: 12px;">
+          DFI वित्तीय डेस्क • पारदर्शी कम्युनिटी सेवा
+        </div>
+      </div>
+    `;
+
+    // Broadcast to Admin and Member!
     await sendBroadcastEmail({
       subject,
       htmlContent,

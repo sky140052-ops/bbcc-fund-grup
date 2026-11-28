@@ -133,6 +133,7 @@ export async function GET(req: NextRequest) {
           months: calc.months,
           repayment_status: l.repayment_status || "none",
           repayment_screenshot: l.repayment_screenshot || "",
+          repayment_note: l.repayment_note || "",
         };
       });
 
@@ -166,6 +167,7 @@ export async function GET(req: NextRequest) {
           total_payable: calc.totalPayable,
           months: calc.months,
           repayment_status: activeLoan.repayment_status || "none",
+          repayment_note: activeLoan.repayment_note || "",
         };
       }
     }

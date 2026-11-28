@@ -38,6 +38,7 @@ interface LoanForRepay {
   months: number;
   repayment_status: string;
   repayment_screenshot?: string;
+  repayment_note?: string;
 }
 
 interface PayPageData {
@@ -76,6 +77,7 @@ interface PayPageData {
     total_payable: number;
     months: number;
     repayment_status: string;
+    repayment_note?: string;
   } | null;
 }
 
@@ -798,6 +800,24 @@ export default function PublicPayPage() {
                   </div>
                 ) : (
                   <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-5">
+                    {/* Rejected Notification Banner if applicable */}
+                    {selectedLoanObj.repayment_status === "rejected" && (
+                      <div className="p-4 rounded-xl bg-rose-950/70 border border-rose-800/80 text-rose-200 text-xs space-y-1.5 shadow-inner">
+                        <div className="flex items-center gap-2 font-bold text-rose-300">
+                          <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                          <span>⚠️ पिछला लोन अदायगी स्क्रीनशॉट एडमिन द्वारा अस्वीकृत (Rejected) हुआ था</span>
+                        </div>
+                        {selectedLoanObj.repayment_note && (
+                          <div className="pl-6 text-[11px] text-rose-300/90">
+                            <b>अस्वीकृति का कारण:</b> {selectedLoanObj.repayment_note}
+                          </div>
+                        )}
+                        <p className="pl-6 text-[10px] text-slate-400">
+                          कृपया नीचे दिए गए विवरण व QR कोड के माध्यम से सही भुगतान कर नया प्रमाण अपलोड करें।
+                        </p>
+                      </div>
+                    )}
+
                     {/* Loan Breakdown Card */}
                     <div className="bg-slate-950 rounded-xl p-4 border border-slate-800 space-y-3">
                       <div className="flex items-center justify-between border-b border-slate-800/80 pb-2">

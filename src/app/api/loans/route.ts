@@ -371,6 +371,7 @@ export async function PUT(req: NextRequest) {
         repayment_status: "approved",
         repaid_at: new Date().toISOString(),
         repayment_auto_approved: false,
+        repayment_note: "",
       };
 
       await dbUpdateLoan(loan_id, updates);
@@ -380,11 +381,46 @@ export async function PUT(req: NextRequest) {
         memberName: loan.member_name,
         memberEmail: memberObj?.email,
         amount: loan.total_repaid || loan.requested_amount,
+        screenshotUrl: loan.repayment_screenshot,
       }).catch(console.warn);
 
       return NextResponse.json({
         success: true,
         message: "लोन चुकता अनुरोध सफलतापूर्वक स्वीकार कर लिया गया!",
+        loan: { ...loan, ...updates },
+      });
+    }
+
+    // Action 2C: Admin Rejects Loan Repayment (Even after 24 hrs or auto-approval or fake screenshot)
+    if (action === "admin_reject_repayment") {
+      if (session.role !== "admin" && session.role !== "founder") {
+        return NextResponse.json({ error: "केवल एडमिन ही लोन अदायगी अस्वीकृत कर सकते हैं।" }, { status: 403 });
+      }
+
+      const cleanReason = sanitize(body.reason || "अमान्य अथवा फ़र्ज़ी भुगतान स्क्रीनशॉट");
+      const updates: Partial<Loan> = {
+        status: "disbursed", // Revert back to active loan
+        repayment_status: "rejected",
+        repayment_auto_approved: false,
+        repayment_note: cleanReason,
+        repaid_at: "",
+        total_repaid: 0,
+      };
+
+      await dbUpdateLoan(loan_id, updates);
+
+      sendLoanRepaymentNotificationEmail({
+        type: "rejected",
+        memberName: loan.member_name,
+        memberEmail: memberObj?.email,
+        amount: loan.total_repaid || loan.requested_amount,
+        rejectionReason: cleanReason,
+        screenshotUrl: loan.repayment_screenshot,
+      }).catch(console.warn);
+
+      return NextResponse.json({
+        success: true,
+        message: "लोन अदायगी स्क्रीनशॉट अस्वीकृत (Reject) कर दिया गया है। लोन पुनः चालू (Disbursed) कर दिया गया है।",
         loan: { ...loan, ...updates },
       });
     }
